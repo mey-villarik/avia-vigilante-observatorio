@@ -52,10 +52,14 @@ async function funcion(cuerpo: Record<string, unknown>): Promise<void> {
     // el detalle viene en el cuerpo de la respuesta
     let msg = error.message;
     const ctx = (error as { context?: Response }).context;
-    let propio = false;
-    try { const j = await ctx?.clone().json(); if (j?.error) { msg = j.error; propio = true; } } catch { /* sin cuerpo */ }
-    // la función no está subida: Supabase responde 404 sin nuestro campo «error», o no hay respuesta
-    if (!propio && (ctx?.status === 404 || /failed to send/i.test(msg))) msg = 'falta subir la función crear-usuario a Supabase';
+    let texto = '';
+    try { texto = (await ctx?.clone().text()) ?? ''; } catch { /* sin cuerpo */ }
+    let propio = '';
+    try { propio = JSON.parse(texto)?.error ?? ''; } catch { /* no es JSON */ }
+    if (propio) msg = propio;
+    else if (ctx?.status === 404) msg = 'Supabase no encuentra la función crear-usuario (ni crear_usuario)';
+    else if (!ctx) msg = 'no se pudo conectar con la función de Supabase (¿el código pegado es el de index.ts?)';
+    else msg = `la función respondió ${ctx.status}: ${texto.slice(0, 160) || error.message}`;
     throw new Error(msg);
   }
   if (data?.error) throw new Error(String(data.error));
