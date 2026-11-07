@@ -42,7 +42,12 @@ export async function actualizarPersona(id: string, cambios: { rol?: Rol; activo
 /** Llama a la función crear-usuario. Sin clave, Supabase envía una invitación por correo. */
 async function funcion(cuerpo: Record<string, unknown>): Promise<void> {
   if (!supabase) throw new Error('El acceso no está configurado.');
-  const { data, error } = await supabase.functions.invoke('crear-usuario', { body: cuerpo });
+  // nombre oficial «crear-usuario»; se acepta también «crear_usuario» (el panel de Supabase a veces lo sube así)
+  let { data, error } = await supabase.functions.invoke('crear-usuario', { body: cuerpo });
+  if (error && (error as { context?: Response }).context?.status === 404) {
+    const alt = await supabase.functions.invoke('crear_usuario', { body: cuerpo });
+    if (!(alt.error && (alt.error as { context?: Response }).context?.status === 404)) ({ data, error } = alt);
+  }
   if (error) {
     // el detalle viene en el cuerpo de la respuesta
     let msg = error.message;
