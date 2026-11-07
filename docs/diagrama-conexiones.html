@@ -1,0 +1,321 @@
+<title>Conexiones ORBITA</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una figura ancha (servidores en columnas, Telegram arriba, base abajo, fase 2 al pie) y notas debajo */
+:root{
+  --bg:#f6f7f9; --surface:#ffffff; --fg:#1b2230; --muted:#5a6476; --line:#8a93a3;
+  --n8n:#0f7c6e; --n8n-bg:#e6f3f1;
+  --hermes:#4b4fc4; --hermes-bg:#ecedfb;
+  --db:#2f6b2f; --db-bg:#eaf3e6;
+  --tg:#1f6fb2; --tg-bg:#e7f0f9;
+  --ext:#6b5a3e; --ext-bg:#f4efe6;
+  --f2:#7a7f8a; --f2-bg:#f1f2f4;
+  --warn:#9a5b00; --warn-bg:#fdecc8;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151b; --surface:#1a1f28; --fg:#e6e9ef; --muted:#a0a8b6; --line:#7d8696;
+  --n8n:#4cc7b4; --n8n-bg:#13302c; --hermes:#9ea2ff; --hermes-bg:#22244a;
+  --db:#86c97a; --db-bg:#1b2e1a; --tg:#6fb3ec; --tg-bg:#16283a;
+  --ext:#d2b98c; --ext-bg:#2c261c; --f2:#9aa0ab; --f2-bg:#1d2129;
+  --warn:#ffc966; --warn-bg:#3d2e10; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151b; --surface:#1a1f28; --fg:#e6e9ef; --muted:#a0a8b6; --line:#7d8696;
+  --n8n:#4cc7b4; --n8n-bg:#13302c; --hermes:#9ea2ff; --hermes-bg:#22244a;
+  --db:#86c97a; --db-bg:#1b2e1a; --tg:#6fb3ec; --tg-bg:#16283a;
+  --ext:#d2b98c; --ext-bg:#2c261c; --f2:#9aa0ab; --f2-bg:#1d2129;
+  --warn:#ffc966; --warn-bg:#3d2e10; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.55}
+.wrap{max-width:1440px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:28px}
+header h1{font-size:1.7rem;margin:0 0 4px;text-wrap:balance;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted);max-width:70ch}
+.fig{margin:0;background:var(--surface);border:1px solid color-mix(in srgb,var(--line) 35%,transparent);border-radius:10px;padding:12px}
+.scroll{overflow-x:auto}
+.scroll svg{display:block;width:100%;min-width:1080px;height:auto}
+figcaption{color:var(--muted);font-size:.9rem;padding:10px 6px 2px;max-width:90ch}
+.legend{display:flex;flex-wrap:wrap;gap:10px 22px;font-size:.9rem;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:30px;height:0;border-top:2px solid var(--line)}
+.sw.d{border-top-style:dashed;border-color:var(--f2)}
+.pill{font-size:.75rem;font-weight:600;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:1px 7px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px}
+.cols>section{min-width:0}
+h2{font-size:1.1rem;margin:0 0 8px}
+ol,ul{margin:0;padding-left:1.3em;display:grid;gap:6px}
+code{font-family:var(--mono);font-size:.85em}
+/* SVG */
+svg text{font-family:var(--sans);fill:var(--fg);font-size:13px}
+svg .t{font-weight:600;font-size:14.5px}
+svg .h{font-weight:700;font-size:15px;letter-spacing:.04em}
+svg .s{fill:var(--muted);font-size:12.5px}
+svg .m{font-family:var(--mono);font-size:12px}
+svg .lbl{fill:var(--muted);font-size:12px}
+svg .z-n8n{fill:var(--n8n-bg);stroke:var(--n8n);stroke-width:1.5}
+svg .z-her{fill:var(--hermes-bg);stroke:var(--hermes);stroke-width:1.5}
+svg .z-db{fill:var(--db-bg);stroke:var(--db);stroke-width:1.5}
+svg .z-tg{fill:var(--tg-bg);stroke:var(--tg);stroke-width:1.5}
+svg .z-ext{fill:var(--ext-bg);stroke:var(--ext);stroke-width:1.5}
+svg .z-f2{fill:var(--f2-bg);stroke:var(--f2);stroke-width:1.5;stroke-dasharray:7 5}
+svg .n{fill:var(--surface);stroke:var(--line);stroke-width:1}
+svg .n-f2{fill:var(--surface);stroke:var(--f2);stroke-width:1;stroke-dasharray:5 4}
+svg .chip{fill:var(--surface);stroke:var(--db);stroke-width:1}
+svg .chip-h{fill:var(--surface);stroke:var(--hermes);stroke-width:1}
+svg .hn8n{fill:var(--n8n)} svg .hher{fill:var(--hermes)} svg .hdb{fill:var(--db)} svg .htg{fill:var(--tg)} svg .hext{fill:var(--ext)} svg .hf2{fill:var(--f2)}
+svg .w{fill:var(--warn-bg)} svg .wt{fill:var(--warn);font-size:11px;font-weight:600}
+svg .a{fill:none;stroke:var(--fg);stroke-width:1.6}
+svg .a-f2{fill:none;stroke:var(--f2);stroke-width:1.6;stroke-dasharray:6 4}
+svg .ah{fill:var(--fg)} svg .ah2{fill:var(--f2)}
+svg .div{stroke:var(--ext);stroke-dasharray:4 4}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Conexiones de ORBITA con AVIA Cloud</h1>
+  <p>Qué servidor aloja cada pieza, por dónde viaja la información y qué entra en el piloto de 7 días frente a la fase 2. Basado en el informe técnico v3 y en los archivos del proyecto (conexión web, base de datos y Hermes).</p>
+</header>
+
+<figure class="fig">
+<div class="scroll">
+<svg viewBox="0 0 1400 975" role="img" aria-label="Diagrama: las fuentes entran al Vigilante AVIA en el servidor n8n; n8n llama a Hermes en su VPS por webhook con clave y Hermes devuelve la señal por otro webhook; ambos leen y escriben en la base PostgreSQL con pgvector; Hermes usa un modelo por API; dos bots de Telegram llegan al analista y a los usuarios; la web, WhatsApp y las redes sociales quedan para la fase 2.">
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+  <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah2" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+
+<!-- TELEGRAM -->
+<rect class="z-tg" x="260" y="10" width="880" height="100" rx="10"/>
+<text class="h" x="276" y="31" style="fill:var(--tg)">TELEGRAM</text>
+<text class="s" x="372" y="31">servicio externo · canal del piloto</text>
+<rect class="n" x="280" y="40" width="240" height="60" rx="7"/>
+<text class="t" x="294" y="63">Analista</text>
+<text class="s" x="294" y="84">aprueba o descarta</text>
+<rect class="w" x="410" y="50" width="98" height="20" rx="4"/><text class="wt" x="459" y="64" text-anchor="middle">por confirmar</text>
+<rect class="n" x="560" y="40" width="560" height="60" rx="7"/>
+<text class="t" x="576" y="63">Equipo de supervisión y usuarios</text>
+<text class="s" x="576" y="84">reciben avisos, resumen e informe PDF · preguntan en lenguaje natural</text>
+<rect class="w" x="946" y="50" width="160" height="20" rx="4"/><text class="wt" x="1026" y="64" text-anchor="middle">personas por confirmar</text>
+
+<!-- FUENTES -->
+<rect class="z-ext" x="20" y="160" width="180" height="440" rx="10"/>
+<text class="h" x="34" y="184" style="fill:var(--ext)">FUENTES</text>
+<text class="s" x="34" y="203">externas</text>
+<text class="t" x="34" y="232">Piloto: 3 a 5</text>
+<rect class="w" x="34" y="240" width="98" height="20" rx="4"/><text class="wt" x="83" y="254" text-anchor="middle">lista por confirmar</text>
+<text x="34" y="282">Google Noticias</text>
+<text x="34" y="304">SENAMHI</text>
+<text x="34" y="326">ABC (vías)</text>
+<text x="34" y="348">Ministerio de Turismo</text>
+<text x="34" y="370">Cooperación</text>
+<text class="s" x="34" y="388">CAF, BID, PNUD</text>
+<line class="div" x1="34" y1="408" x2="186" y2="408"/>
+<text class="t" x="34" y="434" style="fill:var(--f2)">Fase 2</text>
+<text class="s" x="34" y="456">Gaceta Oficial</text>
+<text class="s" x="34" y="476">DGAC</text>
+<text class="s" x="34" y="496">OPS</text>
+<text class="s" x="34" y="516">Ministerio de Salud</text>
+<text class="s" x="34" y="536">Gob. departamentales</text>
+<text class="s" x="34" y="556">Prensa y sector</text>
+<text class="s" x="34" y="580">catálogo: fuentes.yaml</text>
+
+<!-- ZONA N8N -->
+<rect class="z-n8n" x="260" y="160" width="380" height="440" rx="10"/>
+<text class="h" x="276" y="182" style="fill:var(--n8n)">SERVIDOR n8n</text>
+<rect class="n" x="280" y="195" width="340" height="45" rx="7"/>
+<text class="t" x="294" y="215">Bot de Telegram de n8n</text>
+<text class="s" x="294" y="232">avisos y aprobaciones</text>
+
+<rect class="n" x="280" y="260" width="340" height="150" rx="7"/>
+<text class="t" x="294" y="282">Vigilante AVIA</text>
+<text class="s" x="404" y="282">cadena de workflows, ya funciona</text>
+<text x="294" y="310">· rastreo y descarga</text>
+<text x="294" y="334">· filtro de ruido (IA)</text>
+<text x="294" y="358">· puntuación en 4 ejes</text>
+<text x="458" y="310">· extracción y verificación</text>
+<text x="458" y="334">· temas con memoria</text>
+<text x="458" y="358">· cruce con el perfil</text>
+<text class="s" x="294" y="392">trabajo repetitivo; llama a Hermes solo si hace falta criterio</text>
+
+<rect class="n" x="280" y="430" width="340" height="100" rx="7"/>
+<text class="t" x="294" y="451">Workflow ORBITA ↔ Hermes</text>
+<text class="m" x="294" y="473">POST /webhook/orbita-senal</text>
+<text class="s" x="294" y="492">aprobación por Telegram, espera 24 h</text>
+<text class="m" x="294" y="512" style="fill:var(--f2)">GET /webhook/orbita-alertas</text>
+<text class="s" x="510" y="512" style="fill:var(--f2)">(fase 2, web)</text>
+
+<rect class="n" x="280" y="545" width="340" height="42" rx="7"/>
+<text class="t" x="294" y="571" style="font-size:13.5px">PDF borrador del Vigilante</text>
+<rect class="w" x="476" y="556" width="132" height="20" rx="4"/><text class="wt" x="542" y="570" text-anchor="middle">opción · por confirmar</text>
+
+<!-- ZONA HERMES -->
+<rect class="z-her" x="760" y="160" width="380" height="440" rx="10"/>
+<text class="h" x="776" y="182" style="fill:var(--hermes)">VPS DE HERMES</text>
+<rect class="n" x="780" y="195" width="160" height="45" rx="7"/>
+<text class="t" x="794" y="215">Bot de Hermes</text>
+<text class="s" x="794" y="232">consultas</text>
+<rect class="n" x="960" y="195" width="160" height="45" rx="7"/>
+<text class="t" x="974" y="215">WeasyPrint</text>
+<text class="s" x="974" y="232">HTML → PDF</text>
+<rect class="w" x="1056" y="220" width="56" height="18" rx="4"/><text class="wt" x="1084" y="233" text-anchor="middle">opción</text>
+
+<rect class="n" x="780" y="260" width="340" height="80" rx="7"/>
+<text class="t" x="794" y="282">Hermes Agent</text>
+<text class="s" x="894" y="282">Nous Research, código abierto</text>
+<text x="794" y="306">razona, contrasta, usa herramientas,</text>
+<text x="794" y="326">recuerda y conversa · memoria propia</text>
+
+<rect class="n" x="780" y="355" width="340" height="145" rx="7"/>
+<text class="t" x="794" y="376">Skills AVIA</text>
+<text class="s" x="884" y="376">antes GPTs y bots de Poe</text>
+<rect class="chip-h" x="788" y="386" width="160" height="32" rx="5"/><text x="796" y="407" style="font-size:12px">Vigilante Turismo Bolivia</text>
+<rect class="chip-h" x="952" y="386" width="160" height="32" rx="5"/><text x="960" y="407">AVIA-Auditor</text>
+<rect class="chip-h" x="788" y="424" width="160" height="32" rx="5"/><text x="796" y="445">DIBUSPA (I+D+i)</text>
+<rect class="chip-h" x="952" y="424" width="160" height="32" rx="5"/><text x="960" y="445">AVIA-Proyecto</text>
+<rect class="chip-h" x="788" y="462" width="160" height="32" rx="5"/><text x="796" y="483">Editor Científico</text>
+<rect class="chip-h" x="952" y="462" width="160" height="32" rx="5"/><text x="960" y="483">AVIA-GastroArt</text>
+
+<rect class="n" x="780" y="515" width="160" height="72" rx="7"/>
+<text class="t" x="794" y="537" style="font-size:13.5px">fuentes.yaml</text>
+<text class="s" x="794" y="555">+ perfil Turismo BO</text>
+<rect class="w" x="794" y="561" width="92" height="20" rx="4"/><text class="wt" x="840" y="575" text-anchor="middle">por desplegar</text>
+<rect class="n" x="960" y="515" width="160" height="72" rx="7"/>
+<text class="t" x="974" y="537" style="font-size:13.5px">Ollama</text>
+<text class="s" x="974" y="555">modelos de visión</text>
+<text class="s" x="974" y="573">no mueven el agente</text>
+
+<!-- MODELO -->
+<rect class="n" x="1190" y="240" width="190" height="140" rx="10" style="stroke:var(--hermes)"/>
+<text class="t" x="1204" y="263">Modelo de lenguaje</text>
+<text class="s" x="1204" y="282">proveedor por API</text>
+<text x="1204" y="306">Claude Sonnet 4.5</text>
+<text class="s" x="1204" y="324">o vía OpenRouter</text>
+<text class="s" x="1204" y="342">(Hermes 4 y otros, ≥ 64K)</text>
+<rect class="w" x="1204" y="352" width="98" height="20" rx="4"/><text class="wt" x="1253" y="366" text-anchor="middle">por confirmar</text>
+
+<!-- BASE -->
+<rect class="z-db" x="260" y="640" width="880" height="130" rx="10"/>
+<text class="h" x="276" y="664" style="fill:var(--db)">BASE DE CONOCIMIENTO</text>
+<text class="s" x="476" y="664">PostgreSQL + pgvector · esquema orbita</text>
+<rect class="w" x="740" y="650" width="150" height="20" rx="4"/><text class="wt" x="815" y="664" text-anchor="middle">servidor por confirmar</text>
+<text class="s" x="276" y="700">Tablas</text>
+<rect class="chip" x="350" y="682" width="84" height="26" rx="4"/><text class="m" x="392" y="700" text-anchor="middle">raw_items</text>
+<rect class="chip" x="442" y="682" width="70" height="26" rx="4"/><text class="m" x="477" y="700" text-anchor="middle">signals</text>
+<rect class="chip" x="520" y="682" width="70" height="26" rx="4"/><text class="m" x="555" y="700" text-anchor="middle">reviews</text>
+<rect class="chip" x="598" y="682" width="62" height="26" rx="4"/><text class="m" x="629" y="700" text-anchor="middle">alerts</text>
+<rect class="chip" x="668" y="682" width="78" height="26" rx="4"/><text class="m" x="707" y="700" text-anchor="middle">feedback</text>
+<rect class="chip" x="754" y="682" width="190" height="26" rx="4"/><text class="m" x="849" y="700" text-anchor="middle">kb_chunks (vectores)</text>
+<text class="s" x="276" y="740">Funciones</text>
+<rect class="chip" x="350" y="722" width="200" height="26" rx="4"/><text class="m" x="450" y="740" text-anchor="middle">registrar_senal_hermes()</text>
+<rect class="chip" x="558" y="722" width="166" height="26" rx="4"/><text class="m" x="641" y="740" text-anchor="middle">decidir_y_publicar()</text>
+<rect class="chip" x="732" y="722" width="112" height="26" rx="4"/><text class="m" x="788" y="740" text-anchor="middle">v_alertas_web</text>
+<text class="s" x="960" y="700">hechos, plazos, fuentes</text>
+<text class="s" x="960" y="718">y decisiones viven aquí,</text>
+<text class="s" x="960" y="736">no en la memoria de Hermes</text>
+
+<!-- FASE 2 -->
+<rect class="z-f2" x="20" y="810" width="1360" height="155" rx="10"/>
+<text class="h" x="36" y="834" style="fill:var(--f2)">FASE 2 · después del piloto</text>
+<rect class="n-f2" x="36" y="848" width="320" height="104" rx="7"/>
+<text class="t" x="50" y="870">Web ORBITA</text>
+<text class="s" x="50" y="890">solo lo aprobado, leído de la base</text>
+<text class="s" x="50" y="908">a través de n8n (orbita-alertas)</text>
+<text class="s" x="50" y="926">+ panel de revisión del analista</text>
+<text class="s" x="50" y="944">alojada fuera de claude.ai</text>
+<rect class="n-f2" x="372" y="848" width="320" height="104" rx="7"/>
+<text class="t" x="386" y="870">WhatsApp Business</text>
+<text class="s" x="386" y="890">lo mismo que Telegram, enviado por n8n</text>
+<text class="s" x="386" y="908">requiere alta en WhatsApp Business</text>
+<text class="s" x="386" y="926">todo envío por WhatsApp va aprobado</text>
+<rect class="n-f2" x="708" y="848" width="320" height="104" rx="7"/>
+<text class="t" x="722" y="870">Redes sociales</text>
+<text class="s" x="722" y="890">entran como fuente en n8n y Hermes</text>
+<text class="s" x="722" y="908">para cruzar información; nunca</text>
+<text class="s" x="722" y="926">confirman un hecho por sí solas</text>
+<rect class="n-f2" x="1044" y="848" width="320" height="104" rx="7"/>
+<text class="t" x="1058" y="870">Aprendizaje de Hermes</text>
+<text class="s" x="1058" y="890">ajuste fino con casos validados</text>
+<text class="s" x="1058" y="908">seguimiento de decisiones</text>
+<text class="s" x="1058" y="926">valorar un modelo propio</text>
+
+<!-- FLECHAS -->
+<!-- fuentes -> vigilante -->
+<path class="a" d="M200,322 H278" marker-end="url(#ar)"/>
+<text class="lbl" x="230" y="312" text-anchor="middle">rastreo</text>
+<text class="lbl" x="230" y="340" text-anchor="middle">diario</text>
+<!-- n8n bot <-> analista -->
+<path class="a" d="M470,195 V102" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text class="lbl" x="462" y="132" text-anchor="end">ficha con botones</text>
+<text class="lbl" x="462" y="146" text-anchor="end">Aprobar · Descartar</text>
+<!-- n8n bot -> usuarios -->
+<path class="a" d="M600,195 V102" marker-end="url(#ar)"/>
+<text class="lbl" x="592" y="132" text-anchor="end">avisos, resumen</text>
+<text class="lbl" x="592" y="146" text-anchor="end">e informe PDF</text>
+<!-- hermes bot <-> usuarios -->
+<path class="a" d="M920,195 V102" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text class="lbl" x="928" y="132">preguntas y respuestas</text>
+<text class="lbl" x="928" y="146">"¿qué hay sobre Uyuni?"</text>
+<!-- n8n -> hermes webhook -->
+<path class="a" d="M620,300 H778" marker-end="url(#ar)"/>
+<text class="lbl" x="700" y="276" text-anchor="middle">webhook HTTPS</text>
+<text class="lbl" x="700" y="291" text-anchor="middle">con clave</text>
+<text class="lbl" x="700" y="318" text-anchor="middle">pide criterio</text>
+<!-- hermes -> n8n webhook -->
+<path class="a" d="M780,470 H622" marker-end="url(#ar)"/>
+<text class="m" x="700" y="458" text-anchor="middle" style="font-size:11px">POST orbita-senal</text>
+<text class="lbl" x="700" y="488" text-anchor="middle">X-Orbita-Key</text>
+<text class="lbl" x="700" y="503" text-anchor="middle">JSON de la señal</text>
+<!-- hermes -> modelo -->
+<path class="a" d="M1120,300 H1188" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text class="lbl" x="1155" y="290" text-anchor="middle">API</text>
+<!-- vigilante -> base -->
+<path class="a" d="M280,392 H270 V638" marker-end="url(#ar)"/>
+<text class="lbl" x="278" y="626">SQL: documentos y señales</text>
+<!-- workflow -> base -->
+<path class="a" d="M620,505 H630 V638" marker-end="url(#ar)"/>
+<text class="lbl" x="622" y="626" text-anchor="end">SQL: registra y decide</text>
+<!-- hermes <-> base -->
+<path class="a" d="M1120,325 H1130 V638" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text class="lbl" x="1122" y="626" text-anchor="end">conexión directa, usuario propio · búsqueda por significado</text>
+<!-- base -> web (fase 2) -->
+<path class="a-f2" d="M300,770 V846" marker-end="url(#ar2)"/>
+<text class="lbl" x="310" y="800">fase 2: solo aprobado</text>
+</svg>
+</div>
+<figcaption>Flecha continua: conexión del piloto. Línea discontinua: fase 2. Etiqueta ámbar: pendiente de confirmar. Las claves de acceso viven en cada servidor, nunca en documentos ni en workflows exportados. Telegram usa dos bots porque no permite que dos programas lean el mismo bot a la vez.</figcaption>
+</figure>
+
+<div class="legend">
+  <span><i class="sw"></i>piloto de 7 días</span>
+  <span><i class="sw d"></i>fase 2</span>
+  <span><b class="pill">por confirmar</b>decisión pendiente</span>
+</div>
+
+<div class="cols">
+<section>
+  <h2>Recorrido de una señal en el piloto</h2>
+  <ol>
+    <li>El Vigilante AVIA rastrea las fuentes, filtra el ruido, puntúa y guarda documentos y señales en la base.</li>
+    <li>Si la señal necesita criterio (contradicción, oportunidad que exige ver elegibilidad, cambio en un tema), n8n se la pasa a Hermes por webhook con clave.</li>
+    <li>Hermes la analiza con sus skills AVIA y el modelo por API, consulta la base y devuelve el JSON a <code>/webhook/orbita-senal</code>.</li>
+    <li>n8n la registra con <code>registrar_senal_hermes()</code>: riesgos y fuentes no oficiales pasan a revisión; oportunidades de fuente oficial se publican solas.</li>
+    <li>El bot de n8n envía al analista la ficha con Aprobar y Descartar. La respuesta se guarda con <code>decidir_y_publicar()</code>, con su nombre y hora. Sin respuesta, la pieza queda en verificación.</li>
+    <li>Lo aprobado llega a los usuarios por Telegram; el informe PDF se genera con lo aprobado al cierre del piloto.</li>
+    <li>Los usuarios preguntan al bot de Hermes, que responde con fuente consultando la base.</li>
+  </ol>
+</section>
+<section>
+  <h2>Por confirmar</h2>
+  <ul>
+    <li>Modelo de Hermes para el piloto (propuesta: Claude Sonnet 4.5 por API).</li>
+    <li>Aprobación del analista por botones de Telegram, y quién es el analista.</li>
+    <li>Dos bots de Telegram: uno de n8n para avisos y aprobaciones, otro de Hermes para consultas.</li>
+    <li>Lista exacta de 3 a 5 fuentes del piloto.</li>
+    <li>Servidor donde se instala la base PostgreSQL con pgvector.</li>
+    <li>Herramienta de PDF: WeasyPrint en el VPS o el generador del Vigilante en n8n.</li>
+    <li>Despliegue de <code>fuentes.yaml</code> y del perfil Turismo Bolivia en el VPS de Hermes.</li>
+  </ul>
+</section>
+</div>
+</div>

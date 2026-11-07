@@ -1,0 +1,292 @@
+<title>Roadmap Vigilante AVIA</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: cinta de fases arriba (vista rápida) y una columna por fase debajo; cada tarea lleva su estado con los colores de la bandera */
+:root{
+  --bg:#f6f5f1; --surface:#ffffff; --fg:#1d2230; --muted:#5d6475; --line:#dcdad2;
+  --accent:#2c3e66;
+  --done:#0b7a3b; --done-bg:#e3f2e8;
+  --pend:#8a6a00; --pend-bg:#fbf3c9;
+  --block:#b8261b; --block-bg:#fbe3e0;
+  --prop:#3a5a9a; --prop-bg:#e5ebf7;
+  --flag-r:#d52b1e; --flag-y:#f2d500; --flag-g:#007934;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13161e; --surface:#1b1f2a; --fg:#e7e9ee; --muted:#9aa1b2; --line:#2e3342;
+  --accent:#9fb4e6;
+  --done:#5fcf8a; --done-bg:#15301f; --pend:#f0d257; --pend-bg:#332b0c;
+  --block:#ff8a7e; --block-bg:#3a1714; --prop:#9fb4e6; --prop-bg:#1d2740; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13161e; --surface:#1b1f2a; --fg:#e7e9ee; --muted:#9aa1b2; --line:#2e3342;
+  --accent:#9fb4e6;
+  --done:#5fcf8a; --done-bg:#15301f; --pend:#f0d257; --pend-bg:#332b0c;
+  --block:#ff8a7e; --block-bg:#3a1714; --prop:#9fb4e6; --prop-bg:#1d2740; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5}
+.aguayo{height:10px;background:
+  repeating-linear-gradient(90deg,var(--flag-r) 0 18px,var(--flag-y) 18px 30px,var(--flag-g) 30px 48px,var(--accent) 48px 54px,var(--flag-y) 54px 60px)}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+header h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4.5vw,42px);line-height:1.1;margin:6px 0 8px;text-wrap:balance}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{max-width:68ch;color:var(--muted);margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.c-done{color:var(--done);background:var(--done-bg)}
+.c-pend{color:var(--pend);background:var(--pend-bg)}
+.c-block{color:var(--block);background:var(--block-bg)}
+.c-prop{color:var(--prop);background:var(--prop-bg)}
+button.chip{cursor:pointer;font-family:inherit}
+button.chip[aria-pressed="false"]{opacity:.4}
+button.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* cinta de fases */
+.track{margin:30px 0 8px;overflow-x:auto}
+.track ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(170px,1fr));gap:0;min-width:860px}
+.track li{position:relative;padding:14px 14px 14px 16px;border-top:4px solid var(--line)}
+.track li.st-done{border-color:var(--done)} .track li.st-now{border-color:var(--flag-y)} .track li.st-block{border-color:var(--block)} .track li.st-next{border-color:var(--prop)}
+.track .ph{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.track b{display:block;font-family:var(--f-display);font-size:18px;font-weight:700;margin:2px 0 4px}
+.track span.s{font-size:14px;color:var(--muted)}
+.track a{color:inherit;text-decoration:none}
+.track a:hover b{text-decoration:underline}
+
+/* bloque de desbloqueo */
+.ask{margin:26px 0 8px;background:var(--surface);border:1px solid var(--block);border-radius:10px;padding:18px 20px}
+.ask h2{font-family:var(--f-display);font-size:22px;margin:0 0 4px}
+.ask p{margin:0 0 10px;color:var(--muted)}
+.ask ol{margin:0;padding-left:22px;display:grid;gap:6px}
+.ask li b{font-weight:700}
+
+section.phase{margin-top:40px}
+.phase-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.phase-head h2{font-family:var(--f-display);font-size:26px;margin:0}
+.phase-head .ph{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+.phase-head .est{margin-left:auto;font-size:14px;color:var(--muted)}
+.goal{margin:12px 0 0;max-width:72ch}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-top:16px}
+.group h3{font-size:13px;font-family:var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+ul.items{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+ul.items li{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+ul.items li .chip{grid-row:span 2;margin-top:1px}
+ul.items li strong{font-weight:700}
+ul.items li small{grid-column:2;color:var(--muted);font-size:14px;min-width:0;overflow-wrap:anywhere}
+.done-when{margin-top:16px;background:var(--surface);border-left:4px solid var(--accent);padding:12px 16px;border-radius:0 8px 8px 0}
+.done-when h3{margin:0 0 6px;font-size:15px}
+.done-when ul{margin:0;padding-left:20px}
+code{font-family:var(--f-mono);font-size:.88em;background:var(--bg);border:1px solid var(--line);padding:0 4px;border-radius:4px;overflow-wrap:anywhere}
+.days{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:8px;min-width:880px}
+.days-wrap{overflow-x:auto;margin-top:14px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px}
+.day b{font-family:var(--f-mono);font-size:12px;color:var(--muted);display:block}
+.day p{margin:4px 0 0;font-size:14px}
+footer{margin-top:48px;color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:14px}
+footer a{color:var(--accent)}
+.hide{display:none!important}
+@media (prefers-reduced-motion:no-preference){button.chip{transition:opacity .15s}}
+</style>
+
+<div class="aguayo" aria-hidden="true"></div>
+<div class="wrap">
+<header>
+  <div class="eyebrow">AVIA Vigilante · ORBITA turismo Bolivia · estado al 7 nov 2026</div>
+  <h1>Roadmap de la PoC al MVP</h1>
+  <p class="lede">Dónde está hoy la prueba de concepto, qué falta para cerrarla y qué hay que construir para el MVP genérico y replicable, con ORBITA como primer cliente y un piloto de 7 días. Hermes es el motor interno; de cara al usuario todo se llama AVIA.</p>
+  <div class="legend" role="group" aria-label="Filtrar por estado">
+    <button class="chip c-done" data-f="done" aria-pressed="true">Hecho</button>
+    <button class="chip c-pend" data-f="pend" aria-pressed="true">Pendiente (lo hacemos nosotros)</button>
+    <button class="chip c-block" data-f="block" aria-pressed="true">Bloqueado (falta algo de Meysel)</button>
+    <button class="chip c-prop" data-f="prop" aria-pressed="true">Propuesta por validar</button>
+  </div>
+</header>
+
+<nav class="track" aria-label="Fases">
+  <ol>
+    <li class="st-done"><a href="#f0"><span class="ph">Fase 0</span><b>PoC actual</b><span class="s">Web, Hermes, skills, base y MCP localizado</span></a></li>
+    <li class="st-block"><a href="#f1"><span class="ph">Fase 1</span><b>Desbloqueo</b><span class="s">Accesos, VPS 8 GB, decisiones</span></a></li>
+    <li class="st-now"><a href="#f2"><span class="ph">Fase 2</span><b>Cerrar la PoC</b><span class="s">1 semana · login, base real, ciclo 30 min</span></a></li>
+    <li class="st-next"><a href="#f3"><span class="ph">Fase 3</span><b>MVP</b><span class="s">1 mes · producto genérico + piloto de 7 días</span></a></li>
+    <li class="st-next"><a href="#f4"><span class="ph">Fase 4</span><b>Después del MVP</b><span class="s">Redes, WhatsApp, más clientes</span></a></li>
+  </ol>
+</nav>
+
+<div class="ask">
+  <h2>Lo que necesito de ti para avanzar</h2>
+  <p>Estos puntos bloquean la fase 2. Sin ellos se puede avanzar en local, pero no conectar nada real.</p>
+  <ol>
+    <li><b>Clave del MCP del Vigilante</b>: nombre de la cabecera y valor para que Hermes consulte <code>studio.avia-global.com/mcp/avia</code>.</li>
+    <li><b>Acceso al n8n de AVIA</b>: confirmar quién lo administra y si Hermes puede usarlo solo en lectura.</li>
+    <li><b>VPS de 8 GB o más</b>: proveedor elegido y acceso (hoy Hermes corre en 2 GB).</li>
+    <li><b>Costos actuales</b> de VPS, Apify, n8n y Supabase.</li>
+    <li><b>DeepSeek para gobierno</b>: si es aceptable que los datos pasen por servidores en China, o si hay que usar otro proveedor en producción.</li>
+    <li><b>Login</b>: tecnología del frontend actual, quién administra <code>id.avia-global.com</code> y dónde viven los roles.</li>
+    <li><b>Piloto</b>: lista final de 3 a 5 fuentes, personas del equipo analista y canal de aviso (Telegram, porque WhatsApp Business aún no está).</li>
+    <li><b>Volumen esperado</b>: noticias por día y consultas por día (el supuesto de 300 y 200 no está confirmado).</li>
+  </ol>
+</div>
+
+<!-- FASE 0 -->
+<section class="phase" id="f0">
+  <div class="phase-head"><span class="ph">Fase 0</span><h2>PoC actual: lo que ya tenemos</h2></div>
+  <p class="goal">Demostrar que el Vigilante puede leer fuentes de Bolivia, razonar sobre ellas con Hermes y mostrarlas en una web de gestión. La parte visible funciona; la parte de datos aún usa ejemplos y no tiene control de acceso.</p>
+  <div class="cols">
+    <div class="group"><h3>Interfaz</h3><ul class="items">
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Web del observatorio vigilante</strong><small>Panorama con paneles, Fuentes estilo Nagios, Señales por estados, Oportunidades, Análisis, Bitácora, "Pregunta a AVIA", roles visor/analista/admin.</small></li>
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Desplegada y conectada a Hermes</strong><small><code>vigilante-bolivia.duckdns.org</code> (6 nov).</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Sin control de acceso</strong><small>Hoy el rol se elige en un selector, sin contraseña.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>La web llama a Hermes desde el navegador</strong><small>Riesgo de clave expuesta: hay que pasar la llamada a un backend.</small></li>
+    </ul></div>
+    <div class="group"><h3>Motor y conocimiento</h3><ul class="items">
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Hermes Agent en el VPS</strong><small>Perfil vigilante-turismo con las 5 skills AVIA copiadas. Modelo actual: Claude Sonnet 4.5 (sesión del 2 nov).</small></li>
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Skill de vigilancia de fuentes</strong><small><code>fuentes.yaml</code> (7 fuentes, 3 URLs verificadas), skill con salida JSON y 10 ejemplos de entrenamiento.</small></li>
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>MCP del Vigilante localizado</strong><small>Workflow "AVIA MCP · Vigilante, Borradores e Informes", activo, 11 herramientas de solo lectura sobre Supabase.</small></li>
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Hermes aún no consulta el MCP</strong><small>Falta la cabecera y la clave.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Por confirmar</span><strong>fuentes.yaml en el VPS</strong><small>El 2 nov no estaba desplegado; no sé si ya se subió.</small></li>
+    </ul></div>
+    <div class="group"><h3>Datos</h3><ul class="items">
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Esquema genérico multicliente</strong><small>Esquema <code>vigilante</code>: 24 tablas, RLS por cliente, <code>alta_cliente()</code> con plantilla. Probado en PostgreSQL 16 con dos clientes.</small></li>
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Alta de ORBITA como primer cliente</strong><small>Territorios, categorías, fuentes rápidas y el Vigilante por MCP.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Adaptar pgvector y la conexión Hermes → web</strong><small>Los scripts <code>02</code> y <code>03</code> siguen en el esquema antiguo <code>orbita</code>.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>La base no está cargada en Supabase</strong><small>La web todavía no lee de una base relacional.</small></li>
+      <li data-s="done"><span class="chip c-done">Descartado</span><strong>Workflow n8n propio Hermes → web</strong><small>Se validó, pero el 6 nov decidiste usar n8n solo por su MCP. Queda como referencia.</small></li>
+    </ul></div>
+    <div class="group"><h3>Documentación</h3><ul class="items">
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Informe técnico v3 y presentación</strong><small>AVIA como skills de Hermes, servidores, modelo.</small></li>
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Propuesta comercial y presentación</strong><small>Para gobierno, sin costos.</small></li>
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Informe de tecnología, procesos y costos</strong><small>Para marketing: DeepSeek en producción, OpenAI en desarrollo.</small></li>
+      <li data-s="done"><span class="chip c-done">Hecho</span><strong>Diagrama de conexiones</strong><small>Servidores y flujos.</small></li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- FASE 1 -->
+<section class="phase" id="f1">
+  <div class="phase-head"><span class="ph">Fase 1</span><h2>Desbloqueo</h2><span class="est">Depende de tus respuestas</span></div>
+  <p class="goal">Reunir los accesos y decisiones que faltan. Es la lista de arriba, ordenada por lo que más frena.</p>
+  <div class="cols">
+    <div class="group"><h3>Accesos</h3><ul class="items">
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Clave del MCP del Vigilante</strong><small>Sin ella Hermes no puede corroborar con el histórico.</small></li>
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Acceso al n8n de AVIA</strong><small>Solo lectura por MCP; nada de workflows propios.</small></li>
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Login de AVIA</strong><small>Client ID nuevo en <code>id.avia-global.com</code> y dónde viven los roles.</small></li>
+    </ul></div>
+    <div class="group"><h3>Infraestructura y costos</h3><ul class="items">
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>VPS de 8 GB o más</strong><small>Rango visto: USD 9 a 15 al mes (Hostinger, Hetzner, Contabo).</small></li>
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Costos actuales</strong><small>VPS, Apify, n8n y Supabase.</small></li>
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Proveedor de IA en producción</strong><small>DeepSeek Flash si es aceptable para gobierno.</small></li>
+    </ul></div>
+    <div class="group"><h3>Piloto</h3><ul class="items">
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Fuentes del piloto</strong><small>3 a 5. Candidatas: SENAMHI, Ministerio de Salud, OPS, Ministerio de Turismo, ORBITA.</small></li>
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Equipo analista</strong><small>Quién aprueba y en qué horario.</small></li>
+      <li data-s="block"><span class="chip c-block">Bloqueado</span><strong>Volumen esperado</strong><small>Para dimensionar costos de IA.</small></li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- FASE 2 -->
+<section class="phase" id="f2">
+  <div class="phase-head"><span class="ph">Fase 2</span><h2>Cerrar la PoC</h2><span class="est">Plazo: 1 semana</span></div>
+  <p class="goal">Que la PoC funcione con datos reales, con acceso seguro y con el ciclo de vigilancia de 30 minutos en marcha.</p>
+  <div class="cols">
+    <div class="group"><h3>Datos y seguridad</h3><ul class="items">
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Cargar el esquema <code>vigilante</code> en Supabase</strong><small>Con ORBITA dado de alta y el esquema expuesto en la API.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Adaptar pgvector y las funciones de publicación</strong><small>Pasar <code>02</code> y <code>03</code> al esquema genérico.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Login con roles admin, analista y visor</strong><small>Reutilizar el login OIDC de AVIA; RLS por cliente.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Backend para Hermes</strong><small>Las claves salen del navegador; la web habla con un servicio propio.</small></li>
+    </ul></div>
+    <div class="group"><h3>Ciclo de vigilancia</h3><ul class="items">
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Script cada 30 minutos sin IA</strong><small>Cron en el VPS de Hermes: Google News RSS por palabras clave, RSS de fuentes y GDELT. Dedupe contra Supabase.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Hermes solo si hay novedades</strong><small>Clasifica, consulta el MCP del Vigilante, corrobora y guarda la señal.</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Cambiar el modelo</strong><small>OpenAI en desarrollo, DeepSeek Flash en producción (hoy usa Sonnet 4.5).</small></li>
+      <li data-s="pend"><span class="chip c-pend">Pendiente</span><strong>Migrar Hermes al VPS nuevo</strong><small>Con <code>fuentes.yaml</code> y la skill desplegados.</small></li>
+    </ul></div>
+  </div>
+  <div class="done-when"><h3>La PoC está cerrada cuando</h3><ul>
+    <li>Una noticia real entra por el ciclo de 30 min, Hermes la evalúa con el contexto del Vigilante y aparece en la web.</li>
+    <li>Solo entra quien tiene usuario, y cada rol ve lo suyo.</li>
+    <li>Ninguna clave viaja al navegador.</li>
+  </ul></div>
+</section>
+
+<!-- FASE 3 -->
+<section class="phase" id="f3">
+  <div class="phase-head"><span class="ph">Fase 3</span><h2>MVP: producto genérico + piloto de 7 días</h2><span class="est">Plazo: 1 mes (3 semanas de construcción + 1 semana de piloto)</span></div>
+  <p class="goal">Un Vigilante que detecta noticias dispersas, las evalúa, las corrobora, valora su importancia para el turismo, propone soluciones y muestra oportunidades. Replicable: un cliente nuevo se da de alta copiando otro como plantilla.</p>
+  <div class="cols">
+    <div class="group"><h3>Flujo del conocimiento</h3><ul class="items">
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Señales con estado</strong><small>Confirmado, En verificación o Potencial; relevancia y novedad de 0 a 10 con umbral 6.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Oportunidades</strong><small>Con plazo, actores y siguiente paso, apoyadas en el histórico y las tendencias del Vigilante.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Aprobación del analista por Telegram</strong><small>Botones Aprobar y Descartar para riesgos y fuentes no oficiales.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Feedback útil o no útil</strong><small>Alimenta la calibración del umbral.</small></li>
+    </ul></div>
+    <div class="group"><h3>Entregables al usuario</h3><ul class="items">
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Resumen diario</strong><small>Máximo 7 señales, por Telegram y en la web.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Informe en PDF</strong><small>Borrador revisado por el analista (WeasyPrint propuesto).</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>"Pregunta a AVIA" con datos reales</strong><small>Conversación sobre señales, fuentes e histórico.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Web pública y privada</strong><small>Pública para lo aprobado; privada para gestión.</small></li>
+    </ul></div>
+    <div class="group"><h3>Producto replicable</h3><ul class="items">
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Alta de cliente nuevo</strong><small><code>alta_cliente()</code> + perfil, fuentes y palabras clave por cliente.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Panel de estado de fuentes</strong><small>Con datos reales del ciclo de 30 min.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Registro de costos de IA por cliente</strong><small>Para que marketing pueda poner precio.</small></li>
+    </ul></div>
+  </div>
+
+  <div class="days-wrap" aria-label="Plan del piloto de 7 días">
+    <div class="days">
+      <div class="day" data-s="prop"><b>Día 1</b><p>Arranque con 3 fuentes, revisión de las primeras señales con el analista.</p></div>
+      <div class="day" data-s="prop"><b>Día 2</b><p>Ajuste de palabras clave y umbral. Primer resumen diario.</p></div>
+      <div class="day" data-s="prop"><b>Día 3</b><p>Se suman hasta 5 fuentes. Aprobaciones por Telegram.</p></div>
+      <div class="day" data-s="prop"><b>Día 4</b><p>Oportunidades con contexto del Vigilante.</p></div>
+      <div class="day" data-s="prop"><b>Día 5</b><p>Primer informe PDF revisado.</p></div>
+      <div class="day" data-s="prop"><b>Día 6</b><p>Calibración con el feedback útil o no útil.</p></div>
+      <div class="day" data-s="prop"><b>Día 7</b><p>Cierre: métricas del piloto y decisión de seguir.</p></div>
+    </div>
+  </div>
+
+  <div class="done-when"><h3>El MVP está listo cuando</h3><ul>
+    <li>El piloto corre 7 días seguidos con 3 a 5 fuentes sin intervención técnica.</li>
+    <li>El analista aprueba o descarta desde Telegram y el resultado se ve en la web.</li>
+    <li>Sale al menos un resumen diario y un informe PDF.</li>
+    <li>Un segundo cliente de prueba se da de alta sin tocar código.</li>
+  </ul></div>
+</section>
+
+<!-- FASE 4 -->
+<section class="phase" id="f4">
+  <div class="phase-head"><span class="ph">Fase 4</span><h2>Después del MVP</h2></div>
+  <div class="cols">
+    <div class="group"><ul class="items">
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Redes sociales</strong><small>Cruce con el módulo RRSS del Vigilante (temas vivos, severidad), hoy en calibración.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>WhatsApp</strong><small>Cuando esté la API de WhatsApp Business (Meta cobra por mensaje).</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Más fuentes</strong><small>ABC, DGAC, Gaceta Oficial, CAF, BID, PNUD (las tres primeras sin verificar).</small></li>
+    </ul></div>
+    <div class="group"><ul class="items">
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Prospectiva</strong><small>Escenarios etiquetados como tales, con 24 h de anticipación.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Otros vigilantes</strong><small>Otros sectores o países con el mismo producto.</small></li>
+      <li data-s="prop"><span class="chip c-prop">Propuesta</span><strong>Rol de operador de plataforma</strong><small>Para ver todos los clientes desde la web.</small></li>
+    </ul></div>
+  </div>
+</section>
+
+<footer>
+  Fuentes: archivos del proyecto en <code>observatorio/</code> (db, db/generico, hermes, poc-vigilante, conexion-web) y decisiones de Meysel hasta el 6 nov 2026. Plazos fijados por Meysel el 7 nov 2026: PoC en 1 semana y MVP en 1 mes, contados desde que estén los accesos de la fase 1.
+</footer>
+</div>
+
+<script>
+(function(){
+  const btns=[...document.querySelectorAll('.legend button')];
+  const state={done:true,pend:true,block:true,prop:true};
+  function apply(){
+    document.querySelectorAll('[data-s]').forEach(el=>{el.classList.toggle('hide',!state[el.dataset.s]);});
+  }
+  btns.forEach(b=>b.addEventListener('click',()=>{
+    const k=b.dataset.f; state[k]=!state[k]; b.setAttribute('aria-pressed',String(state[k])); apply();
+  }));
+})();
+</script>

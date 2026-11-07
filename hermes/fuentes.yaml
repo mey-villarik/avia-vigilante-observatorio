@@ -1,0 +1,442 @@
+# Catálogo de fuentes de vigilancia · ORBITA beta (Bolivia, sector turismo)
+# Para Hermes Agent (skill "vigilancia-fuentes-bolivia") y para la tabla orbita.sources.
+# Los códigos de categoría, naturaleza, prioridad y estado coinciden con db/01_orbita_schema.sql.
+#
+# Estado de verificación de cada URL (campo url_verificacion):
+#   verificada          -> se abrió la página el 2026-11-01 y mostró contenido actual
+#   encontrada_no_abierta -> aparece en buscador (dominio oficial) pero el sitio bloqueó la lectura automática;
+#                          ⚠️ NO VERIFICADA: abrirla a mano antes de activar la fuente
+#   no_verificada       -> ⚠️ deducida o sin evidencia; confirmar antes de usar
+#
+# Los ejemplos de entrada/salida son FICTICIOS (inventados para entrenar el formato), no avisos reales.
+# Nota: el contenedor donde se preparó esto no puede hacer curl directo a sitios .gob.bo;
+# la verificación se hizo con lector web. Repetir la prueba desde el VPS de n8n.
+
+version: 1
+fecha: 2026-11-01
+zona_horaria: America/La_Paz
+departamentos: [La Paz, Cochabamba, Santa Cruz, Oruro, Potosí, Chuquisaca, Tarija, Beni, Pando]
+
+reglas_globales:
+  revision_obligatoria_categorias: [clima, salud, vial, seguridad]
+  revision_obligatoria_otros: ["todo envío por WhatsApp", "fuentes no oficiales", "escenarios (es_escenario = true)"]
+  sla_revision_minutos: 15
+  sin_aprobacion_a_tiempo: "Enviar como 'en_verificacion' SOLO si reproduce un aviso oficial con enlace; si no, esperar."
+  prioridad_alta_si_alguna:
+    - senamhi_naranja_o_roja
+    - alerta_epidemiologica_oficial
+    - riesgo_vida_salud_seguridad_visitante
+    - corte_vial_cierre_aeropuerto_perdida_acceso
+    - convocatoria_plazo_menor_15_dias
+    - evento_alto_impacto_fecha_proxima
+    - nueva_ruta_aerea_o_cambio_conectividad
+  anticipacion_horas: 24
+  resumen_diario_max_alertas: 7
+  sin_alertas: "No hay alertas confirmadas en este momento"
+
+fuentes:
+
+  # ───────────────────────── CANAL 1 · CLIMA ─────────────────────────
+  - id: senamhi_alertas
+    canal: clima
+    nombre: SENAMHI · alertas meteorológicas e hidrológicas
+    institucion: Servicio Nacional de Meteorología e Hidrología (SENAMHI)
+    tipo: oficial
+    url: https://senamhi.gob.bo/alertas3.php
+    url_verificacion: verificada   # tabla con avisos 01/26 a 38/26, columnas fecha publicación, título, nivel, inicio, fin, PDF
+    urls_secundarias:
+      - url: https://senamhi.gob.bo/alertasanteriores1.php
+        uso: histórico de alertas (para entrenar y para deduplicar)
+        url_verificacion: encontrada_no_abierta
+      - url: https://noticias.senamhi.gob.bo/home/
+        uso: noticias y comunicados (semana 3)
+        url_verificacion: encontrada_no_abierta
+      - url: https://senamhi.gob.bo/index.php/hidrologia/repositorio-pronostico
+        uso: pronósticos hidrológicos
+        url_verificacion: encontrada_no_abierta
+    acceso:
+      metodo: http_html          # la tabla llegó renderizada; si en n8n sale vacía, pasar a apify (Puppeteer)
+      alternativa: apify
+      extraer: "fila de la tabla: n° de aviso, fecha de publicación, título, nivel (color), fecha comienzo, fecha final, enlace PDF"
+      leer_pdf: true             # los departamentos y municipios afectados están en el PDF, no en la tabla
+    frecuencia_minutos: 30
+    que_buscar:
+      - avisos y alertas nuevos (número de aviso no visto antes)
+      - nivel amarillo, naranja o rojo
+      - departamentos/municipios afectados con destinos turísticos (Uyuni, Copacabana/Titicaca, Rurrenabaque, Samaipata, Yungas, Sucre, Potosí, Tarija, Chiquitania)
+      - fenómenos: lluvias intensas, crecida de ríos, desborde, granizo, nevadas, heladas, vientos fuertes, ola de calor, incendios/humo
+    palabras_clave: [alerta, aviso meteorológico, naranja, roja, amarilla, crecida, desborde, inundación, riada, mazamorra, granizo, nevada, helada, vientos fuertes, ola de calor, sequía, incendio, humo, visibilidad]
+    categoria: clima
+    naturaleza_por_defecto: riesgo
+    severidad:
+      alta: "Nivel naranja o rojo; o cualquier nivel que afecte a un destino turístico con vigencia que empieza en ≤ 24 h"
+      media: "Nivel amarillo en departamento con destinos turísticos"
+      baja: "Pronóstico estacional, informes, avisos ya vencidos"
+    requiere_aprobacion: true
+    verificacion_fidelidad:
+      - "El número de aviso y las fechas de vigencia deben copiarse tal cual de la tabla; nunca inventar departamentos que no estén en el PDF."
+      - "Si el PDF no se pudo leer, decir 'departamentos por confirmar' y marcar confianza ≤ 0,6."
+      - "Comparar con el aviso anterior (mismo número = actualización, no alerta nueva → signal_history)."
+      - "Corroboración opcional: Viceministerio de Defensa Civil o prensa (eju.tv, Los Tiempos), nunca como fuente principal."
+    ejemplos:
+      - entrada: |
+          [fila tabla SENAMHI] Publicación: 2026-11-03 10:15 | Título: AVISO METEOROLÓGICO PARA LA EMISIÓN DE ALERTA N° 41/26 | Nivel: NARANJA | Comienzo: 2026-11-04 | Final: 2026-11-06 | PDF: alerta_41_26.pdf
+          [texto PDF] Lluvias de moderada a fuerte intensidad acompañadas de actividad eléctrica y granizo en los Yungas y Altiplano norte de La Paz; Alto Beni y Rurrenabaque (Beni). Acumulados de 40 a 70 mm.
+        salida:
+          titulo: "Alerta naranja por lluvias fuertes en Yungas de La Paz y Rurrenabaque (4 al 6 de noviembre)"
+          resumen: "SENAMHI emitió la alerta naranja N° 41/26 por lluvias de moderada a fuerte intensidad con granizo y tormentas eléctricas, con acumulados de 40 a 70 mm, del 4 al 6 de noviembre."
+          recomendacion: "Operadores de Yungas, Coroico y Rurrenabaque: revisar salidas por carretera y río, avisar a clientes y prever reprogramaciones."
+          naturaleza: riesgo
+          categoria: clima
+          prioridad: alta
+          motivos_prioridad: [senamhi_naranja_o_roja]
+          departamentos: [La Paz, Beni]
+          fecha_evento_inicio: "2026-11-04T00:00:00-04:00"
+          fecha_evento_fin: "2026-11-06T23:59:00-04:00"
+          fuente_oficial: true
+          enlace_oficial: https://senamhi.gob.bo/alertas3.php
+          requiere_revision: true
+          es_escenario: false
+          confianza: 0.9
+      - entrada: |
+          [fila tabla SENAMHI] Publicación: 2026-11-10 08:00 | Título: AVISO METEOROLÓGICO PARA ALERTA N° 44/26 | Nivel: AMARILLA | Comienzo: 2026-11-10 | Final: 2026-11-11 | PDF: (no se pudo leer)
+        salida:
+          titulo: "Alerta amarilla SENAMHI N° 44/26 (10 y 11 de noviembre), departamentos por confirmar"
+          resumen: "SENAMHI publicó la alerta amarilla N° 44/26 vigente el 10 y 11 de noviembre. No se pudo leer el PDF, por lo que se desconocen las zonas afectadas."
+          recomendacion: "Analista: abrir el PDF y completar departamentos antes de publicar."
+          naturaleza: riesgo
+          categoria: clima
+          prioridad: media
+          motivos_prioridad: []
+          departamentos: []
+          fuente_oficial: true
+          enlace_oficial: https://senamhi.gob.bo/alertas3.php
+          requiere_revision: true
+          es_escenario: false
+          confianza: 0.5
+
+  # ───────────────────────── CANAL 2 · SALUD ─────────────────────────
+  - id: minsalud
+    canal: salud
+    nombre: Ministerio de Salud y Deportes · comunicados y boletines epidemiológicos
+    institucion: Ministerio de Salud y Deportes de Bolivia
+    tipo: oficial
+    url: https://www.minsalud.gob.bo/
+    url_verificacion: verificada   # portada con noticias de agosto de 2026 y enlaces a Comunicados y Boletines epidemiológicos 2026; sin RSS
+    urls_secundarias:
+      - url: "(sección 'Boletines epidemiológicos 2026' enlazada desde la portada)"
+        uso: boletines de la Dirección General de Epidemiología
+        url_verificacion: no_verificada   # ⚠️ copiar la URL exacta desde la portada al configurar n8n
+    acceso:
+      metodo: http_html
+      extraer: "lista de noticias (título, fecha, enlace) + sección Comunicados + sección Boletines epidemiológicos (PDF)"
+      paginacion: "?start=N (Joomla)"
+      leer_pdf: true
+    frecuencia_minutos: 60
+    que_buscar:
+      - declaratoria de alerta o emergencia epidemiológica/sanitaria
+      - brotes en departamentos turísticos (dengue, chikungunya, zika, fiebre amarilla, sarampión, influenza, rabia)
+      - requisitos para viajeros (vacuna de fiebre amarilla, certificados, controles en fronteras)
+      - campañas de vacunación en zonas turísticas
+    palabras_clave: [alerta epidemiológica, emergencia sanitaria, brote, casos confirmados, dengue, chikungunya, zika, fiebre amarilla, sarampión, influenza, gripe aviar, rabia, vacuna, viajeros, frontera, cerco epidemiológico]
+    descartar: [actos protocolares, reuniones, talleres, recursos humanos, escalafón]
+    categoria: salud
+    naturaleza_por_defecto: riesgo
+    severidad:
+      alta: "Alerta o emergencia epidemiológica declarada; brote en destino turístico; nuevo requisito obligatorio para viajeros"
+      media: "Aumento de casos sin declaratoria; campaña de vacunación recomendada para viajeros"
+      baja: "Boletín de rutina sin cambios relevantes"
+    requiere_aprobacion: true
+    verificacion_fidelidad:
+      - "Citar textual el nombre de la resolución o comunicado y su fecha."
+      - "Cifras de casos solo si aparecen en el documento; nunca estimarlas."
+      - "Distinguir 'alerta declarada' de 'aumento de casos' (no es lo mismo)."
+      - "Cruzar con OPS (ops_alertas) cuando el evento es regional."
+    ejemplos:
+      - entrada: |
+          [Comunicado MSyD, 2026-11-05] El Ministerio de Salud y Deportes declara alerta epidemiológica en los departamentos de Santa Cruz y Beni ante el incremento de casos de dengue (1.240 casos confirmados en la semana epidemiológica 44). Se recomienda a la población y visitantes el uso de repelente...
+        salida:
+          titulo: "Alerta epidemiológica por dengue en Santa Cruz y Beni"
+          resumen: "El Ministerio de Salud y Deportes declaró alerta epidemiológica por dengue en Santa Cruz y Beni, con 1.240 casos confirmados en la semana epidemiológica 44."
+          recomendacion: "Informar a visitantes sobre repelente y ropa de manga larga; hoteles y lodges de Beni y Santa Cruz, reforzar eliminación de criaderos."
+          naturaleza: riesgo
+          categoria: salud
+          prioridad: alta
+          motivos_prioridad: [alerta_epidemiologica_oficial]
+          departamentos: [Santa Cruz, Beni]
+          fuente_oficial: true
+          enlace_oficial: "<URL del comunicado>"
+          requiere_revision: true
+          es_escenario: false
+          confianza: 0.95
+      - entrada: |
+          [Noticia MSyD, 2026-11-06] La ministra de Salud se reunió con el gobernador de Chuquisaca para coordinar la Unidad de Radioterapia.
+        salida:
+          descartar: true
+          motivo: "Acto institucional sin impacto en el turismo."
+
+  - id: ops_alertas
+    canal: salud
+    nombre: OPS/OMS · alertas y actualizaciones epidemiológicas
+    institucion: Organización Panamericana de la Salud
+    tipo: organismo_internacional
+    url: https://www.paho.org/es/alertas-actualizaciones-epidemiologicas
+    url_verificacion: verificada   # últimas entradas: dengue y chikungunya (20-10-2026), miasis (16-10-2026), sarampión (13-10-2026)
+    urls_secundarias:
+      - url: https://www.paho.org/es/rss.xml
+        uso: RSS general de OPS en español (filtrar por 'Alerta Epidemiológica' / 'Actualización Epidemiológica')
+        url_verificacion: encontrada_no_abierta   # enlazado desde la página verificada
+    acceso:
+      metodo: rss
+      alternativa: http_html
+      extraer: "título, fecha, enlace al PDF; leer el PDF y buscar menciones de Bolivia"
+      filtro: "título contiene 'Alerta Epidemiológica' o 'Actualización Epidemiológica'; no hay filtro por país"
+    frecuencia_minutos: 180
+    que_buscar:
+      - alertas regionales que mencionen a Bolivia o a países vecinos con frontera turística (Perú, Chile, Argentina, Brasil, Paraguay)
+      - recomendaciones a viajeros
+    palabras_clave: [Bolivia, alerta epidemiológica, actualización epidemiológica, viajeros, sarampión, dengue, chikungunya, oropouche, fiebre amarilla, influenza aviar, miasis]
+    categoria: salud
+    naturaleza_por_defecto: riesgo
+    severidad:
+      alta: "Alerta (no actualización) que menciona casos en Bolivia o recomienda medidas para viajeros a Bolivia"
+      media: "Alerta regional sin casos en Bolivia pero con casos en país vecino"
+      baja: "Actualización periódica sin cambios para Bolivia (solo base de conocimiento)"
+    requiere_aprobacion: true
+    verificacion_fidelidad:
+      - "Confirmar que 'Bolivia' aparece en el PDF; si no aparece, no asignar departamentos ni prioridad alta."
+      - "Las cifras de OPS pueden ir atrasadas respecto al Ministerio: citar la fecha de corte."
+    ejemplos:
+      - entrada: |
+          [RSS OPS] Alerta Epidemiológica: Sarampión en la Región de las Américas - 7 de agosto del 2026. (PDF) ... En Bolivia se notificaron 312 casos confirmados, con transmisión en Santa Cruz y La Paz. La OPS recomienda a los viajeros verificar su vacunación...
+        salida:
+          titulo: "OPS alerta por sarampión en las Américas, con casos en Santa Cruz y La Paz"
+          resumen: "La alerta epidemiológica de OPS del 7 de agosto de 2026 informa 312 casos confirmados de sarampión en Bolivia y recomienda a los viajeros verificar su vacunación."
+          recomendacion: "Agencias receptivas: recordar a turistas extranjeros la vacuna contra el sarampión antes del viaje."
+          naturaleza: riesgo
+          categoria: salud
+          prioridad: alta
+          motivos_prioridad: [alerta_epidemiologica_oficial]
+          departamentos: [Santa Cruz, La Paz]
+          fuente_oficial: true
+          enlace_oficial: https://www.paho.org/es/alertas-actualizaciones-epidemiologicas
+          requiere_revision: true
+          es_escenario: false
+          confianza: 0.9
+
+  # ──────────────────── CANAL 3 · VIAL / TRANSPORTE ────────────────────
+  - id: abc_caminos
+    canal: vial
+    nombre: ABC · transitabilidad de la Red Vial Fundamental
+    institucion: Administradora Boliviana de Carreteras
+    tipo: oficial
+    url: https://transitabilidad.abc.gob.bo/mapa_reporte
+    url_verificacion: encontrada_no_abierta   # ⚠️ NO VERIFICADA: aparece en buscador; el lector web recibió error del sitio
+    urls_secundarias:
+      - url: https://transitabilidad.abc.gob.bo/movil_conflictos_sociales
+        uso: tramos no transitables por conflictos sociales (bloqueos)
+        url_verificacion: encontrada_no_abierta   # ⚠️ NO VERIFICADA
+      - url: https://www.abc.gob.bo/
+        uso: portal institucional y comunicados
+        url_verificacion: encontrada_no_abierta
+    acceso:
+      metodo: apify          # sitio de mapa; probablemente carga datos por JavaScript. Inspeccionar la llamada XHR y, si es JSON, pasar a 'api'
+      alternativa: http_html
+      extraer: "por punto: ruta, tramo, departamento, tipo de evento (derrumbe, inundación, bloqueo, mantenimiento), estado (transitable con restricción / no transitable), fecha y hora de reporte"
+    frecuencia_minutos: 30
+    que_buscar:
+      - tramos 'no transitable' o 'transitable con restricción'
+      - bloqueos y conflictos sociales en rutas turísticas
+      - rutas de acceso a destinos clave (La Paz–Copacabana, La Paz–Coroico, Uyuni–Potosí, Uyuni–Oruro, Santa Cruz–Samaipata, Sucre–Potosí, Rurrenabaque)
+    palabras_clave: [no transitable, restricción, bloqueo, conflicto social, derrumbe, deslizamiento, mazamorra, inundación, desvío, cierre, paso restringido]
+    categoria: vial
+    naturaleza_por_defecto: riesgo
+    severidad:
+      alta: "Tramo no transitable que corta el acceso a un destino turístico, o bloqueo con duración prevista > 24 h"
+      media: "Transitable con restricción en ruta turística"
+      baja: "Mantenimiento programado fuera de rutas turísticas; reapertura de tramo (se registra como actualización)"
+    requiere_aprobacion: true
+    verificacion_fidelidad:
+      - "Nombrar la ruta y el tramo exactamente como los da la ABC."
+      - "Cada reporte de la ABC es una foto del momento: incluir la hora del reporte y actualizar la misma señal cuando cambie (no crear otra)."
+      - "Cuando el tramo vuelve a ser transitable, cerrar la alerta (estado 'cerrada')."
+      - "Bloqueos vistos solo en prensa o redes: fuente no oficial → revisión obligatoria y estado 'en_verificacion'."
+    ejemplos:
+      - entrada: |
+          [ABC transitabilidad, 2026-11-08 07:30] Ruta 3 · Tramo Cotapata – Santa Bárbara (La Paz) · Evento: derrumbe · Estado: NO TRANSITABLE · Observación: maquinaria trabajando en el lugar.
+        salida:
+          titulo: "Ruta a Coroico/Yungas cortada por derrumbe en Cotapata – Santa Bárbara"
+          resumen: "La ABC reporta la Ruta 3, tramo Cotapata – Santa Bárbara, como no transitable por un derrumbe (reporte del 8 de noviembre, 07:30). Hay maquinaria trabajando."
+          recomendacion: "Operadores con salidas a Coroico y Yungas: postergar o confirmar estado antes de partir."
+          naturaleza: riesgo
+          categoria: vial
+          prioridad: alta
+          motivos_prioridad: [corte_vial_cierre_aeropuerto_perdida_acceso]
+          departamentos: [La Paz]
+          fuente_oficial: true
+          enlace_oficial: https://transitabilidad.abc.gob.bo/mapa_reporte
+          requiere_revision: true
+          es_escenario: false
+          confianza: 0.9
+      - entrada: |
+          [ABC transitabilidad, 2026-11-08 18:00] Ruta 3 · Tramo Cotapata – Santa Bárbara (La Paz) · Estado: TRANSITABLE
+        salida:
+          accion: actualizar_senal_existente
+          nuevo_estado: cerrada
+          nota_historial: "La ABC reporta el tramo transitable a las 18:00 del 8 de noviembre."
+
+  # ─────────────────── CANAL 4 · TURISMO, EVENTOS Y OPORTUNIDADES ───────────────────
+  - id: minturismo
+    canal: turismo_eventos
+    nombre: Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía · notas de prensa y boletines
+    institucion: Ministerio de Turismo Sostenible, Culturas, Folklore y Gastronomía
+    tipo: oficial
+    url: https://www.turismoyculturas.gob.bo/
+    url_verificacion: encontrada_no_abierta   # ⚠️ NO VERIFICADA: aparece en buscador con notas de 2026; el sitio bloquea lectores automáticos (robots)
+    nota_importante: "Sustituye a 'minculturas.gob.bo' que figura en la semilla de la BD (dato desactualizado). Corregir orbita.sources."
+    urls_secundarias:
+      - url: https://www.turismoyculturas.gob.bo/boletines/
+        uso: boletines
+        url_verificacion: encontrada_no_abierta
+      - url: https://www.turismoyculturas.gob.bo/feed/
+        uso: RSS (el sitio parece WordPress)
+        url_verificacion: no_verificada   # ⚠️ deducida; probar en n8n
+      - url: https://conocebolivia.turismoyculturas.gob.bo/
+        uso: portal Conoce Bolivia (eventos y destinos, semana 3)
+        url_verificacion: encontrada_no_abierta
+      - url: https://www.boltur.gob.bo/blog-de-noticias
+        uso: BolTur, empresa estatal de turismo (paquetes, ferias)
+        url_verificacion: encontrada_no_abierta
+    acceso:
+      metodo: rss
+      alternativa: apify   # si el robots.txt bloquea también al VPS, usar navegador real
+      extraer: "título, fecha, enlace, cuerpo de la nota de prensa"
+    frecuencia_minutos: 180
+    que_buscar:
+      - ferias, festivales, congresos y fechas culturales con fecha
+      - feriados y fines de semana largos (afectan la demanda)
+      - planes, programas, incentivos y convocatorias para el sector turismo
+      - normativa o requisitos para operadores (registro, licencias)
+      - promoción internacional (ferias en el exterior, rutas, acuerdos)
+    palabras_clave: [feria, festival, festividad, carnaval, entrada folklórica, congreso, feriado, Plan Maestro de Turismo, convocatoria, incentivo, fondo, capacitación, registro de prestadores, promoción, nueva ruta, conectividad, patrimonio]
+    descartar: [agenda protocolar sin efecto para el sector, informes de gestión sin medidas]
+    categoria: eventos            # o financiamiento / mercados / conectividad según el contenido
+    naturaleza_por_defecto: oportunidad
+    severidad:
+      alta: "Convocatoria con plazo < 15 días; evento de alto impacto en ≤ 30 días; feriado o medida que cambia la demanda en ≤ 15 días"
+      media: "Evento o programa con fecha próxima (> 30 días); normativa nueva para operadores"
+      baja: "Notas de promoción general sin fecha ni acción"
+    requiere_aprobacion: false    # oportunidad de fuente oficial: se publica en web sola; WhatsApp solo con aprobación o plazo < 15 días
+    verificacion_fidelidad:
+      - "Fechas, plazos y montos solo si están en la nota; si falta el plazo, decir 'plazo no indicado'."
+      - "Si menciona una norma (decreto, resolución), buscarla en la Gaceta Oficial (gaceta_oficial) y enlazarla."
+      - "Proyecciones del Ministerio (p. ej. 'se espera duplicar...') se etiquetan como escenario, no como hecho."
+    ejemplos:
+      - entrada: |
+          [Nota de prensa, 2026-11-04] El Ministerio de Turismo lanza la convocatoria "Emprende Turismo 2026" para financiar a 50 emprendimientos de turismo comunitario. Las postulaciones se reciben hasta el 15 de noviembre en las oficinas departamentales...
+        salida:
+          titulo: "Convocatoria 'Emprende Turismo 2026' para turismo comunitario, cierra el 15 de noviembre"
+          resumen: "El Ministerio de Turismo abrió la convocatoria 'Emprende Turismo 2026' para financiar 50 emprendimientos de turismo comunitario. Postulaciones hasta el 15 de noviembre."
+          recomendacion: "Comunidades y operadores de turismo comunitario: preparar la postulación ya (quedan 11 días)."
+          naturaleza: oportunidad
+          categoria: financiamiento
+          prioridad: alta
+          motivos_prioridad: [convocatoria_plazo_menor_15_dias]
+          departamentos: []
+          alcance_nacional: true
+          plazo_hasta: "2026-11-15T23:59:00-04:00"
+          fuente_oficial: true
+          enlace_oficial: "<URL de la nota>"
+          requiere_revision: false
+          es_escenario: false
+          confianza: 0.9
+      - entrada: |
+          [Nota de prensa, 2026-11-02] Sector turístico respalda el Plan Maestro de Turismo, que busca duplicar el aporte del turismo al PIB hasta 2030.
+        salida:
+          titulo: "Plan Maestro de Turismo: meta de duplicar el aporte al PIB hasta 2030 (escenario)"
+          resumen: "El Ministerio presentó avances del Plan Maestro de Turismo con apoyo del sector. La meta de duplicar el aporte al PIB es una proyección oficial, no un resultado."
+          naturaleza: oportunidad
+          categoria: mercados
+          prioridad: baja
+          motivos_prioridad: []
+          alcance_nacional: true
+          fuente_oficial: true
+          requiere_revision: true     # es escenario → revisión
+          es_escenario: true
+          confianza: 0.8
+
+  # ─────────────────── CANAL 5 · NORMATIVA ───────────────────
+  - id: gaceta_oficial
+    canal: normativa
+    nombre: Gaceta Oficial del Estado Plurinacional de Bolivia
+    institucion: Gaceta Oficial de Bolivia
+    tipo: oficial
+    url: http://www.gacetaoficialdebolivia.gob.bo/normas/buscar
+    url_verificacion: encontrada_no_abierta   # ⚠️ NO VERIFICADA: aparece en buscador; el sitio bloquea lectores automáticos (robots). Solo http.
+    urls_secundarias:
+      - url: http://www.gacetaoficialdebolivia.gob.bo/normas/listadofec
+        uso: listado de normas por fecha de publicación (la mejor entrada para vigilar novedades)
+        url_verificacion: encontrada_no_abierta
+    acceso:
+      metodo: http_html
+      alternativa: apify
+      extraer: "tipo de norma, número, fecha, número de edición, resumen; enlace a la norma (verGratis)"
+    frecuencia_minutos: 1440
+    que_buscar:
+      - decretos supremos, leyes y resoluciones que mencionen turismo, feriados, áreas protegidas, patrimonio, transporte, migración/visas, aeropuertos, emergencias o declaratorias de desastre
+    palabras_clave: [turismo, turístico, feriado, descanso, área protegida, parque nacional, patrimonio, visa, migración, aeropuerto, aerolínea, transporte interdepartamental, emergencia, desastre, declaratoria, tasa, tributo, régimen tributario, incentivo]
+    categoria: mercados
+    naturaleza_por_defecto: mixta
+    severidad:
+      alta: "Norma que cambia ingreso de turistas (visas, requisitos), declara emergencia o desastre en zona turística, o fija feriado en ≤ 15 días"
+      media: "Incentivo, tasa o reglamento que afecta a operadores turísticos"
+      baja: "Norma con mención tangencial al turismo"
+    requiere_aprobacion: false     # normativa oficial; si declara emergencia/desastre pasa a categoria clima o seguridad → revisión obligatoria
+    verificacion_fidelidad:
+      - "Citar tipo, número y fecha exactos de la norma (p. ej. 'Decreto Supremo N° 5521')."
+      - "Resumir solo lo que dice el texto; no interpretar efectos jurídicos más allá de lo literal."
+      - "Si solo se tiene el resumen y no el texto, decirlo."
+    ejemplos:
+      - entrada: |
+          [Gaceta, edición 1950NEC, 2026-11-07] Decreto Supremo N° 5590 · Declara feriado con suspensión de actividades el lunes 17 de noviembre de 2026 en el departamento de Potosí por aniversario departamental.
+        salida:
+          titulo: "Feriado en Potosí el lunes 17 de noviembre (DS 5590): fin de semana largo"
+          resumen: "El Decreto Supremo N° 5590, publicado el 7 de noviembre de 2026, declara feriado el lunes 17 de noviembre en Potosí, lo que genera un fin de semana largo."
+          recomendacion: "Hoteles y operadores de Potosí y Uyuni: anticipar demanda y promociones de fin de semana largo."
+          naturaleza: oportunidad
+          categoria: mercados
+          prioridad: alta
+          motivos_prioridad: [evento_alto_impacto_fecha_proxima]
+          departamentos: [Potosí]
+          fecha_evento_inicio: "2026-11-15T00:00:00-04:00"
+          fecha_evento_fin: "2026-11-17T23:59:00-04:00"
+          fuente_oficial: true
+          enlace_oficial: http://www.gacetaoficialdebolivia.gob.bo/normas/listadofec
+          requiere_revision: false
+          es_escenario: false
+          confianza: 0.95
+
+  # ─────────────────── CANAL 6 · CONECTIVIDAD AÉREA (semana 3) ───────────────────
+  - id: dgac
+    canal: conectividad
+    nombre: DGAC · comunicados y aeropuertos
+    institucion: Dirección General de Aeronáutica Civil
+    tipo: oficial
+    url: https://www.dgac.gob.bo/
+    url_verificacion: no_verificada   # ⚠️ el dominio aparece en buscador (PDF de comunicado 2018), pero no hay evidencia de una sección de avisos actual
+    acceso:
+      metodo: http_html
+      extraer: "comunicados (PDF), cierres de aeropuertos, nuevas rutas autorizadas"
+    frecuencia_minutos: 180
+    que_buscar: [cierre de aeropuerto, suspensión de vuelos por humo/clima, nuevas rutas internacionales o nacionales, nuevas aerolíneas]
+    palabras_clave: [aeropuerto, cierre, NOTAM, suspensión de operaciones, humo, visibilidad, nueva ruta, frecuencia, aerolínea, BoA, EcoJet]
+    categoria: conectividad
+    naturaleza_por_defecto: mixta
+    severidad:
+      alta: "Cierre de aeropuerto turístico (Uyuni, Rurrenabaque, Sucre, Tarija, Viru Viru, El Alto) o nueva ruta internacional"
+      media: "Cambios de frecuencias"
+      baja: "Comunicados administrativos"
+    requiere_aprobacion: true   # cierre de aeropuerto = pérdida de acceso
+    verificacion_fidelidad:
+      - "Confirmar cierres con la aerolínea o el aeropuerto; las rutas nuevas, con la aerolínea."
+    ejemplos: []   # completar cuando se active en semana 3

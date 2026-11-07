@@ -1,0 +1,1271 @@
+<title>ORBITA Vigilante</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: barra lateral de vistas + tablero de paneles en rejilla de 12 columnas (movibles) + asistente acoplable a la derecha.
+   Dirección: noche andina (azul profundo), oro para oportunidades, celeste Titicaca como acento, franja de aguayo como firma. */
+:root{
+  --bg:#0A131E; --surface:#101C2A; --surface2:#162536; --raise:#1B2D41; --line:#22364B; --line2:#2E4660;
+  --ink:#E7EDF4; --muted:#8C9EB3; --faint:#62758B;
+  --accent:#7BC4E8; --accent-ink:#06202E; --accent-soft:rgba(123,196,232,.14);
+  --opp:#E4BE6A; --opp-soft:rgba(228,190,106,.14);
+  --risk:#EE6B62; --risk-soft:rgba(238,107,98,.14);
+  --mix:#B79CF5; --mix-soft:rgba(183,156,245,.15);
+  --ok:#46C285; --ok-soft:rgba(70,194,133,.14);
+  --warn:#F29445; --warn-soft:rgba(242,148,69,.15);
+  --crit:#F0605A; --crit-soft:rgba(240,96,90,.16);
+  --unk:#8D9AAE; --unk-soft:rgba(141,154,174,.15);
+  --mant:#8E9BF5; --mant-soft:rgba(142,155,245,.14);
+  --shadow:0 18px 50px rgba(0,0,0,.45);
+  --f-display:'Newsreader',Georgia,'Times New Roman',serif;
+  --f-body:'Onest','Segoe UI',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --fs:1;
+  --bo-red:#D52B1E; --bo-yel:#F4D21A; --bo-grn:#007A3D;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#F2F4F7; --surface:#FFFFFF; --surface2:#F0F3F7; --raise:#E8EDF3; --line:#DAE1EA; --line2:#C6D0DC;
+    --ink:#132131; --muted:#56677C; --faint:#7D8B9C;
+    --accent:#1B6C9E; --accent-ink:#FFFFFF; --accent-soft:rgba(27,108,158,.10);
+    --opp:#966708; --opp-soft:rgba(150,103,8,.10);
+    --risk:#BF3A30; --risk-soft:rgba(191,58,48,.09);
+    --mix:#6A4BC0; --mix-soft:rgba(106,75,192,.10);
+    --ok:#1D8752; --ok-soft:rgba(29,135,82,.10);
+    --warn:#B45C0D; --warn-soft:rgba(180,92,13,.11);
+    --crit:#C42E27; --crit-soft:rgba(196,46,39,.10);
+    --unk:#66748A; --unk-soft:rgba(102,116,138,.12);
+    --mant:#4F5CC4; --mant-soft:rgba(79,92,196,.10);
+    --shadow:0 16px 40px rgba(20,40,70,.16);
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#F2F4F7; --surface:#FFFFFF; --surface2:#F0F3F7; --raise:#E8EDF3; --line:#DAE1EA; --line2:#C6D0DC;
+  --ink:#132131; --muted:#56677C; --faint:#7D8B9C;
+  --accent:#1B6C9E; --accent-ink:#FFFFFF; --accent-soft:rgba(27,108,158,.10);
+  --opp:#966708; --opp-soft:rgba(150,103,8,.10);
+  --risk:#BF3A30; --risk-soft:rgba(191,58,48,.09);
+  --mix:#6A4BC0; --mix-soft:rgba(106,75,192,.10);
+  --ok:#1D8752; --ok-soft:rgba(29,135,82,.10);
+  --warn:#B45C0D; --warn-soft:rgba(180,92,13,.11);
+  --crit:#C42E27; --crit-soft:rgba(196,46,39,.10);
+  --unk:#66748A; --unk-soft:rgba(102,116,138,.12);
+  --mant:#4F5CC4; --mant-soft:rgba(79,92,196,.10);
+  --shadow:0 16px 40px rgba(20,40,70,.16);
+  color-scheme:light;
+}
+:root[data-contrast="alto"]{ --muted:var(--ink); --faint:var(--ink); --line:var(--line2); }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:calc(14px * var(--fs));line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--surface)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+svg{display:block}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ───────── Shell ───────── */
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100%}
+.side{position:sticky;top:0;height:100vh;height:100dvh;display:flex;flex-direction:column;gap:18px;padding:20px 14px 16px max(14px,env(safe-area-inset-left,0px));background:var(--surface);border-right:1px solid var(--line);overflow-y:auto;z-index:40}
+.brand{display:flex;gap:11px;align-items:center;padding:2px 6px}
+.brand-mark{width:38px;height:38px;color:var(--opp);flex:none}
+.brand-name{font-family:var(--f-display);font-size:22px;font-weight:500;letter-spacing:.02em;line-height:1}
+.brand-name i{color:var(--opp);font-weight:400}
+.brand-cap .bo{display:inline-flex;gap:2px;margin-right:6px;vertical-align:middle}.brand-cap .bo i{width:8px;height:8px;border-radius:2px}
+.brand-cap{font-size:10.5px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+.side-label{font-size:10.5px;letter-spacing:.16em;color:var(--faint);text-transform:uppercase;padding:0 10px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:11px;width:100%;padding:9px 10px;border:1px solid transparent;border-radius:10px;background:none;text-align:left;color:var(--muted);font-weight:500}
+.nav button svg{width:18px;height:18px;flex:none}
+.nav button:hover{background:var(--surface2);color:var(--ink)}
+.nav button.on{background:var(--raise);border-color:var(--line2);color:var(--ink);box-shadow:inset 3px 0 0 var(--bo-red)}
+.nav button.on svg{color:var(--opp)}
+.nav .count{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--faint)}
+.nav .count.hot{color:var(--crit)}
+.views-list{display:flex;flex-direction:column;gap:2px}
+.views-list button{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;border:none;background:none;color:var(--muted);text-align:left;font-size:13px}
+.views-list button:hover{background:var(--surface2);color:var(--ink)}
+.views-list button.on{color:var(--ink)}
+.views-list button .dot{width:7px;height:7px;border-radius:50%;background:var(--line2)}
+.views-list button.on .dot{background:var(--opp)}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.demo-card{border:1px dashed var(--line2);border-radius:12px;padding:10px 12px;font-size:12px;color:var(--muted)}
+.demo-card strong{display:block;color:var(--opp);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.role{display:flex;flex-direction:column;gap:6px}
+.role label{font-size:11px;color:var(--faint);letter-spacing:.1em;text-transform:uppercase;padding:0 2px}
+select,.inp{background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%}
+textarea.inp{resize:vertical;min-height:90px;line-height:1.5}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:12px;padding-block:10px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));flex-wrap:wrap}
+.flag{display:flex;height:5px}.flag i{flex:1}.flag i:nth-child(1){background:var(--bo-red)}.flag i:nth-child(2){background:var(--bo-yel)}.flag i:nth-child(3){background:var(--bo-grn)}
+.aguayo{height:3px;background:repeating-linear-gradient(90deg,var(--risk) 0 18px,var(--opp) 18px 30px,var(--accent) 30px 44px,var(--ok) 44px 52px,var(--mix) 52px 66px,var(--opp) 66px 72px);opacity:.85}
+.crumb{display:flex;gap:8px;align-items:baseline;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);min-width:0}
+.crumb strong{color:var(--ink);font-weight:600}
+.icon-btn.menu-btn{display:none}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.health{display:flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface2);font-size:12px}
+.health .lbl{color:var(--muted);letter-spacing:.06em;margin-right:2px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.04em;white-space:nowrap;border:1px solid transparent}
+.pill .d{width:7px;height:7px;border-radius:50%;background:currentColor}
+.st-OK{color:var(--ok);background:var(--ok-soft)}
+.st-WARN{color:var(--warn);background:var(--warn-soft)}
+.st-CRIT{color:var(--crit);background:var(--crit-soft)}
+.st-UNKNOWN{color:var(--unk);background:var(--unk-soft)}
+.st-MANT{color:var(--mant);background:var(--mant-soft);border-style:dashed;border-color:var(--mant)}
+.nat-oportunidad{color:var(--opp);background:var(--opp-soft)}
+.nat-riesgo{color:var(--risk);background:var(--risk-soft)}
+.nat-mixta{color:var(--mix);background:var(--mix-soft)}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:11.5px;color:var(--muted);background:var(--surface2);border:1px solid var(--line);white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1px solid var(--line2);background:var(--surface2);font-weight:600;font-size:13px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn svg{width:16px;height:16px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.gold{background:var(--opp);color:#1D1404;border-color:var(--opp)}
+.btn.ghost{background:none}
+.btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+.btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.icon-btn{width:34px;height:34px;display:inline-grid;place-items:center;border-radius:9px;border:1px solid var(--line);background:var(--surface2);color:var(--muted)}
+.icon-btn:hover{color:var(--ink);border-color:var(--line2)}
+.icon-btn svg{width:17px;height:17px}
+.kbd{font-family:var(--f-mono);font-size:10.5px;padding:1px 5px;border:1px solid var(--line2);border-radius:4px;color:var(--faint)}
+
+.content{padding-block:22px 40px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px;min-width:0}
+.content.with-chat{padding-right:max(20px,env(safe-area-inset-right,0px))}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--opp);font-weight:600;display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:"";width:24px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--bo-red) 0 33%,var(--bo-yel) 33% 66%,var(--bo-grn) 66%)}
+h1{font-family:var(--f-display);font-weight:500;font-size:calc(34px * var(--fs));line-height:1.1;margin:6px 0 4px;text-wrap:balance;letter-spacing:-.01em}
+h1 em{color:var(--opp);font-weight:400}
+.sub{color:var(--muted);max-width:68ch;margin:0}
+.head-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.updated{font-size:12px;color:var(--faint)}
+
+/* ───────── Tablero ───────── */
+.edit-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px dashed var(--accent);background:var(--accent-soft);border-radius:12px;font-size:13px}
+.edit-bar strong{color:var(--accent)}
+.board{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;align-items:stretch}
+.panel{grid-column:span var(--w,4);background:var(--surface);border:1px solid var(--line);border-radius:16px;min-width:0;display:flex;flex-direction:column;transition:border-color .15s, transform .15s}
+.panel-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.panel-h h2{font-size:14.5px;font-weight:600;margin:0;display:flex;align-items:center;gap:8px;min-width:0}
+.panel-h h2 svg{width:17px;height:17px;color:var(--opp);flex:none}
+.panel-h .meta{margin-left:auto;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+.panel-b{padding:14px 16px;min-width:0}
+.panel-tools{display:none;margin-left:auto;gap:4px}
+.editing .panel-tools{display:flex}
+.editing .panel-h .meta{display:none}
+.editing .panel{border-style:dashed;border-color:var(--line2)}
+.editing .panel:hover{border-color:var(--accent)}
+.panel-tools button{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;border:1px solid var(--line);background:var(--surface2);color:var(--muted)}
+.panel-tools button:hover{color:var(--ink);border-color:var(--accent)}
+.panel-tools button svg{width:15px;height:15px}
+.grip{display:none;cursor:grab;color:var(--faint)}
+.editing .grip{display:block}
+.panel.dragging{opacity:.4}
+.panel.drop-before{box-shadow:-4px 0 0 0 var(--accent)}
+.panel.drop-after{box-shadow:4px 0 0 0 var(--accent)}
+.add-tile{grid-column:span 4;border:1.5px dashed var(--line2);border-radius:16px;min-height:120px;display:grid;place-items:center;color:var(--muted);background:none;gap:6px;padding:18px}
+.add-tile:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Síntesis */
+.synth{display:flex;flex-direction:column;gap:12px}
+.synth blockquote{margin:0;padding-left:14px;border-left:2px solid var(--opp);font-family:var(--f-display);font-size:calc(21px * var(--fs));line-height:1.3;text-wrap:balance}
+.synth p{margin:0;color:var(--muted);max-width:70ch}
+.synth p b{color:var(--ink);font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.kpi{padding:10px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--line)}
+.kpi small{display:block;color:var(--muted);font-size:11.5px}
+.kpi b{font-family:var(--f-display);font-weight:500;font-size:calc(28px * var(--fs));line-height:1.15}
+.kpi em{display:block;font-style:normal;font-size:11.5px;color:var(--faint)}
+
+/* Pulso */
+.gauges{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.gauge svg{width:118px;height:118px}
+.gauge .lab{font-size:12px;color:var(--muted)}
+.gauge .lv{font-family:var(--f-display);font-size:16px}
+.scale{margin-top:12px}
+.scale-bar{height:6px;border-radius:6px;background:linear-gradient(90deg,var(--ok),var(--opp),var(--warn),var(--crit));position:relative}
+.scale-bar i{position:absolute;top:-4px;width:4px;height:14px;border-radius:2px;background:var(--ink);transform:translateX(-50%)}
+.scale-l{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:5px}
+
+/* Matriz de fuentes */
+.src-matrix{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.src-chip{display:flex;flex-direction:column;gap:6px;padding:9px 10px;border-radius:11px;border:1px solid var(--line);background:var(--surface2);text-align:left}
+.src-chip:hover{border-color:var(--line2)}
+.src-chip .n{font-size:12.5px;font-weight:600;line-height:1.25}
+.src-chip .r{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.src-chip .t{font-size:11px;color:var(--faint)}
+.histo{display:flex;gap:2px;height:14px;align-items:stretch}
+.histo i{flex:1;border-radius:2px;min-width:2px}
+.h-OK{background:var(--ok)} .h-WARN{background:var(--warn)} .h-CRIT{background:var(--crit)} .h-UNKNOWN{background:var(--unk)} .h-MANT{background:var(--mant);opacity:.5}
+
+/* Cadena */
+.chain{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;position:relative}
+.chain::before{content:"";position:absolute;left:24px;right:24px;top:22px;border-top:1.5px dashed var(--line2)}
+.link{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:0;text-align:center}
+.link .ic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1.5px solid var(--line2)}
+.link .ic svg{width:19px;height:19px}
+.link b{font-family:var(--f-display);font-weight:500;font-size:calc(24px * var(--fs));line-height:1.1}
+.link small{font-size:11.5px;color:var(--muted);line-height:1.25}
+.chain-note{margin-top:12px;font-size:12px;color:var(--muted);padding:9px 11px;border-radius:9px;background:var(--surface2)}
+
+/* Listas de señales */
+.sig-list{display:flex;flex-direction:column}
+.sig{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);text-align:left;background:none;border-left:none;border-right:none;border-top:none;width:100%}
+.sig:last-child{border-bottom:none}
+.sig:hover .sig-t{color:var(--accent)}
+.bar{border-radius:3px}
+.bar.alta{background:var(--crit)} .bar.media{background:var(--warn)} .bar.baja{background:var(--accent)}
+.bar.oportunidad{background:var(--opp)}
+.sig-t{font-weight:600;line-height:1.35;margin-bottom:4px}
+.sig-m{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.sig-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:11.5px;color:var(--faint);white-space:nowrap}
+.score{font-family:var(--f-mono);font-size:12px;color:var(--ink)}
+.empty{padding:22px 10px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);margin-bottom:4px}
+
+/* Mapa */
+.bomap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(5,58px);gap:6px}
+.dep{border-radius:10px;border:1px solid var(--line);background:var(--surface2);padding:7px 9px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;position:relative;overflow:hidden;min-width:0}
+.dep:hover{border-color:var(--accent)}
+.dep .dn{font-size:12px;font-weight:600;line-height:1.15}
+.dep .dc{display:flex;gap:8px;font-family:var(--f-mono);font-size:11px}
+.dep .dc .o{color:var(--opp)} .dep .dc .r{color:var(--risk)}
+.dep .heat{position:absolute;inset:0;pointer-events:none}
+.map-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:10px}
+.map-legend span{display:inline-flex;gap:5px;align-items:center}
+.map-legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* Gráfica */
+.chart-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:6px}
+.chart-legend span{display:inline-flex;gap:6px;align-items:center}
+.chart-legend i{width:10px;height:3px;border-radius:2px}
+.chart svg{width:100%;height:auto}
+.chart text{fill:var(--faint);font-family:var(--f-mono);font-size:10px}
+.chart-note{font-size:11.5px;color:var(--faint);margin-top:6px}
+
+/* Actividad */
+.events{display:flex;flex-direction:column;gap:0}
+.ev{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;align-items:start}
+.ev:last-child{border-bottom:none}
+.ev time{font-family:var(--f-mono);font-size:11px;color:var(--faint);white-space:nowrap}
+.ev .what{min-width:0}
+.ev .what small{display:block;color:var(--muted);font-size:11.5px}
+
+/* Temas */
+.topics{display:flex;flex-direction:column;gap:10px}
+.topic{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center}
+.topic .tn{font-size:13px;font-weight:500;line-height:1.3}
+.topic .tv{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.topic .tb{grid-column:1/-1;height:5px;border-radius:5px;background:var(--surface2);overflow:hidden}
+.topic .tb i{display:block;height:100%;border-radius:5px}
+.up{color:var(--ok)} .down{color:var(--risk)}
+
+/* Barras */
+.hbars{display:flex;flex-direction:column;gap:8px}
+.hb{display:grid;grid-template-columns:110px minmax(0,1fr) 34px;gap:8px;align-items:center;font-size:12.5px}
+.hb .track{height:10px;border-radius:3px;background:var(--surface2);display:flex;overflow:hidden}
+.hb .track i{display:block;height:100%}
+.hb .v{font-family:var(--f-mono);font-size:11.5px;text-align:right;color:var(--muted)}
+
+/* Decisiones */
+.dec{display:flex;flex-direction:column;gap:10px}
+.dec-item{border:1px solid var(--line);border-radius:12px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;background:var(--surface2)}
+.dec-item .row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.dec-item .tt{font-weight:600;line-height:1.35}
+.sla{font-family:var(--f-mono);font-size:11.5px;color:var(--warn)}
+.dec-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ───────── Fuentes (estilo Nagios) ───────── */
+.nag-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.nag-box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);text-align:left;display:flex;flex-direction:column;gap:2px}
+.nag-box b{font-family:var(--f-display);font-size:calc(30px * var(--fs));font-weight:500;line-height:1.1}
+.nag-box small{font-size:12px;color:var(--muted)}
+.nag-box.on{border-color:currentColor;box-shadow:inset 0 0 0 1px currentColor}
+.nag-box.st-OK,.nag-box.st-WARN,.nag-box.st-CRIT,.nag-box.st-UNKNOWN,.nag-box.st-MANT{background:var(--surface)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:920px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13px}
+th{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:600;background:var(--surface2);position:sticky;top:0}
+tr:last-child td{border-bottom:none}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--surface2)}
+td .srcname{font-weight:600}
+td .srcurl{font-family:var(--f-mono);font-size:11px;color:var(--faint);word-break:break-all}
+td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width:340px}
+.ack{font-size:11px;color:var(--accent)}
+.flap{font-size:11px;color:var(--mix)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toolbar .inp{width:auto;min-width:200px;flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface2)}
+.seg button{border:none;background:none;padding:7px 11px;font-size:12.5px;color:var(--muted)}
+.seg button.on{background:var(--raise);color:var(--ink)}
+.seg button+button{border-left:1px solid var(--line)}
+
+/* ───────── Señales (tubería) ───────── */
+.pipe{display:grid;grid-template-columns:repeat(6,minmax(220px,1fr));gap:12px;overflow-x:auto;padding-bottom:6px}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-width:0}
+.stage-h{padding:11px 13px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stage-h b{font-family:var(--f-mono);color:var(--ink)}
+.stage-b{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:80px}
+.stage.drop{border-color:var(--accent);background:var(--accent-soft)}
+.card{border:1px solid var(--line);border-radius:12px;background:var(--surface2);padding:10px 11px;text-align:left;display:flex;flex-direction:column;gap:7px;width:100%}
+.card:hover{border-color:var(--line2)}
+.card .ct{font-weight:600;font-size:13px;line-height:1.35}
+.card .cm{display:flex;gap:5px;flex-wrap:wrap}
+.card .cf{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
+.card[draggable="true"]{cursor:grab}
+
+/* Oportunidades */
+.opp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.opp{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.opp .ot{font-family:var(--f-display);font-size:calc(19px * var(--fs));line-height:1.25;font-weight:500;text-wrap:balance}
+.opp .od{color:var(--muted);font-size:13px;margin:0}
+.countdown{display:flex;align-items:baseline;gap:6px}
+.countdown b{font-family:var(--f-display);font-size:30px;font-weight:500;color:var(--opp);line-height:1}
+.countdown small{color:var(--muted);font-size:12px}
+.actors{display:flex;gap:5px;flex-wrap:wrap}
+.propose{border-top:1px solid var(--line);padding-top:10px;font-size:13px}
+.propose b{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+
+/* Análisis */
+.an-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;align-items:start}
+.an-types{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.an-type{border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;background:var(--surface2);display:flex;flex-direction:column;gap:3px}
+.an-type b{font-size:13px}
+.an-type small{font-size:11.5px;color:var(--muted);line-height:1.35}
+.an-type.on{border-color:var(--opp);box-shadow:inset 0 0 0 1px var(--opp)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+.out{white-space:pre-wrap;line-height:1.6;font-size:calc(14px * var(--fs))}
+.out h3,.out h4{font-family:var(--f-display);font-weight:500;margin:14px 0 4px}
+.eval{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.eval div{background:var(--surface2);border-radius:10px;padding:8px 10px}
+.eval small{display:block;font-size:11px;color:var(--muted)}
+.eval b{font-family:var(--f-mono);font-size:15px}
+.note{font-size:12px;color:var(--faint)}
+
+/* Drawer */
+.scrim{position:fixed;inset:0;background:rgba(3,8,14,.55);z-index:70}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--surface);border-left:1px solid var(--line);z-index:80;display:flex;flex-direction:column;box-shadow:var(--shadow);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.drawer-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.drawer-h .icon-btn{margin-left:auto}
+.drawer-b{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.drawer-b h2{font-family:var(--f-display);font-weight:500;font-size:calc(25px * var(--fs));line-height:1.2;margin:0;text-wrap:balance}
+.lead{color:var(--muted);margin:0}
+.dl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dl div{background:var(--surface2);border-radius:10px;padding:9px 11px}
+.dl small{display:block;font-size:11px;color:var(--muted)}
+.dl b{font-weight:600;font-size:13.5px}
+.sect{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-top:4px}
+.evi{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-size:13px}
+.evi svg{width:16px;height:16px;flex:none;margin-top:2px;color:var(--ok)}
+.evi.pend svg{color:var(--warn)}
+.evi small{display:block;color:var(--faint);font-family:var(--f-mono);font-size:11px;word-break:break-all}
+.sol{display:flex;gap:10px;padding:10px 12px;border-radius:10px;background:var(--opp-soft);border:1px solid transparent;cursor:pointer;align-items:flex-start}
+.sol input{margin-top:4px;accent-color:var(--opp)}
+.sol b{display:block;font-size:13.5px}
+.sol small{color:var(--muted);font-size:12.5px}
+.lock{font-size:12px;color:var(--faint);display:flex;gap:6px;align-items:center;border-top:1px solid var(--line);padding-top:10px}
+.checks{display:flex;flex-direction:column;gap:6px}
+.check{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:13px}
+.check small{display:block;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+
+/* Búsqueda */
+.search{position:fixed;inset:0;z-index:90;display:grid;place-items:start center;padding:12vh 16px 16px;background:rgba(3,8,14,.55)}
+.search-box{width:min(620px,100%);background:var(--surface);border:1px solid var(--line2);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.search-top{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.search-top input{border:none;background:none;outline:none;flex:1;font-size:16px}
+.search-res{max-height:50vh;overflow-y:auto;padding:6px}
+.sres{display:flex;gap:10px;align-items:center;width:100%;padding:9px 10px;border-radius:9px;border:none;background:none;text-align:left}
+.sres:hover,.sres.on{background:var(--surface2)}
+.sres small{display:block;color:var(--muted);font-size:12px}
+.sres .k{margin-left:auto;font-size:11px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase}
+
+/* Catálogo de paneles */
+.catalog{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cat-item{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);text-align:left}
+.cat-item b{font-size:13.5px;display:flex;gap:7px;align-items:center}
+.cat-item b svg{width:16px;height:16px;color:var(--opp)}
+.cat-item small{color:var(--muted);font-size:12px;line-height:1.35}
+.cat-item.in{opacity:.55}
+.cat-item.in b::after{content:"en el tablero";margin-left:auto;font-size:10.5px;font-weight:500;color:var(--faint);letter-spacing:.06em}
+
+/* Asistente */
+.chat-fab{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:50;display:flex;align-items:center;gap:9px;padding:11px 16px 11px 12px;border-radius:999px;border:1px solid var(--opp);background:var(--surface);box-shadow:var(--shadow);font-weight:600}
+.chat-fab .av{width:28px;height:28px}
+.chat{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(410px,calc(100% - 32px));height:min(640px,calc(100% - 100px));z-index:55;background:var(--surface);border:1px solid var(--line2);border-radius:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.chat.docked{top:calc(env(safe-area-inset-top,0px) + 70px);height:auto}
+.chat-h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:move;user-select:none}
+.chat-h .av{width:32px;height:32px;flex:none}
+.chat-h b{display:block;font-size:14px}
+.chat-h small{display:block;font-size:11.5px;color:var(--muted)}
+.chat-h .tools{margin-left:auto;display:flex;gap:4px}
+.chat-h .tools .icon-btn{width:30px;height:30px}
+.chat-log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:9px 12px;border-radius:14px;line-height:1.5;font-size:calc(13.5px * var(--fs));white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.u{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:4px}
+.msg.a{align-self:flex-start;background:var(--surface2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.sys{align-self:center;background:none;color:var(--faint);font-size:11.5px;padding:2px}
+.msg .act{display:block;margin-top:6px;font-size:11.5px;color:var(--opp)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 10px}
+.chip{border:1px solid var(--line2);background:none;border-radius:999px;padding:5px 10px;font-size:12px;color:var(--muted)}
+.chip:hover{color:var(--ink);border-color:var(--opp)}
+.chat-f{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);padding-bottom:10px}
+.chat-f textarea{flex:1;min-height:42px;max-height:120px;resize:none;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.mode-note{font-size:11px;color:var(--faint);padding:0 14px 8px}
+
+/* Avisos */
+.toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:100;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(520px,calc(100% - 32px))}
+.toast{pointer-events:auto;background:var(--raise);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;font-size:13px;box-shadow:var(--shadow);display:flex;gap:9px;align-items:center}
+.toast svg{width:16px;height:16px;color:var(--ok);flex:none}
+.foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--faint);border-top:1px solid var(--line);padding-top:14px;margin-top:6px}
+
+/* Modo sencillo */
+.simple .tech{display:none!important}
+
+@media (max-width:1180px){
+  .panel{grid-column:span max(6, var(--w,4))}
+  .panel[style*="--w:12"]{grid-column:span 12}
+  .nag-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .an-grid{grid-template-columns:1fr}
+}
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;bottom:0;width:260px;transform:translateX(-100%);transition:transform .2s;box-shadow:var(--shadow)}
+  .side.open{transform:none}
+  .icon-btn.menu-btn{display:inline-grid}
+  .chat-fab span.fl{display:none}
+  .top-in{gap:8px}
+  .panel,.add-tile{grid-column:span 12!important}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .health .lbl{display:none}
+  h1{font-size:calc(27px * var(--fs))}
+  .catalog,.an-types{grid-template-columns:1fr}
+  .nag-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .top-right .hide-sm{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.live .d{animation:pulse 1.8s infinite}
+@keyframes flash{from{background:var(--accent-soft)}to{background:transparent}}
+.flash{animation:flash 1.6s ease-out}
+</style>
+
+<div class="shell" id="shell">
+  <aside class="side" id="side" aria-label="Navegación">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true"><circle cx="22" cy="22" r="18" stroke="var(--bo-red)" stroke-width="2" stroke-dasharray="37.7 75.4" transform="rotate(-90 22 22)"/><circle cx="22" cy="22" r="18" stroke="var(--bo-yel)" stroke-width="2" stroke-dasharray="0 37.7 37.7 37.7" transform="rotate(-90 22 22)"/><circle cx="22" cy="22" r="18" stroke="var(--bo-grn)" stroke-width="2" stroke-dasharray="0 75.4 37.7 0" transform="rotate(-90 22 22)"/><ellipse cx="22" cy="22" rx="18" ry="7" stroke="currentColor" stroke-width="1.3" transform="rotate(-24 22 22)"/><circle cx="22" cy="22" r="6.5" fill="currentColor" opacity=".18"/><circle cx="22" cy="22" r="3.4" fill="currentColor"/><circle cx="37.5" cy="14.8" r="2.2" fill="currentColor"/></svg>
+      <div><div class="brand-name">ORBITA <i>Vigilante</i></div><div class="brand-cap"><span class="bo" aria-hidden="true"><i style="background:var(--bo-red)"></i><i style="background:var(--bo-yel)"></i><i style="background:var(--bo-grn)"></i></span>Turismo · Bolivia</div></div>
+    </div>
+    <div class="side-label">Vistas</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-label">Tableros guardados</div>
+    <div class="views-list" id="presets"></div>
+    <div class="side-foot">
+      <div class="role">
+        <label for="role">Entrar como</label>
+        <select id="role">
+          <option value="visor">Visor (consulta)</option>
+          <option value="analista" selected>Analista (verifica y decide)</option>
+          <option value="admin">Administrador (fuentes y equipo)</option>
+        </select>
+      </div>
+      <div class="demo-card"><strong>Demostración</strong>Todas las señales, cifras y estados son ejemplos inventados. Las URL de fuentes son las del catálogo real.</div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <div class="top-in">
+        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Abrir menú"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        <div class="crumb"><span class="hide-sm">ORBITA</span><span class="hide-sm">/</span><strong id="crumb">Panorama</strong></div>
+        <div class="top-right">
+          <button class="health" id="healthBtn" title="Estado de las fuentes vigiladas"><span class="lbl">FUENTES</span><span id="healthPills"></span></button>
+          <button class="pill st-OK live hide-sm" id="liveBtn" title="Pausar o reanudar la simulación de comprobaciones"><span class="d"></span><span id="liveTxt">Simulación activa</span></button>
+          <button class="icon-btn" id="searchBtn" aria-label="Buscar (Ctrl+K)" title="Buscar (Ctrl+K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button>
+          <button class="icon-btn hide-sm" id="fontDown" aria-label="Reducir texto" title="Reducir texto"><span style="font-size:12px;font-weight:700">A−</span></button>
+          <button class="icon-btn hide-sm" id="fontUp" aria-label="Aumentar texto" title="Aumentar texto"><span style="font-size:15px;font-weight:700">A+</span></button>
+          <button class="icon-btn" id="a11yBtn" aria-label="Accesibilidad y apariencia" title="Accesibilidad y apariencia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="4.5" r="1.8"/><path d="M5 8.5c2.3.7 4.6 1 7 1s4.7-.3 7-1M12 9.5V14m0 0-3 6m3-6 3 6"/></svg></button>
+        </div>
+      </div>
+      <div class="flag" aria-hidden="true"><i></i><i></i><i></i></div><div class="aguayo" aria-hidden="true"></div>
+    </header>
+    <main class="content" id="view" tabindex="-1"></main>
+  </div>
+</div>
+
+<button class="chat-fab" id="chatFab" aria-label="Abrir el asistente AVIA"><svg class="av" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--opp-soft)" stroke="var(--opp)"/><path d="M10 22 16 10l6 12M12.2 17.6h7.6" stroke="var(--opp)" stroke-width="2" stroke-linecap="round"/></svg><span class="fl">Pregunta a AVIA</span></button>
+<section class="chat" id="chat" hidden aria-label="Asistente AVIA">
+  <div class="chat-h" id="chatHead">
+    <svg class="av" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--opp-soft)" stroke="var(--opp)"/><path d="M10 22 16 10l6 12M12.2 17.6h7.6" stroke="var(--opp)" stroke-width="2" stroke-linecap="round"/></svg>
+    <div><b>AVIA</b><small id="chatMode">Asistente del observatorio</small></div>
+    <div class="tools">
+      <button class="icon-btn" id="chatDock" aria-label="Acoplar o soltar" title="Acoplar a la derecha / flotante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15"/></svg></button>
+      <button class="icon-btn" id="chatClear" aria-label="Nueva conversación" title="Nueva conversación"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg></button>
+      <button class="icon-btn" id="chatClose" aria-label="Cerrar asistente" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </div>
+  </div>
+  <div class="chat-log" id="chatLog" aria-live="polite"></div>
+  <div class="chips" id="chatChips"></div>
+  <div class="mode-note" id="chatNote"></div>
+  <form class="chat-f" id="chatForm">
+    <label class="sr" for="chatIn">Mensaje para AVIA</label>
+    <textarea id="chatIn" placeholder="Pregunta, pide un análisis o di «añade el mapa»…" rows="1"></textarea>
+    <button class="btn primary" id="chatSend" type="submit">Enviar</button>
+  </form>
+</section>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden role="dialog" aria-modal="true" aria-label="Detalle"></aside>
+<div class="search" id="search" hidden role="dialog" aria-modal="true" aria-label="Buscar">
+  <div class="search-box">
+    <div class="search-top"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><input id="searchIn" type="search" placeholder="Buscar señales, fuentes, destinos, paneles…" autocomplete="off" aria-label="Buscar"><span class="kbd">ESC</span></div>
+    <div class="search-res" id="searchRes"></div>
+  </div>
+</div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const store={get(k,f){try{const v=JSON.parse(localStorage.getItem('orbita-vig-'+k));return v??f}catch{return f}},set(k,v){try{localStorage.setItem('orbita-vig-'+k,JSON.stringify(v))}catch{}}};
+
+/* ───────── Iconos ───────── */
+const IC={
+  panorama:'<rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/>',
+  fuentes:'<circle cx="12" cy="12" r="2"/><path d="M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 19a10 10 0 0 1 0-14M19 5a10 10 0 0 1 0 14"/>',
+  senales:'<path d="M3 12h4l2.5-6 5 12 2.5-6h4"/>',
+  oportunidades:'<path d="M12 3.5 14.6 9l6 .7-4.5 4.1 1.2 5.9L12 16.8 6.7 19.7l1.2-5.9L3.4 9.7l6-.7Z"/>',
+  analisis:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  bitacora:'<path d="M6 3.5h10l3 3v14H6z"/><path d="M9.5 9h6M9.5 13h6M9.5 17h4"/>',
+  mapa:'<path d="m9 4-5.5 2v14L9 18l6 2 5.5-2V4L15 6Z"/><path d="M9 4v14M15 6v14"/>',
+  pulso:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>',
+  cadena:'<path d="M9.5 14.5 14.5 9.5"/><path d="M11 6.5 12.6 5a3.9 3.9 0 0 1 5.5 5.5L16.5 12M13 17.5 11.4 19a3.9 3.9 0 0 1-5.5-5.5L7.5 12"/>',
+  riesgo:'<path d="M12 4 21 19.5H3Z"/><path d="M12 10v4M12 17h.01"/>',
+  decision:'<path d="M5 12.5 9.5 17 19 7.5"/>',
+  actividad:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.5 2"/>',
+  temas:'<circle cx="8" cy="9" r="4"/><circle cx="16.5" cy="9.5" r="3"/><circle cx="12.5" cy="16.5" r="3.5"/>',
+  sintesis:'<path d="M12 3.5 13.8 9 19.5 10.5 13.8 12.3 12 18 10.2 12.3 4.5 10.5 10.2 9Z"/><path d="M19 16.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8Z"/>',
+  categorias:'<rect x="4" y="5" width="12" height="3" rx="1"/><rect x="4" y="10.5" width="16" height="3" rx="1"/><rect x="4" y="16" width="8" height="3" rx="1"/>',
+  grip:'<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>',
+  left:'<path d="m14.5 6-6 6 6 6"/>', right:'<path d="m9.5 6 6 6-6 6"/>',
+  wider:'<path d="M3.5 12h17M7 8.5 3.5 12 7 15.5M17 8.5l3.5 3.5-3.5 3.5"/>',
+  close:'<path d="m6 6 12 12M18 6 6 18"/>', plus:'<path d="M12 5v14M5 12h14"/>',
+  edit:'<path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/>',
+  check:'<path d="M5 12.5 9.5 17 19 7.5"/>', shield:'<path d="M12 3.5 19 6v5.5c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6Z"/><path d="m9 12 2 2 4-4"/>',
+  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', refresh:'<path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4h-4"/>',
+  save:'<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>', reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/>',
+  spark:'<path d="M12 3.5 13.8 9 19.5 10.5 13.8 12.3 12 18 10.2 12.3 4.5 10.5 10.2 9Z"/>',
+  eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>',
+  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'
+};
+const ico=(n,cls='')=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]||IC.spark}</svg>`;
+
+/* ───────── Datos de ejemplo (ficticios) ───────── */
+const DEPS=['La Paz','Cochabamba','Santa Cruz','Oruro','Potosí','Chuquisaca','Tarija','Beni','Pando'];
+const CATS={clima:'Clima',salud:'Salud',vial:'Vial',seguridad:'Seguridad',conectividad:'Conectividad',eventos:'Eventos',financiacion:'Financiación',mercado:'Mercado y demanda',normativa:'Normativa'};
+const STAGES=[['detectada','Detectada'],['en_analisis','En análisis'],['en_verificacion','En verificación'],['confirmada','Confirmada'],['publicada','Publicada'],['descartada','Descartada']];
+const STL=Object.fromEntries(STAGES);
+const STATE_TXT={OK:'OK',WARN:'AVISO',CRIT:'CRÍTICO',UNKNOWN:'DESCONOCIDO',MANT:'MANTENIMIENTO'};
+
+const h24=(pattern)=>pattern.split('').map(c=>({o:'OK',w:'WARN',c:'CRIT',u:'UNKNOWN',m:'MANT'}[c]));
+let SOURCES=[
+ {id:'senamhi_alertas',nombre:'SENAMHI · alertas meteorológicas',canal:'clima',tipo:'oficial',url:'https://senamhi.gob.bo/alertas3.php',metodo:'HTML (tabla) + PDF',freq:30,estado:'OK',info:'HTTP 200 · tabla con 41 avisos · 1 nuevo (N° 41/26)',lat:1240,items:3,desde:180,hist:h24('oooooooooooowwoooooooooo'),verif:'verificada'},
+ {id:'minsalud',nombre:'Ministerio de Salud y Deportes',canal:'salud',tipo:'oficial',url:'https://www.minsalud.gob.bo/',metodo:'HTML (sin RSS)',freq:60,estado:'WARN',info:'HTTP 200 · el selector de comunicados no devolvió filas (¿cambió la página?)',lat:3320,items:0,desde:95,hist:h24('oooooooooooooooooooowwww'),verif:'verificada'},
+ {id:'ops_alertas',nombre:'OPS/OMS · alertas epidemiológicas',canal:'salud',tipo:'oficial',url:'https://www.paho.org/es/alertas-actualizaciones-epidemiologicas',metodo:'RSS general + filtro país',freq:60,estado:'OK',info:'RSS 200 · 2 entradas nuevas · 1 menciona Bolivia',lat:640,items:2,desde:720,hist:h24('oooooooooooooooooooooooo'),verif:'verificada'},
+ {id:'abc_caminos',nombre:'ABC · transitabilidad vial',canal:'vial',tipo:'oficial',url:'https://transitabilidad.abc.gob.bo/mapa_reporte',metodo:'Navegador (Apify)',freq:30,estado:'CRIT',info:'Tiempo de espera agotado (30 s) en 3 de 3 intentos',lat:30000,items:0,desde:48,hist:h24('ooooowooooowoooowooccccc'),verif:'no abierta',flap:true},
+ {id:'minturismo',nombre:'Min. de Turismo Sostenible, Culturas…',canal:'eventos',tipo:'oficial',url:'https://www.turismoyculturas.gob.bo/',metodo:'HTML',freq:120,estado:'WARN',info:'HTTP 200 en 8,4 s (umbral 5 s) · 1 nota nueva',lat:8400,items:1,desde:30,hist:h24('oooooowoooooooooooooowww'),verif:'no abierta'},
+ {id:'gaceta_oficial',nombre:'Gaceta Oficial del Estado',canal:'normativa',tipo:'oficial',url:'http://www.gacetaoficialdebolivia.gob.bo/normas/buscar',metodo:'HTML',freq:360,estado:'OK',info:'HTTP 200 · 4 normas publicadas hoy · 1 sobre turismo',lat:2100,items:1,desde:1440,hist:h24('oooooooooooooooooooooooo'),verif:'no abierta'},
+ {id:'dgac',nombre:'DGAC · comunicados y aeropuertos',canal:'conectividad',tipo:'oficial',url:'https://www.dgac.gob.bo/',metodo:'HTML',freq:120,estado:'UNKNOWN',info:'Sin comprobar: falta confirmar la URL de comunicados',lat:null,items:0,desde:300,hist:h24('uuuuuuuuuuuuuuuuuuuuuuuu'),verif:'por confirmar'},
+ {id:'orbita',nombre:'ORBITA · convocatorias y fondos',canal:'financiacion',tipo:'aliado',url:'https://orbita.bo/',metodo:'HTML',freq:240,estado:'OK',info:'HTTP 200 · 2 convocatorias abiertas',lat:900,items:2,desde:2880,hist:h24('oooooooooooooooooooooooo'),verif:'por confirmar'},
+ {id:'multilaterales',nombre:'CAF · BID · PNUD (licitaciones)',canal:'financiacion',tipo:'oficial',url:'https://www.caf.com/es/convocatorias/',metodo:'HTML + RSS',freq:360,estado:'OK',info:'3 sitios OK · 1 convocatoria nueva para Bolivia',lat:1800,items:1,desde:600,hist:h24('oooooooooooooooooooooooo'),verif:'por confirmar'},
+ {id:'prensa',nombre:'Prensa nacional (Google News RSS)',canal:'mercado',tipo:'prensa',url:'https://news.google.com/rss/search?q=turismo+Bolivia&hl=es-419',metodo:'RSS',freq:30,estado:'OK',info:'RSS 200 · 37 notas · 6 pasan el filtro de ruido',lat:520,items:6,desde:900,hist:h24('oooooooooooooooooooooooo'),verif:'verificada'},
+ {id:'tavily',nombre:'Búsqueda abierta (Tavily)',canal:'mercado',tipo:'buscador',url:'https://api.tavily.com',metodo:'API',freq:180,estado:'OK',info:'API 200 · 12 resultados · 2 temas nuevos',lat:1450,items:2,desde:420,hist:h24('oooooooooooooooooooooooo'),verif:'API'},
+ {id:'rrss',nombre:'Redes sociales (temas vivos)',canal:'mercado',tipo:'social',url:'—',metodo:'AVIA + n8n',freq:60,estado:'MANT',info:'En construcción: calibrando temas y deriva',lat:null,items:0,desde:4320,hist:h24('mmmmmmmmmmmmmmmmmmmmmmmm'),verif:'en construcción'}
+];
+
+let SIGNALS=[
+ {id:'SEN-0418',titulo:'Alerta naranja por lluvias fuertes en Yungas y Rurrenabaque (4 al 6 nov)',resumen:'Aviso de ejemplo: lluvias de moderada a fuerte intensidad con granizo y tormenta eléctrica; acumulados de 40 a 70 mm del 4 al 6 de noviembre.',naturaleza:'riesgo',categoria:'clima',deps:['La Paz','Beni'],destinos:['Coroico','Rurrenabaque'],estado:'confirmada',prioridad:'alta',rel:9,nov:8,conf:.92,fuentes:['senamhi_alertas','prensa'],corr:2,min:34,importancia:'Coincide con salidas de fin de semana largo hacia Coroico y con circuitos fluviales en Rurrenabaque. Afecta la carretera de Yungas y las salidas por río.',soluciones:[{t:'Avisar a operadores de Yungas y Rurrenabaque',d:'Mensaje con vigencia, zonas y recomendación de reprogramar salidas por río.'},{t:'Sugerir destinos alternativos',d:'Proponer Samaipata o Sucre a agencias con grupos ya vendidos.'},{t:'Seguir el aviso hasta su cierre',d:'Comparar con el siguiente aviso de SENAMHI y actualizar el estado.'}]},
+ {id:'SEN-0417',titulo:'CAF abre fondo para turismo comunitario con cierre en 12 días',resumen:'Convocatoria de ejemplo para proyectos de turismo comunitario y sostenible en países andinos, con montos de hasta USD 80 000 por propuesta.',naturaleza:'oportunidad',categoria:'financiacion',deps:['La Paz','Potosí','Beni','Santa Cruz'],destinos:['Lago Titicaca','Uyuni','Madidi'],estado:'publicada',prioridad:'alta',rel:9,nov:9,conf:.95,fuentes:['multilaterales','orbita'],corr:2,min:180,plazo:12,tipoOpp:'Financiación',actores:['Comunidades','ONG','Municipios'],importancia:'El plazo es menor de 15 días (prioridad alta). Encaja con emprendimientos comunitarios ya registrados en ORBITA.',soluciones:[{t:'Avisar a las 14 iniciativas comunitarias del registro',d:'Enviar ficha con requisitos y fecha de cierre.'},{t:'Organizar taller rápido de postulación',d:'Sesión virtual de 1 hora con ORBITA.'},{t:'Recordatorios a 5 días y a 1 día',d:'Programar recordatorio automático.'}]},
+ {id:'SEN-0416',titulo:'Búsquedas sobre el "efecto espejo" de Uyuni suben con la temporada de lluvias',resumen:'Ejemplo: prensa y búsqueda abierta muestran más interés internacional por Uyuni entre diciembre y marzo; tres medios lo mencionan esta semana.',naturaleza:'mixta',categoria:'mercado',deps:['Potosí'],destinos:['Salar de Uyuni'],estado:'en_analisis',prioridad:'media',rel:8,nov:6,conf:.71,fuentes:['prensa','tavily'],corr:3,min:95,importancia:'Oportunidad de demanda, pero la misma lluvia que crea el espejo puede cortar accesos. AVIA la marca como mixta.',soluciones:[{t:'Preparar campaña "espejo responsable"',d:'Con recomendaciones de acceso y operadores habilitados.'},{t:'Cruzar con alertas de clima de Potosí',d:'Vigilar SENAMHI y ABC para la ruta Oruro–Uyuni.'}]},
+ {id:'SEN-0415',titulo:'Actualización epidemiológica regional por dengue en tierras bajas',resumen:'Ejemplo: la OPS publica una actualización regional; menciona aumento de casos en zonas tropicales, incluida parte de Bolivia.',naturaleza:'riesgo',categoria:'salud',deps:['Santa Cruz','Beni','Pando'],destinos:['Chiquitania','Riberalta'],estado:'en_verificacion',prioridad:'alta',rel:8,nov:7,conf:.64,fuentes:['ops_alertas'],corr:1,min:52,sla:9,importancia:'Hay que confirmar con el Ministerio de Salud antes de difundir: la fuente nacional está en AVISO y no se pudo contrastar.',soluciones:[{t:'Pedir confirmación al Ministerio de Salud',d:'Revisar boletín epidemiológico nacional a mano.'},{t:'Preparar recomendaciones al visitante',d:'Repelente, ropa, consulta médica; sin alarmar.'}]},
+ {id:'SEN-0414',titulo:'Restricción de paso por trabajos en la carretera Cotapata – Santa Bárbara',resumen:'Ejemplo: medios locales reportan cierres por horario en un tramo hacia Caranavi. La ABC no responde, así que no está confirmado.',naturaleza:'riesgo',categoria:'vial',deps:['La Paz'],destinos:['Caranavi','Coroico'],estado:'detectada',prioridad:'media',rel:7,nov:8,conf:.48,fuentes:['prensa'],corr:1,min:21,importancia:'Corredor de Yungas con lluvias en alerta naranja: el efecto combinado sube el riesgo.',soluciones:[{t:'Esperar confirmación de la ABC',d:'Fuente en CRÍTICO; reintentar y comprobar a mano.'},{t:'Unir con la señal SEN-0418',d:'Mismo corredor y mismas fechas.'}]},
+ {id:'SEN-0413',titulo:'Nueva frecuencia aérea Viru Viru – Lima desde diciembre',resumen:'Ejemplo: una aerolínea anuncia una frecuencia diaria adicional; prensa económica lo confirma. La DGAC aún no se vigila.',naturaleza:'oportunidad',categoria:'conectividad',deps:['Santa Cruz'],destinos:['Santa Cruz de la Sierra','Misiones jesuíticas'],estado:'confirmada',prioridad:'alta',rel:8,nov:9,conf:.83,fuentes:['prensa','tavily'],corr:2,min:240,plazo:28,tipoOpp:'Conectividad',actores:['Agencias receptivas','Hoteles','Gobernación'],importancia:'Nueva ruta aérea: es un criterio de prioridad alta. Abre paquetes combinados Lima + Chiquitania.',soluciones:[{t:'Proponer paquete Lima + Misiones',d:'Contactar agencias receptivas de Santa Cruz.'},{t:'Medir el efecto en reservas',d:'Pedir datos de ocupación a 30 y 60 días.'}]},
+ {id:'SEN-0412',titulo:'Feria de turismo y gastronomía anunciada en Tarija para fin de mes',resumen:'Ejemplo: nota del Ministerio de Turismo sobre una feria con rueda de negocios y stands para operadores.',naturaleza:'oportunidad',categoria:'eventos',deps:['Tarija'],destinos:['Valle de la Concepción'],estado:'publicada',prioridad:'media',rel:7,nov:7,conf:.88,fuentes:['minturismo'],corr:1,min:400,plazo:24,tipoOpp:'Evento',actores:['Operadores','Bodegas','Restaurantes'],importancia:'Rueda de negocios: oportunidad directa para operadores del sur.',soluciones:[{t:'Difundir a operadores de Tarija y Chuquisaca',d:'Con fecha límite de inscripción.'},{t:'Recordatorios a 30, 15 y 5 días',d:'Según la regla de eventos.'}]},
+ {id:'SEN-0411',titulo:'Humo por quemas en la Chiquitania reduce la visibilidad',resumen:'Ejemplo: notas de prensa y búsquedas abiertas mencionan focos de calor y humo; sin aviso oficial aún.',naturaleza:'riesgo',categoria:'clima',deps:['Santa Cruz'],destinos:['San José de Chiquitos'],estado:'en_verificacion',prioridad:'media',rel:7,nov:5,conf:.55,fuentes:['prensa','tavily'],corr:2,min:130,sla:4,importancia:'Afecta rutas de misiones y vuelos locales; puede derivar en recomendación sanitaria.',soluciones:[{t:'Buscar dato oficial de focos de calor',d:'Añadir la fuente oficial de incendios al catálogo.'},{t:'Avisar a operadores de misiones',d:'Solo si se confirma.'}]},
+ {id:'SEN-0410',titulo:'Decreto amplía el fin de semana largo por feriado departamental',resumen:'Ejemplo: norma publicada en la Gaceta que traslada un feriado y crea un fin de semana de tres días.',naturaleza:'oportunidad',categoria:'normativa',deps:['Cochabamba','Chuquisaca'],destinos:['Torotoro','Sucre'],estado:'confirmada',prioridad:'media',rel:7,nov:8,conf:.9,fuentes:['gaceta_oficial'],corr:1,min:600,plazo:17,tipoOpp:'Demanda interna',actores:['Hoteles','Operadores locales'],importancia:'Fines de semana largos aumentan el turismo interno hacia destinos cercanos.',soluciones:[{t:'Campaña de escapadas a Torotoro y Sucre',d:'Con operadores locales.'}]},
+ {id:'SEN-0409',titulo:'PNUD busca socios locales para rutas de turismo rural',resumen:'Ejemplo: convocatoria para asociaciones que gestionen rutas de turismo rural, con asistencia técnica.',naturaleza:'oportunidad',categoria:'financiacion',deps:['Chuquisaca','Potosí','Oruro'],destinos:['Tarabuco','Potosí'],estado:'en_analisis',prioridad:'media',rel:7,nov:7,conf:.77,fuentes:['multilaterales'],corr:1,min:310,plazo:33,tipoOpp:'Socios',actores:['Asociaciones','Municipios'],importancia:'Fortalece rutas fuera de los destinos saturados.',soluciones:[{t:'Identificar asociaciones elegibles',d:'Cruzar con el registro ORBITA.'}]},
+ {id:'SEN-0408',titulo:'Anuncio de bloqueo en la ruta Oruro – Potosí',resumen:'Ejemplo: mensaje difundido en redes y una radio local; no hay confirmación oficial.',naturaleza:'riesgo',categoria:'seguridad',deps:['Oruro','Potosí'],destinos:['Uyuni','Potosí'],estado:'descartada',prioridad:'baja',rel:5,nov:6,conf:.3,fuentes:['prensa'],corr:0,min:900,importancia:'No se corroboró en 24 h; se descartó y quedó en el historial.',soluciones:[{t:'Mantener en historial',d:'Por si vuelve a aparecer.'}]},
+ {id:'SEN-0407',titulo:'Samaipata gana visibilidad como ruta del vino de altura',resumen:'Ejemplo: tema que crece en búsquedas abiertas y prensa de viajes.',naturaleza:'oportunidad',categoria:'mercado',deps:['Santa Cruz'],destinos:['Samaipata'],estado:'detectada',prioridad:'baja',rel:6,nov:7,conf:.6,fuentes:['tavily'],corr:1,min:70,plazo:null,tipoOpp:'Mercado',actores:['Bodegas','Hospedajes'],importancia:'Diversifica la oferta de Santa Cruz más allá de la ciudad.',soluciones:[{t:'Seguir el tema 7 días',d:'Si se mantiene, proponer contenido y paquete.'}]}
+];
+const PENDING=[
+ {id:'SEN-0419',titulo:'Granizada afecta temporalmente el aeropuerto de El Alto',resumen:'Ejemplo: retrasos de vuelos por granizo; operaciones normalizadas en 2 horas.',naturaleza:'riesgo',categoria:'conectividad',deps:['La Paz'],destinos:['La Paz'],estado:'detectada',prioridad:'media',rel:6,nov:9,conf:.58,fuentes:['prensa'],corr:1,min:0,importancia:'Puede afectar conexiones de visitantes hacia Uyuni y Rurrenabaque.',soluciones:[{t:'Verificar con el aeropuerto',d:'Confirmar normalidad.'}]},
+ {id:'SEN-0420',titulo:'Festival de música barroca anuncia fechas en la Chiquitania',resumen:'Ejemplo: organizadores publican fechas y programa preliminar.',naturaleza:'oportunidad',categoria:'eventos',deps:['Santa Cruz'],destinos:['Misiones jesuíticas'],estado:'detectada',prioridad:'media',rel:8,nov:8,conf:.7,fuentes:['prensa','minturismo'],corr:2,min:0,plazo:75,tipoOpp:'Evento',actores:['Agencias','Hoteles'],importancia:'Evento de alto impacto internacional; recordatorios a 90/60/30 días.',soluciones:[{t:'Preparar paquete del festival',d:'Con agencias y hoteles de misiones.'}]},
+ {id:'SEN-0421',titulo:'BID publica consultoría para planes de destino sostenible',resumen:'Ejemplo: licitación para elaborar planes de gestión en dos destinos.',naturaleza:'oportunidad',categoria:'financiacion',deps:['La Paz','Chuquisaca'],destinos:['Copacabana','Sucre'],estado:'detectada',prioridad:'media',rel:7,nov:8,conf:.8,fuentes:['multilaterales'],corr:1,min:0,plazo:21,tipoOpp:'Licitación',actores:['Consultoras','Universidades'],importancia:'Oportunidad para consultoras locales y universidades.',soluciones:[{t:'Difundir a consultoras registradas',d:'Con requisitos.'}]}
+];
+
+const TOPICS=[
+ {t:'Temporada de lluvias y accesos a destinos',n:14,d:+5,nat:'mixta'},
+ {t:'Fondos y convocatorias para turismo comunitario',n:9,d:+3,nat:'oportunidad'},
+ {t:'Conectividad aérea con Santa Cruz',n:7,d:+2,nat:'oportunidad'},
+ {t:'Salud del visitante en tierras bajas',n:6,d:+1,nat:'riesgo'},
+ {t:'Eventos y ferias del último trimestre',n:5,d:0,nat:'oportunidad'},
+ {t:'Conflictos y bloqueos viales',n:3,d:-2,nat:'riesgo'}
+];
+const SERIES={labels:['21','22','23','24','25','26','27','28','29','30','31','1','2','3'],det:[22,25,19,28,31,26,24,33,29,35,38,34,41,37],opp:[5,6,4,7,8,6,7,9,8,10,11,9,12,11],risk:[6,7,5,9,8,7,6,8,10,9,12,11,13,10]};
+
+let EVENTS=[
+ {t:-3,k:'OK',w:'SENAMHI · comprobación correcta',d:'1 aviso nuevo detectado → SEN-0418 actualizada'},
+ {t:-9,k:'CRIT',w:'ABC · transitabilidad pasó a CRÍTICO',d:'Tiempo de espera agotado 3/3 · se notificó al administrador'},
+ {t:-21,k:'spark',w:'AVIA detectó una señal nueva',d:'SEN-0414 · restricción vial Cotapata – Santa Bárbara'},
+ {t:-34,k:'check',w:'Analista confirmó SEN-0418',d:'Alerta naranja Yungas · publicada en el resumen'},
+ {t:-52,k:'WARN',w:'Ministerio de Salud pasó a AVISO',d:'El selector de comunicados no devolvió filas'},
+ {t:-95,k:'spark',w:'Macrotema en crecimiento',d:'"Temporada de lluvias y accesos" sube de 9 a 14 señales'},
+ {t:-180,k:'check',w:'Oportunidad publicada automáticamente',d:'SEN-0417 · fuente oficial (CAF)'}
+];
+
+/* ───────── Paneles ───────── */
+const PANELS={
+ sintesis:{t:'Síntesis del día',i:'sintesis',d:'Lo más importante en una frase y cuatro cifras.',w:8},
+ pulso:{t:'Pulso del observatorio',i:'pulso',d:'Índices de atención y de oportunidad.',w:4},
+ fuentes:{t:'Estado de las fuentes',i:'fuentes',d:'Cada fuente vigilada con su estado y sus últimas 24 comprobaciones.',w:8},
+ cadena:{t:'Cadena del conocimiento',i:'cadena',d:'De noticia dispersa a acción propuesta.',w:4},
+ oportunidades:{t:'Oportunidades abiertas',i:'oportunidades',d:'Las oportunidades con mejor puntuación y su plazo.',w:6},
+ riesgos:{t:'Riesgos activos',i:'riesgo',d:'Riesgos confirmados o en verificación.',w:6},
+ mapa:{t:'Mapa por departamento',i:'mapa',d:'Esquema de Bolivia con señales por departamento.',w:5},
+ evolucion:{t:'Evolución de 14 días',i:'analisis',d:'Señales detectadas, oportunidades y riesgos por día.',w:7},
+ decision:{t:'Pendiente de tu decisión',i:'decision',d:'Señales que esperan verificación humana.',w:6},
+ actividad:{t:'Actividad reciente',i:'actividad',d:'Registro de comprobaciones y decisiones.',w:6},
+ temas:{t:'Temas emergentes',i:'temas',d:'Macrotemas que agrupa AVIA y su tendencia.',w:5},
+ categorias:{t:'Señales por categoría',i:'categorias',d:'Reparto entre oportunidades, riesgos y mixtas.',w:7}
+};
+const PRESETS={
+ ejecutivo:{n:'Ejecutivo',l:[['sintesis',8],['pulso',4],['oportunidades',6],['riesgos',6],['mapa',5],['evolucion',7]]},
+ analista:{n:'Analista',l:[['decision',6],['fuentes',6],['cadena',4],['temas',4],['actividad',4],['categorias',12]]},
+ operacion:{n:'Operación (fuentes)',l:[['fuentes',12],['actividad',6],['pulso',6],['evolucion',12]]},
+ sencillo:{n:'Sencillo',l:[['sintesis',12],['oportunidades',6],['riesgos',6]]}
+};
+
+/* ───────── Estado ───────── */
+const S={
+ view:location.hash.slice(1)||'panorama',
+ role:store.get('role','analista'),
+ editing:false,
+ preset:store.get('preset','ejecutivo'),
+ layout:store.get('layout',null),
+ custom:store.get('custom',{}),
+ srcFilter:'all', srcQ:'',
+ sigFilter:{nat:'all',dep:'all',q:''},
+ analysis:{type:'panorama',scope:'all',dep:'all'},
+ live:true, fs:store.get('fs',1), contrast:store.get('contrast','normal'), simple:store.get('simple',false), theme:store.get('theme',null),
+ turns:[], chatOpen:false, docked:store.get('docked',false)
+};
+if(!S.layout) S.layout=PRESETS[S.preset].l.map(([id,w])=>({id,w}));
+const VIEWS=[['panorama','Panorama','panorama'],['fuentes','Fuentes','fuentes'],['senales','Señales','senales'],['oportunidades','Oportunidades','oportunidades'],['analisis','Análisis','analisis'],['bitacora','Bitácora','bitacora']];
+if(!VIEWS.some(v=>v[0]===S.view)) S.view='panorama';
+
+const src=id=>SOURCES.find(s=>s.id===id);
+const sig=id=>SIGNALS.find(s=>s.id===id);
+const ago=m=>m<1?'ahora':m<60?`hace ${Math.round(m)} min`:m<1440?`hace ${Math.round(m/60)} h`:`hace ${Math.round(m/1440)} d`;
+const clock=m=>{const d=new Date(Date.now()+m*60000);return d.toLocaleTimeString('es-BO',{hour:'2-digit',minute:'2-digit'})};
+const natPill=n=>`<span class="pill nat-${n}"><span class="d"></span>${{oportunidad:'Oportunidad',riesgo:'Riesgo',mixta:'Mixta'}[n]}</span>`;
+const stPill=s=>`<span class="pill st-${s}"><span class="d"></span>${STATE_TXT[s]}</span>`;
+const canDecide=()=>S.role!=='visor';
+const isAdmin=()=>S.role==='admin';
+function counts(){const c={OK:0,WARN:0,CRIT:0,UNKNOWN:0,MANT:0};SOURCES.forEach(s=>c[s.estado]++);return c}
+const active=()=>SIGNALS.filter(s=>s.estado!=='descartada');
+
+/* ───────── Ajustes de apariencia ───────── */
+function applyPrefs(){
+ const r=document.documentElement;
+ r.style.setProperty('--fs',S.fs);
+ if(S.theme) r.setAttribute('data-theme',S.theme);
+ r.setAttribute('data-contrast',S.contrast);
+ document.body.classList.toggle('simple',S.simple);
+}
+
+/* ───────── Navegación ───────── */
+function renderNav(){
+ const pend=SIGNALS.filter(s=>['detectada','en_verificacion'].includes(s.estado)).length;
+ const opp=active().filter(s=>s.naturaleza!=='riesgo'&&s.plazo).length;
+ const c=counts();
+ const cnt={fuentes:[c.CRIT+c.WARN,(c.CRIT>0)],senales:[pend,false],oportunidades:[opp,false]};
+ $('nav').innerHTML=VIEWS.map(([id,n,i])=>`<button class="${S.view===id?'on':''}" data-view="${id}" aria-current="${S.view===id?'page':'false'}">${ico(i)}<span>${n}</span>${cnt[id]?`<span class="count ${cnt[id][1]?'hot':''}">${cnt[id][0]}</span>`:''}</button>`).join('');
+ const presets=Object.entries(PRESETS).map(([k,p])=>`<button class="${S.preset===k?'on':''}" data-preset="${k}"><span class="dot"></span>${p.n}</button>`).join('')+Object.keys(S.custom).map(k=>`<button class="${S.preset==='c:'+k?'on':''}" data-preset="c:${esc(k)}"><span class="dot"></span>${esc(k)}</button>`).join('');
+ $('presets').innerHTML=presets;
+ $('crumb').textContent=(VIEWS.find(v=>v[0]===S.view)||VIEWS[0])[1];
+ $('healthPills').innerHTML=['OK','WARN','CRIT','UNKNOWN','MANT'].filter(k=>c[k]).map(k=>`<span class="pill st-${k}" title="${STATE_TXT[k]}">${c[k]}</span>`).join(' ');
+}
+function go(v){if(!VIEWS.some(x=>x[0]===v))return;S.view=v;try{history.replaceState(null,'','#'+v)}catch{}renderNav();render();$('side').classList.remove('open');$('view').focus({preventScroll:true});window.scrollTo({top:0})}
+window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(v&&v!==S.view)go(v)});
+
+function render(){
+ const v=S.view;
+ const fn={panorama:vPanorama,fuentes:vFuentes,senales:vSenales,oportunidades:vOpps,analisis:vAnalisis,bitacora:vBitacora}[v]||vPanorama;
+ $('view').innerHTML=fn()+`<footer class="foot"><span>ORBITA Vigilante · prueba de concepto</span><span>Datos de ejemplo inventados · no usar para decisiones reales</span></footer>`;
+ afterRender();
+}
+function afterRender(){ if(S.view==='panorama') wireBoard(); if(S.view==='senales') wirePipe(); }
+
+/* ───────── Panorama (tablero) ───────── */
+function vPanorama(){
+ const c=counts();
+ return `<section class="head"><div><div class="eyebrow">Inteligencia turística · hoy</div><h1>Lo que <em>cambia</em> en el turismo de Bolivia</h1><p class="sub">El Vigilante lee ${SOURCES.length} fuentes, junta noticias dispersas, las verifica y valora su importancia para el turismo. Aquí ves el resultado; arrastra, quita o añade paneles a tu gusto.</p></div>
+ <div class="head-actions"><span class="updated">Última comprobación ${clock(-1)}</span>
+ <button class="btn ${S.editing?'on':''}" data-act="edit">${ico('edit')} ${S.editing?'Terminar edición':'Editar tablero'}</button>
+ <button class="btn gold" data-act="brief">${ico('sintesis')} Resumen del día</button></div></section>
+ ${S.editing?`<div class="edit-bar" role="note"><strong>Modo edición.</strong><span>Arrastra un panel por su asa o usa las flechas. El botón ↔ cambia el ancho. Los cambios se guardan en este navegador.</span><span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-act="catalog">${ico('plus')} Añadir panel</button><button class="btn sm" data-act="saveview">${ico('save')} Guardar como tablero</button><button class="btn sm ghost" data-act="resetview">${ico('reset')} Restablecer</button></span></div>`:''}
+ <div class="board ${S.editing?'editing':''}" id="board">${S.layout.map(p=>panelHTML(p)).join('')}${S.editing?`<button class="add-tile" data-act="catalog">${ico('plus')}<span>Añadir un panel</span></button>`:''}</div>`;
+}
+function panelHTML(p){
+ const d=PANELS[p.id]; if(!d) return '';
+ const body=(PB[p.id]||(()=>''))();
+ return `<section class="panel" style="--w:${p.w}" data-panel="${p.id}" aria-label="${esc(d.t)}">
+  <div class="panel-h"><span class="grip" draggable="true" data-grip="${p.id}" title="Arrastrar para mover" aria-hidden="true">${ico('grip')}</span><h2>${ico(d.i)}${esc(d.t)}</h2><span class="meta">${PM[p.id]?PM[p.id]():''}</span>
+  <span class="panel-tools"><button data-pmove="-1" data-id="${p.id}" aria-label="Mover ${esc(d.t)} antes" title="Mover antes">${ico('left')}</button><button data-pmove="1" data-id="${p.id}" aria-label="Mover ${esc(d.t)} después" title="Mover después">${ico('right')}</button><button data-pwide="${p.id}" aria-label="Cambiar ancho de ${esc(d.t)}" title="Cambiar ancho">${ico('wider')}</button><button data-premove="${p.id}" aria-label="Quitar ${esc(d.t)}" title="Quitar">${ico('close')}</button></span></div>
+  <div class="panel-b">${body}</div></section>`;
+}
+const PM={
+ sintesis:()=>'Borrador de AVIA',
+ fuentes:()=>`${SOURCES.length} fuentes`,
+ oportunidades:()=>'por puntuación',
+ riesgos:()=>'vigentes',
+ mapa:()=>'esquema',
+ evolucion:()=>'demo',
+ decision:()=>`${SIGNALS.filter(s=>['detectada','en_verificacion'].includes(s.estado)).length} pendientes`,
+ actividad:()=>'en vivo',
+ temas:()=>'7 días',
+ cadena:()=>'hoy', pulso:()=>'demo', categorias:()=>'activas'
+};
+function scoreOf(s){return Math.round((s.rel*.45+s.nov*.25+s.conf*10*.3)*10)/10}
+const PB={
+ sintesis(){
+  const a=active(),opp=a.filter(s=>s.naturaleza==='oportunidad').length,r=a.filter(s=>s.naturaleza==='riesgo').length,ver=a.filter(s=>['confirmada','publicada'].includes(s.estado)).length;
+  return `<div class="synth"><blockquote>Semana de oportunidades con un frente de lluvias que vigilar en Yungas.</blockquote>
+  <p>AVIA juntó <b>${SERIES.det.at(-1)} noticias</b> en <b>${a.length} señales</b>. Destacan el fondo de CAF para turismo comunitario (cierra en <b>12 días</b>) y la nueva frecuencia aérea a Santa Cruz. El riesgo principal es la alerta naranja en Yungas y Rurrenabaque, que se cruza con una restricción vial aún sin confirmar.</p>
+  <div class="kpis"><div class="kpi"><small>Señales activas</small><b class="num">${a.length}</b><em>+3 desde ayer</em></div><div class="kpi"><small>Oportunidades</small><b class="num" style="color:var(--opp)">${opp}</b><em>2 con plazo &lt; 15 días</em></div><div class="kpi"><small>Riesgos</small><b class="num" style="color:var(--risk)">${r}</b><em>1 en alerta naranja</em></div><div class="kpi"><small>Verificadas</small><b class="num" style="color:var(--ok)">${ver}</b><em>con 2 o más fuentes</em></div></div></div>`;
+ },
+ pulso(){
+  const c=counts(),att=Math.min(100,38+c.CRIT*14+c.WARN*6+active().filter(s=>s.naturaleza==='riesgo'&&s.prioridad==='alta').length*8);
+  const op=Math.min(100,30+active().filter(s=>s.naturaleza!=='riesgo').length*7);
+  const ring=(v,col)=>{const r=46,C=2*Math.PI*r;return `<svg viewBox="0 0 118 118" role="img" aria-label="${v} de 100"><circle cx="59" cy="59" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="9"/><circle cx="59" cy="59" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C*v/100} ${C}" transform="rotate(-90 59 59)"/><text x="59" y="63" text-anchor="middle" fill="var(--ink)" style="font-family:var(--f-display);font-size:30px">${v}</text><text x="59" y="81" text-anchor="middle" fill="var(--faint)" style="font-family:var(--f-mono);font-size:9px">DE 100</text></svg>`};
+  const lvl=att>70?'Alto':att>50?'Moderado':'Bajo';
+  return `<div class="gauges"><div class="gauge">${ring(att,'var(--risk)')}<span class="lab">Atención a riesgos</span><span class="lv">${lvl}</span></div><div class="gauge">${ring(op,'var(--opp)')}<span class="lab">Oportunidad</span><span class="lv">${op>65?'Favorable':'Estable'}</span></div></div>
+  <div class="scale"><div class="scale-bar"><i style="left:${att}%"></i></div><div class="scale-l"><span>Normal</span><span>Vigilancia</span><span>Atención</span><span>Crítico</span></div></div>
+  <p class="note" style="margin:10px 0 0">Índices de ejemplo: suman estado de fuentes, prioridad y número de señales.</p>`;
+ },
+ fuentes(){
+  return `<div class="src-matrix">${SOURCES.map(s=>`<button class="src-chip" data-src="${s.id}"><div class="r">${stPill(s.estado)}<span class="t mono tech">${s.lat?Math.round(s.lat/100)/10+' s':'—'}</span></div><span class="n">${esc(s.nombre)}</span><div class="histo" aria-label="Últimas 24 comprobaciones">${s.hist.map(x=>`<i class="h-${x}"></i>`).join('')}</div><span class="t">${esc(CATS[s.canal]||s.canal)} · cada ${s.freq} min</span></button>`).join('')}</div>`;
+ },
+ cadena(){
+  const a=SIGNALS;
+  const steps=[['senales',SERIES.det.at(-1),'Noticias leídas','var(--accent)'],['temas',a.length,'Señales agrupadas','var(--mix)'],['shield',a.filter(s=>s.corr>=2).length,'Corroboradas','var(--ok)'],['oportunidades',a.filter(s=>s.naturaleza!=='riesgo').length,'Valoradas para turismo','var(--opp)'],['decision',a.filter(s=>s.estado==='publicada').length,'Acciones propuestas','var(--risk)']];
+  return `<div class="chain">${steps.map(([i,n,l,c])=>`<div class="link"><span class="ic" style="color:${c};border-color:${c}">${ico(i)}</span><b class="num">${n}</b><small>${l}</small></div>`).join('')}</div><div class="chain-note">La máquina reúne y ordena. Una persona verifica. El observatorio propone y mide el resultado.</div>`;
+ },
+ oportunidades(){
+  const l=active().filter(s=>s.naturaleza!=='riesgo').sort((a,b)=>scoreOf(b)-scoreOf(a)).slice(0,5);
+  return sigList(l,true);
+ },
+ riesgos(){
+  const l=active().filter(s=>s.naturaleza==='riesgo').sort((a,b)=>({alta:0,media:1,baja:2}[a.prioridad])-({alta:0,media:1,baja:2}[b.prioridad])).slice(0,5);
+  return sigList(l,false);
+ },
+ mapa(){
+  const pos={'Pando':'1/1/2/3','La Paz':'2/1/4/2','Beni':'2/2/3/4','Cochabamba':'3/2/4/3','Santa Cruz':'3/3/5/5','Oruro':'4/1/5/2','Chuquisaca':'4/2/5/3','Potosí':'5/1/6/2','Tarija':'5/2/6/3'};
+  const a=active();
+  return `<div class="bomap" role="list">${DEPS.map(d=>{const ss=a.filter(s=>s.deps.includes(d));const o=ss.filter(s=>s.naturaleza!=='riesgo').length,r=ss.filter(s=>s.naturaleza==='riesgo').length;const tot=o+r;const tone=r>o?'var(--risk-soft)':o?'var(--opp-soft)':'transparent';return `<button class="dep" role="listitem" style="grid-area:${pos[d]}" data-dep="${esc(d)}" aria-label="${esc(d)}: ${o} oportunidades, ${r} riesgos"><span class="heat" style="background:${tone};opacity:${Math.min(1,.4+tot*.2)}"></span><span class="dn">${esc(d)}</span><span class="dc"><span class="o">▲${o}</span><span class="r">●${r}</span></span></button>`}).join('')}</div>
+  <div class="map-legend"><span><i style="background:var(--opp)"></i>▲ oportunidades</span><span><i style="background:var(--risk)"></i>● riesgos</span><span>Toca un departamento para ver sus señales</span></div>`;
+ },
+ evolucion(){return lineChart()},
+ decision(){
+  const l=SIGNALS.filter(s=>['detectada','en_verificacion'].includes(s.estado));
+  if(!l.length) return `<div class="empty"><b>Nada pendiente</b>Todas las señales tienen decisión.</div>`;
+  return `<div class="dec">${l.map(s=>`<div class="dec-item"><div class="row">${natPill(s.naturaleza)}<span class="tag">${STL[s.estado]}</span>${s.sla?`<span class="sla" title="Tiempo restante para revisar">⏱ ${s.sla} min</span>`:`<span class="tag">${esc(CATS[s.categoria])}</span>`}</div><button class="tt" style="background:none;border:none;padding:0;text-align:left" data-sig="${s.id}">${esc(s.titulo)}</button><div class="row"><span class="note">${s.corr} fuente(s) · confianza ${Math.round(s.conf*100)}%</span>${canDecide()?`<span class="dec-actions"><button class="btn sm" data-move="${s.id}" data-to="confirmada">${ico('check')} Confirmar</button><button class="btn sm ghost" data-move="${s.id}" data-to="descartada">Descartar</button></span>`:'<span class="note">Solo lectura</span>'}</div></div>`).join('')}</div>`;
+ },
+ actividad(){return eventsHTML(EVENTS.slice(0,7))},
+ temas(){
+  const max=Math.max(...TOPICS.map(t=>t.n));
+  return `<div class="topics">${TOPICS.map(t=>`<div class="topic"><span class="tn">${esc(t.t)}</span><span class="tv">${t.n} <span class="${t.d>0?'up':t.d<0?'down':''}">${t.d>0?'▲'+t.d:t.d<0?'▼'+(-t.d):'='}</span></span><span class="tb"><i style="width:${t.n/max*100}%;background:var(--${t.nat==='oportunidad'?'opp':t.nat==='riesgo'?'risk':'mix'})"></i></span></div>`).join('')}</div><p class="note" style="margin:10px 0 0">Agrupación por similitud de contenido (embeddings) en ventana de 7 días.</p>`;
+ },
+ categorias(){return catBars(active())}
+};
+function sigList(l,opp){
+ if(!l.length) return `<div class="empty"><b>Sin señales</b>No hay elementos para mostrar.</div>`;
+ return `<div class="sig-list">${l.map(s=>`<button class="sig" data-sig="${s.id}"><span class="bar ${opp?'oportunidad':s.prioridad}"></span><span style="min-width:0"><span class="sig-t" style="display:block">${esc(s.titulo)}</span><span class="sig-m">${natPill(s.naturaleza)}<span>${esc(s.deps.join(', '))}</span><span class="tech">· ${s.corr} fuente(s)</span></span></span><span class="sig-r">${opp&&s.plazo?`<span class="score" style="color:var(--opp)">${s.plazo} días</span>`:`<span class="tag">${STL[s.estado]}</span>`}<span class="tech">puntuación <span class="score">${scoreOf(s)}</span></span></span></button>`).join('')}</div>`;
+}
+function catBars(list){
+ const rows=Object.keys(CATS).map(k=>{const ss=list.filter(s=>s.categoria===k);return {k,o:ss.filter(s=>s.naturaleza==='oportunidad').length,r:ss.filter(s=>s.naturaleza==='riesgo').length,m:ss.filter(s=>s.naturaleza==='mixta').length}}).filter(r=>r.o+r.r+r.m);
+ const max=Math.max(1,...rows.map(r=>r.o+r.r+r.m));
+ return `<div class="chart-legend"><span><i style="background:var(--opp)"></i>Oportunidad</span><span><i style="background:var(--risk)"></i>Riesgo</span><span><i style="background:var(--mix)"></i>Mixta</span></div><div class="hbars">${rows.map(r=>`<div class="hb"><span>${CATS[r.k]}</span><span class="track" role="img" aria-label="${CATS[r.k]}: ${r.o} oportunidades, ${r.r} riesgos, ${r.m} mixtas" style="width:${(r.o+r.r+r.m)/max*100}%"><i style="flex:${r.o};background:var(--opp)"></i><i style="flex:${r.r};background:var(--risk)"></i><i style="flex:${r.m};background:var(--mix)"></i></span><span class="v">${r.o+r.r+r.m}</span></div>`).join('')}</div>`;
+}
+function lineChart(){
+ const W=640,H=200,L=30,R=12,T=12,B=24,max=45;
+ const x=i=>L+(W-L-R)*i/(SERIES.labels.length-1),y=v=>T+(1-v/max)*(H-T-B);
+ const path=a=>a.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ');
+ const area=path(SERIES.det)+` L${x(SERIES.det.length-1)},${H-B} L${L},${H-B} Z`;
+ const grid=[0,15,30,45].map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-dasharray="3 5"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${v}</text>`).join('');
+ const lab=SERIES.labels.map((l,i)=>i%2===0||i===SERIES.labels.length-1?`<text x="${x(i)}" y="${H-6}" text-anchor="middle">${l}</text>`:'').join('');
+ const end=(a,c)=>`<circle cx="${x(a.length-1)}" cy="${y(a.at(-1))}" r="4" fill="${c}" stroke="var(--surface)" stroke-width="2"/>`;
+ return `<div class="chart"><div class="chart-legend"><span><i style="background:var(--accent)"></i>Noticias detectadas (${SERIES.det.at(-1)})</span><span><i style="background:var(--opp)"></i>Oportunidades (${SERIES.opp.at(-1)})</span><span><i style="background:var(--risk)"></i>Riesgos (${SERIES.risk.at(-1)})</span></div>
+ <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de 14 días, datos de ejemplo"><defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" fill="url(#gA)"/><path d="${path(SERIES.det)}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round"/><path d="${path(SERIES.opp)}" fill="none" stroke="var(--opp)" stroke-width="2.2" stroke-linejoin="round"/><path d="${path(SERIES.risk)}" fill="none" stroke="var(--risk)" stroke-width="2" stroke-linejoin="round" stroke-dasharray="5 4"/>${end(SERIES.det,'var(--accent)')}${end(SERIES.opp,'var(--opp)')}${end(SERIES.risk,'var(--risk)')}${lab}</svg>
+ <div class="chart-note">Octubre–noviembre 2026 · serie inventada para la demostración.</div></div>`;
+}
+function eventsHTML(list){
+ return `<div class="events">${list.map(e=>{const k=e.k;const badge=STATE_TXT[k]?`<span class="pill st-${k}" style="font-size:10.5px">${STATE_TXT[k]}</span>`:`<span class="pill nat-oportunidad" style="font-size:10.5px">${k==='check'?'DECISIÓN':'HERMES'}</span>`;return `<div class="ev">${badge}<span class="what">${esc(e.w)}<small>${esc(e.d)}</small></span><time>${clock(e.t)}</time></div>`}).join('')}</div>`;
+}
+
+/* Tablero: mover, ancho, quitar */
+function saveLayout(){store.set('layout',S.layout);store.set('preset',S.preset)}
+function movePanel(id,dir){const i=S.layout.findIndex(p=>p.id===id);const j=i+dir;if(i<0||j<0||j>=S.layout.length)return;const [p]=S.layout.splice(i,1);S.layout.splice(j,0,p);saveLayout();render();const b=document.querySelector(`[data-pmove="${dir}"][data-id="${id}"]`);b&&b.focus()}
+function widenPanel(id){const p=S.layout.find(p=>p.id===id);const seq=[4,5,6,7,8,12];p.w=seq[(seq.indexOf(p.w)+1)%seq.length]||4;saveLayout();render()}
+function removePanel(id,quiet){const d=PANELS[id];S.layout=S.layout.filter(p=>p.id!==id);saveLayout();render();if(!quiet)toast(`Quitaste «${d.t}». Puedes volver a añadirlo desde el catálogo.`);return true}
+function addPanel(id,quiet){if(!PANELS[id])return false;if(S.layout.some(p=>p.id===id)){if(!quiet)toast('Ese panel ya está en el tablero.');return false}S.layout.push({id,w:PANELS[id].w});saveLayout();if(S.view!=='panorama')go('panorama');else render();setTimeout(()=>{const el=document.querySelector(`[data-panel="${id}"]`);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('flash')}},60);if(!quiet)toast(`Añadiste «${PANELS[id].t}».`);return true}
+function wireBoard(){
+ const board=$('board');if(!board)return;let dragId=null;
+ board.querySelectorAll('[data-grip]').forEach(g=>{
+  g.addEventListener('dragstart',e=>{dragId=g.dataset.grip;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',dragId)}catch{}const p=g.closest('.panel');e.dataTransfer.setDragImage&&e.dataTransfer.setDragImage(p,20,20);setTimeout(()=>p.classList.add('dragging'),0)});
+  g.addEventListener('dragend',()=>{board.querySelectorAll('.panel').forEach(p=>p.classList.remove('dragging','drop-before','drop-after'));dragId=null});
+ });
+ board.querySelectorAll('.panel').forEach(p=>{
+  p.addEventListener('dragover',e=>{if(!dragId||p.dataset.panel===dragId)return;e.preventDefault();const r=p.getBoundingClientRect();const after=(e.clientX-r.left)>r.width/2;p.classList.toggle('drop-after',after);p.classList.toggle('drop-before',!after)});
+  p.addEventListener('dragleave',()=>p.classList.remove('drop-before','drop-after'));
+  p.addEventListener('drop',e=>{e.preventDefault();if(!dragId)return;const after=p.classList.contains('drop-after');const from=S.layout.findIndex(x=>x.id===dragId);const [item]=S.layout.splice(from,1);let to=S.layout.findIndex(x=>x.id===p.dataset.panel);if(after)to++;S.layout.splice(to,0,item);saveLayout();render();toast('Panel movido.')});
+ });
+}
+function openCatalog(){
+ openDrawer(`<div class="drawer-h">${ico('plus')} Catálogo de paneles<button class="icon-btn" data-act="close" aria-label="Cerrar">${ico('close')}</button></div><div class="drawer-b"><p class="lead">Elige qué quieres ver. Cada panel se puede mover, ensanchar o quitar después.</p><div class="catalog">${Object.entries(PANELS).map(([k,d])=>{const inn=S.layout.some(p=>p.id===k);return `<button class="cat-item ${inn?'in':''}" data-add="${k}" ${inn?'aria-disabled="true"':''}><b>${ico(d.i)}${esc(d.t)}</b><small>${esc(d.d)}</small></button>`}).join('')}</div><div class="sect">Escalable</div><p class="note" style="margin:0">Cada panel es un módulo independiente que lee la misma base de señales. Añadir uno nuevo (por ejemplo, ocupación hotelera o vuelos) no cambia los demás.</p></div>`);
+}
+function applyPreset(k){
+ if(k.startsWith('c:')){const c=S.custom[k.slice(2)];if(!c)return;S.layout=c.map(p=>({...p}))}
+ else S.layout=PRESETS[k].l.map(([id,w])=>({id,w}));
+ S.preset=k;saveLayout();if(k==='sencillo'){S.simple=true;store.set('simple',true);applyPrefs()}else if(S.simple&&k!=='sencillo'){S.simple=false;store.set('simple',false);applyPrefs()}
+ go('panorama');toast(`Tablero «${k.startsWith('c:')?k.slice(2):PRESETS[k].n}» aplicado.`);
+}
+
+/* ───────── Fuentes (Nagios) ───────── */
+function vFuentes(){
+ const c=counts();
+ const list=SOURCES.filter(s=>(S.srcFilter==='all'||s.estado===S.srcFilter)&&(!S.srcQ||norm(s.nombre+' '+s.canal+' '+s.url).includes(norm(S.srcQ))));
+ return `<section class="head"><div><div class="eyebrow">Supervisión de fuentes</div><h1>Cada fuente, <em>comprobada</em> sin descanso</h1><p class="sub">Como un sistema de supervisión: cada fuente tiene comprobaciones (disponibilidad, frescura, estructura y novedad), un estado y su historial. Si una falla, el Vigilante lo dice antes de que falte información.</p></div><div class="head-actions">${isAdmin()?`<button class="btn" data-act="addsrc">${ico('plus')} Añadir fuente</button>`:''}<button class="btn primary" data-act="checkall">${ico('refresh')} Comprobar todas</button></div></section>
+ <div class="nag-summary">${['OK','WARN','CRIT','UNKNOWN','MANT'].map(k=>`<button class="nag-box st-${k} ${S.srcFilter===k?'on':''}" data-sf="${k}"><b class="num">${c[k]}</b><small>${STATE_TXT[k]}</small></button>`).join('')}</div>
+ <div class="toolbar"><label class="sr" for="srcQ">Filtrar fuentes</label><input class="inp" id="srcQ" placeholder="Filtrar por nombre, canal o URL" value="${esc(S.srcQ)}"><div class="seg"><button class="${S.srcFilter==='all'?'on':''}" data-sf="all">Todas</button><button class="${S.srcFilter==='problemas'?'on':''}" data-sf="problemas">Con problemas</button></div></div>
+ <div class="tbl-wrap"><table><thead><tr><th>Estado</th><th>Fuente</th><th>Canal</th><th>Última comprobación</th><th class="tech">En este estado</th><th>Últimas 24</th><th class="tech">Información del check</th><th class="tech">Señales 24 h</th></tr></thead><tbody>
+ ${(S.srcFilter==='problemas'?SOURCES.filter(s=>['WARN','CRIT','UNKNOWN'].includes(s.estado)):list).map(s=>`<tr data-src="${s.id}" tabindex="0"><td>${stPill(s.estado)}${s.ack?'<div class="ack">✓ reconocido</div>':''}${s.flap?'<div class="flap">⇅ intermitente</div>':''}</td><td><div class="srcname">${esc(s.nombre)}</div><div class="srcurl">${esc(s.url)}</div></td><td>${esc(CATS[s.canal]||s.canal)}<div class="note">${esc(s.tipo)}</div></td><td class="mono">${clock(-(s.last??((s.freq*0.4)|0)))}<div class="note">cada ${s.freq} min</div></td><td class="mono tech">${ago(s.desde).replace('hace ','')}</td><td style="min-width:130px"><div class="histo">${s.hist.map(x=>`<i class="h-${x}"></i>`).join('')}</div></td><td class="tech"><div class="info">${esc(s.info)}</div></td><td class="mono tech">${s.items}</td></tr>`).join('')}
+ </tbody></table></div>
+ <p class="note">Los estados son de ejemplo. Las URL vienen del catálogo de fuentes; las marcadas «no abierta» o «por confirmar» hay que revisarlas a mano antes de activarlas.</p>`;
+}
+function checksFor(s){
+ const st=s.estado;const m=(a,b,c)=>st==='CRIT'?c:st==='WARN'?b:a;
+ if(st==='MANT') return [['MANT','Disponibilidad','En mantenimiento programado'],['MANT','Frescura','—'],['MANT','Estructura','—'],['MANT','Novedad','—']];
+ if(st==='UNKNOWN') return [['UNKNOWN','Disponibilidad','Sin datos: URL por confirmar'],['UNKNOWN','Frescura','—'],['UNKNOWN','Estructura','—'],['UNKNOWN','Novedad','—']];
+ return [
+  [s.id==='abc_caminos'?'CRIT':s.lat>5000?'WARN':'OK','Disponibilidad',s.id==='abc_caminos'?'Sin respuesta en 30 s (3/3)':`HTTP 200 en ${(s.lat/1000).toFixed(1)} s`],
+  [s.id==='abc_caminos'?'CRIT':'OK','Frescura',s.id==='abc_caminos'?'Último dato hace 48 min (umbral 45)':'Último elemento dentro del plazo'],
+  [s.id==='minsalud'?'WARN':s.id==='abc_caminos'?'UNKNOWN':'OK','Estructura',s.id==='minsalud'?'El selector no encontró la lista de comunicados':s.id==='abc_caminos'?'No evaluable':'Campos extraídos: título, fecha, enlace'],
+  [s.items?'OK':(st==='OK'?'OK':'WARN'),'Novedad',s.items?`${s.items} elemento(s) nuevo(s)`:'Sin elementos nuevos']
+ ];
+}
+function openSource(id){
+ const s=src(id);if(!s)return;
+ openDrawer(`<div class="drawer-h">${ico('fuentes')} Fuente · ${esc(s.id)}<button class="icon-btn" data-act="close" aria-label="Cerrar">${ico('close')}</button></div>
+ <div class="drawer-b"><div style="display:flex;gap:6px;flex-wrap:wrap">${stPill(s.estado)}<span class="tag">${esc(CATS[s.canal]||s.canal)}</span><span class="tag">${esc(s.tipo)}</span><span class="tag">URL ${esc(s.verif)}</span></div>
+ <h2>${esc(s.nombre)}</h2><p class="lead mono" style="font-size:12px;word-break:break-all">${esc(s.url)}</p>
+ <div class="dl"><div><small>Método</small><b>${esc(s.metodo)}</b></div><div><small>Frecuencia</small><b>cada ${s.freq} min</b></div><div><small>Tiempo de respuesta</small><b class="mono">${s.lat?(s.lat/1000).toFixed(1)+' s':'—'}</b></div><div><small>Señales en 24 h</small><b class="mono">${s.items}</b></div></div>
+ <div class="sect">Comprobaciones</div><div class="checks">${checksFor(s).map(([k,n,d])=>`<div class="check">${stPill(k)}<span>${n}<small>${esc(d)}</small></span></div>`).join('')}</div>
+ <div class="sect">Historial (24 comprobaciones)</div><div class="histo" style="height:22px">${s.hist.map(x=>`<i class="h-${x}" title="${STATE_TXT[x]}"></i>`).join('')}</div>
+ ${s.flap?'<p class="note" style="margin:0">⇅ Estado intermitente: cambió 4 veces en las últimas 24 comprobaciones. Conviene revisar la forma de acceso.</p>':''}
+ <div class="sect">Acciones</div>
+ <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-recheck="${s.id}">${ico('refresh')} Comprobar ahora</button>${canDecide()&&['WARN','CRIT'].includes(s.estado)&&!s.ack?`<button class="btn" data-ack="${s.id}">${ico('check')} Reconocer problema</button>`:''}${isAdmin()?`<button class="btn ghost" data-mant="${s.id}">${ico('clock')} ${s.estado==='MANT'?'Quitar mantenimiento':'Poner en mantenimiento'}</button>`:''}</div>
+ <div class="lock">${ico('shield')} Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. En la demo solo cambia este navegador.</div></div>`);
+}
+function recheck(id,quiet){
+ const s=src(id);if(!s||s.estado==='MANT')return;
+ let ns=s.estado;
+ if(s.id==='abc_caminos') ns=Math.random()<.35?'OK':'CRIT';
+ else if(s.id==='minsalud') ns=Math.random()<.3?'OK':'WARN';
+ else if(s.id==='minturismo') ns=Math.random()<.5?'OK':'WARN';
+ else if(s.estado==='OK') ns=Math.random()<.06?'WARN':'OK';
+ else if(s.estado==='UNKNOWN') ns='UNKNOWN';
+ else ns='OK';
+ s.hist=[...s.hist.slice(1),ns];s.last=0;
+ if(ns==='OK'&&s.lat) s.lat=Math.round(500+Math.random()*1800);
+ if(ns!==s.estado){
+  EVENTS.unshift({t:0,k:ns,w:`${s.nombre.split(' ·')[0]} pasó a ${STATE_TXT[ns]}`,d:ns==='OK'?'Recuperada · vuelve a aportar datos':'Revisar comprobaciones'});
+  s.estado=ns;s.desde=0;s.ack=false;
+  if(ns==='OK') s.info=s.id==='abc_caminos'?'HTTP 200 en 6,1 s · 2 tramos con restricción':s.id==='minsalud'?'HTTP 200 · 1 comunicado nuevo':s.id==='minturismo'?'HTTP 200 en 2,3 s · 1 nota nueva':s.info;
+  if(ns==='WARN'&&s.id!=='minsalud') s.info='Respuesta lenta (> 5 s) · reintentando';
+  if(!quiet) toast(`${s.nombre.split(' ·')[0]}: ${STATE_TXT[ns]}`);
+ } else {
+  EVENTS.unshift({t:0,k:ns,w:`${s.nombre.split(' ·')[0]} · comprobación`,d:s.info});
+  if(!quiet) toast(`Comprobada: ${STATE_TXT[ns]}`);
+ }
+ EVENTS=EVENTS.slice(0,40);
+}
+
+/* ───────── Señales ───────── */
+function sigFiltered(){
+ const f=S.sigFilter;
+ return SIGNALS.filter(s=>(f.nat==='all'||s.naturaleza===f.nat)&&(f.dep==='all'||s.deps.includes(f.dep))&&(!f.q||norm(s.titulo+' '+s.resumen+' '+s.destinos.join(' ')+' '+s.id).includes(norm(f.q))));
+}
+function vSenales(){
+ const f=S.sigFilter,list=sigFiltered();
+ return `<section class="head"><div><div class="eyebrow">Tratamiento del conocimiento</div><h1>De noticia suelta a <em>señal verificada</em></h1><p class="sub">Cada señal recorre etapas: AVIA la detecta y la evalúa, una persona la verifica y el observatorio la publica. ${canDecide()?'Arrastra una tarjeta a otra columna o ábrela para decidir.':'Estás en modo consulta.'}</p></div></section>
+ <div class="toolbar"><label class="sr" for="sigQ">Buscar señales</label><input class="inp" id="sigQ" placeholder="Buscar por título, destino o código" value="${esc(f.q)}">
+ <div class="seg">${[['all','Todas'],['oportunidad','Oportunidades'],['riesgo','Riesgos'],['mixta','Mixtas']].map(([k,n])=>`<button class="${f.nat===k?'on':''}" data-nat="${k}">${n}</button>`).join('')}</div>
+ <label class="sr" for="sigDep">Departamento</label><select id="sigDep" style="width:auto"><option value="all">Todos los departamentos</option>${DEPS.map(d=>`<option ${f.dep===d?'selected':''}>${d}</option>`).join('')}</select></div>
+ <div class="pipe">${STAGES.map(([k,n])=>{const ss=list.filter(s=>s.estado===k);return `<div class="stage" data-stage="${k}"><div class="stage-h">${n}<b>${ss.length}</b></div><div class="stage-b">${ss.map(cardHTML).join('')||'<div class="note" style="padding:8px">Vacía</div>'}</div></div>`}).join('')}</div>`;
+}
+function cardHTML(s){
+ return `<button class="card" data-sig="${s.id}" ${canDecide()?'draggable="true"':''} data-drag="${s.id}"><span class="cm">${natPill(s.naturaleza)}<span class="tag">${esc(CATS[s.categoria])}</span></span><span class="ct">${esc(s.titulo)}</span><span class="cf"><span>${esc(s.deps.slice(0,2).join(', '))}${s.deps.length>2?' +'+(s.deps.length-2):''}</span><span class="mono">${s.id} · ${ago(s.min)}</span></span><span class="cf tech"><span>Relevancia ${s.rel}/10 · Novedad ${s.nov}/10</span><span>${s.corr} fte.</span></span></button>`;
+}
+function wirePipe(){
+ let dragId=null;
+ document.querySelectorAll('[data-drag][draggable="true"]').forEach(c=>{c.addEventListener('dragstart',e=>{dragId=c.dataset.drag;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',dragId)}catch{}});c.addEventListener('dragend',()=>{dragId=null;document.querySelectorAll('.stage').forEach(s=>s.classList.remove('drop'))})});
+ document.querySelectorAll('.stage').forEach(st=>{st.addEventListener('dragover',e=>{if(!dragId)return;e.preventDefault();st.classList.add('drop')});st.addEventListener('dragleave',()=>st.classList.remove('drop'));st.addEventListener('drop',e=>{e.preventDefault();if(dragId)moveSignal(dragId,st.dataset.stage)})});
+}
+function moveSignal(id,to,note){
+ const s=sig(id);if(!s||!canDecide())return false;if(s.estado===to)return false;
+ const from=s.estado;s.estado=to;s.hist=s.hist||[];s.hist.unshift({de:from,a:to,quien:roleName(),cuando:clock(0),nota:note||''});
+ if(['confirmada','publicada'].includes(to)) s.sla=null;
+ EVENTS.unshift({t:0,k:'check',w:`${roleName()} movió ${s.id} a «${STL[to]}»`,d:s.titulo+(note?' · Nota: '+note:'')});
+ renderNav();render();toast(`${s.id} → ${STL[to]}`);return true;
+}
+const roleName=()=>({visor:'Visor',analista:'Analista',admin:'Administrador'}[S.role]);
+function openSignal(id){
+ const s=sig(id);if(!s)return;
+ const evid=s.fuentes.map(f=>src(f)).filter(Boolean);
+ openDrawer(`<div class="drawer-h">${ico('senales')} Señal ${esc(s.id)} · ejemplo<button class="icon-btn" data-act="close" aria-label="Cerrar">${ico('close')}</button></div>
+ <div class="drawer-b"><div style="display:flex;gap:6px;flex-wrap:wrap">${natPill(s.naturaleza)}<span class="tag">${STL[s.estado]}</span><span class="tag">${esc(CATS[s.categoria])}</span><span class="tag">Prioridad ${s.prioridad}</span></div>
+ <h2>${esc(s.titulo)}</h2><p class="lead">${esc(s.resumen)}</p>
+ <div class="dl"><div><small>Territorio</small><b>${esc(s.deps.join(', '))}</b></div><div><small>Destinos</small><b>${esc(s.destinos.join(', '))}</b></div><div><small>Relevancia · Novedad</small><b class="mono">${s.rel}/10 · ${s.nov}/10</b></div><div><small>Confianza</small><b class="mono">${Math.round(s.conf*100)}%</b></div>${s.plazo?`<div><small>Plazo</small><b>${s.plazo} días</b></div>`:''}<div><small>Detectada</small><b>${ago(s.min)}</b></div></div>
+ <div class="sect">Por qué importa al turismo</div><p style="margin:0">${esc(s.importancia)}</p>
+ <div class="sect">Evidencia y corroboración</div>${evid.map(f=>`<div class="evi">${ico('shield')}<span>${esc(f.nombre)}<small>${esc(f.url)}</small></span></div>`).join('')}${s.corr<2?`<div class="evi pend">${ico('riesgo')}<span>Falta una segunda fuente independiente<small>AVIA sigue buscando corroboración</small></span></div>`:''}
+ <div class="sect">Soluciones y acciones que propone AVIA</div>${s.soluciones.map((o,i)=>`<label class="sol"><input type="radio" name="sol" value="${i}"><span><b>${esc(o.t)}</b><small>${esc(o.d)}</small></span></label>`).join('')}
+ ${canDecide()?`<div class="field"><label for="decNote">Nota de la decisión</label><textarea class="inp" id="decNote" placeholder="Motivo, condiciones o comentarios"></textarea></div>
+ <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn gold" data-decide="${s.id}" data-to="confirmada">${ico('check')} Confirmar</button><button class="btn" data-decide="${s.id}" data-to="publicada">Publicar</button><button class="btn" data-decide="${s.id}" data-to="en_verificacion">Pedir verificación</button><button class="btn ghost" data-decide="${s.id}" data-to="descartada">Descartar</button></div>`:'<p class="note" style="margin:0">Entraste como visor: puedes consultar pero no decidir.</p>'}
+ <button class="btn ghost" data-askabout="${s.id}">${ico('spark')} Preguntar a AVIA por esta señal</button>
+ ${(s.hist&&s.hist.length)?`<div class="sect">Historial</div>${s.hist.map(h=>`<div class="evi">${ico('clock')}<span>${STL[h.de]} → ${STL[h.a]} · ${esc(h.quien)}<small>${esc(h.cuando)}${h.nota?' · '+esc(h.nota):''}</small></span></div>`).join('')}`:''}
+ <div class="lock">${ico('shield')} Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.</div></div>`);
+}
+
+/* ───────── Oportunidades ───────── */
+function vOpps(){
+ const l=active().filter(s=>s.naturaleza!=='riesgo').sort((a,b)=>(a.plazo??999)-(b.plazo??999));
+ return `<section class="head"><div><div class="eyebrow">Oportunidades</div><h1>Lo que se puede <em>aprovechar</em> ahora</h1><p class="sub">AVIA no solo avisa: cruza cada oportunidad con quién puede aprovecharla y propone el siguiente paso. Ordenadas por plazo.</p></div><div class="head-actions"><button class="btn gold" data-act="oppbrief">${ico('spark')} Proponer oportunidades nuevas</button></div></section>
+ <div class="opp-grid">${l.map(s=>`<article class="opp"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${natPill(s.naturaleza)}<span class="tag">${esc(s.tipoOpp||CATS[s.categoria])}</span><span class="tag">${STL[s.estado]}</span></div>
+ <div class="ot">${esc(s.titulo)}</div><p class="od">${esc(s.importancia)}</p>
+ <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap">${s.plazo?`<div class="countdown"><b class="num">${s.plazo}</b><small>días para actuar</small></div>`:'<div class="countdown"><small>Sin plazo: tendencia en seguimiento</small></div>'}<span class="note mono">puntuación ${scoreOf(s)}</span></div>
+ ${s.actores?`<div class="actors">${s.actores.map(a=>`<span class="tag">${esc(a)}</span>`).join('')}</div>`:''}
+ <div class="propose"><b>Siguiente paso propuesto</b>${esc(s.soluciones[0].t)}. <span style="color:var(--muted)">${esc(s.soluciones[0].d)}</span></div>
+ <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-sig="${s.id}">${ico('eye')} Ver detalle</button><button class="btn sm ghost" data-askabout="${s.id}">${ico('spark')} Plan con AVIA</button></div></article>`).join('')}</div>
+ <div id="oppOut"></div>`;
+}
+
+/* ───────── Análisis ───────── */
+const AN_TYPES={
+ panorama:['Panorama ejecutivo','Qué pasa, qué importa y qué hacer, en un párrafo por tema.'],
+ destino:['Oportunidades por destino','Qué puede aprovechar cada destino o departamento.'],
+ cruce:['Cruce riesgo–oportunidad','Dónde un riesgo y una oportunidad se tocan.'],
+ foda:['FODA del territorio','Fortalezas, debilidades, oportunidades y amenazas.'],
+ noticia:['Evaluar una noticia','Pega un texto y AVIA lo clasifica y valora.'],
+ libre:['Pregunta libre','Cualquier pregunta sobre las señales.']
+};
+function vAnalisis(){
+ const a=S.analysis;
+ return `<section class="head"><div><div class="eyebrow">Análisis</div><h1>Pregunta a los <em>datos</em></h1><p class="sub">Elige un tipo de análisis y el conjunto de señales. AVIA trabaja solo con la información del observatorio y cita los códigos de las señales que usa.</p></div></section>
+ <div class="an-grid"><div style="display:flex;flex-direction:column;gap:14px">
+  <section class="panel" style="--w:12"><div class="panel-h"><h2>${ico('analisis')}1 · Tipo de análisis</h2></div><div class="panel-b"><div class="an-types">${Object.entries(AN_TYPES).map(([k,[t,d]])=>`<button class="an-type ${a.type===k?'on':''}" data-antype="${k}"><b>${t}</b><small>${d}</small></button>`).join('')}</div></div></section>
+  <section class="panel" style="--w:12"><div class="panel-h"><h2>${ico('categorias')}2 · Con qué información</h2></div><div class="panel-b" style="display:flex;flex-direction:column;gap:12px">
+   ${a.type==='noticia'?`<div class="field"><label for="anText">Texto de la noticia</label><textarea class="inp" id="anText" rows="6" placeholder="Pega aquí una noticia, un comunicado o un párrafo…">${esc(a.text||'')}</textarea></div>`:`<div class="seg">${[['all','Todas'],['oportunidad','Oportunidades'],['riesgo','Riesgos']].map(([k,n])=>`<button class="${a.scope===k?'on':''}" data-anscope="${k}">${n}</button>`).join('')}</div>
+   <div class="field"><label for="anDep">Territorio</label><select id="anDep"><option value="all">Todo Bolivia</option>${DEPS.map(d=>`<option ${a.dep===d?'selected':''}>${d}</option>`).join('')}</select></div>`}
+   ${a.type==='libre'?`<div class="field"><label for="anQ">Tu pregunta</label><textarea class="inp" id="anQ" rows="3" placeholder="Por ejemplo: ¿qué oportunidades hay para comunidades del altiplano?">${esc(a.q||'')}</textarea></div>`:''}
+   <p class="note" style="margin:0">${a.type==='noticia'?'El texto no se guarda.':`Se usarán ${anSignals().length} señales.`}</p>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn gold" data-act="runan" id="runAn">${ico('spark')} Analizar</button><button class="btn ghost" data-act="stopan" id="stopAn" hidden>Detener</button></div>
+  </div></section>
+  <section class="panel" style="--w:12"><div class="panel-h"><h2>${ico('categorias')}Distribución del conjunto</h2><span class="meta">calculado</span></div><div class="panel-b">${catBars(anSignals())}</div></section>
+ </div>
+ <section class="panel" style="--w:12"><div class="panel-h"><h2>${ico('sintesis')}Resultado</h2><span class="meta" id="anMode"></span></div><div class="panel-b"><div class="out" id="anOut"><div class="empty"><b>Aún no hay análisis</b>Elige un tipo y pulsa «Analizar». Si AVIA no está disponible en esta vista, se usa un análisis local básico.</div></div></div></section></div>`;
+}
+function anSignals(){const a=S.analysis;return active().filter(s=>(a.scope==='all'||(a.scope==='oportunidad'?s.naturaleza!=='riesgo':s.naturaleza!=='oportunidad'))&&(a.dep==='all'||s.deps.includes(a.dep)))}
+const compact=s=>({id:s.id,titulo:s.titulo,resumen:s.resumen,naturaleza:s.naturaleza,categoria:s.categoria,departamentos:s.deps,destinos:s.destinos,estado:s.estado,prioridad:s.prioridad,relevancia:s.rel,novedad:s.nov,confianza:s.conf,fuentes:s.corr,plazo_dias:s.plazo??null,importancia:s.importancia,acciones:s.soluciones.map(x=>x.t)});
+let anCtl=null;
+async function runAnalysis(){
+ const a=S.analysis;const out=$('anOut');
+ if(a.type==='noticia'){a.text=$('anText').value.trim();if(!a.text){toast('Pega primero el texto de una noticia.');return}}
+ if(a.type==='libre'){a.q=$('anQ').value.trim();if(!a.q){toast('Escribe tu pregunta.');return}}
+ const sample=await getSample();
+ if(!sample){$('anMode').textContent='análisis local';out.innerHTML=localAnalysis();return}
+ $('anMode').textContent='AVIA (IA)';out.textContent='Pensando…';$('runAn').disabled=true;$('stopAn').hidden=false;
+ anCtl=new AbortController();
+ try{
+  if(a.type==='noticia'){
+   const r=await sample.json(`Eres AVIA, el analista del Vigilante del observatorio turístico ORBITA (Bolivia). Evalúa la noticia para el sector turismo y responde SOLO con JSON: {"naturaleza":"oportunidad|riesgo|mixta","categoria":"una de ${Object.keys(CATS).join('|')}","departamentos":[...],"destinos":[...],"relevancia":0-10,"novedad":0-10,"confianza":0-1,"titulo":"titular corto","importancia":"por qué importa al turismo, 2 frases","acciones":["3 acciones concretas"],"verificar":"qué hay que comprobar y en qué fuente oficial"}. Si algo no aparece en el texto, no lo inventes.\n\nNOTICIA:\n${a.text}`,{signal:anCtl.signal,modelTier:'default'});
+   out.innerHTML=evalCard(r,true);
+  } else {
+   const prompt=`Eres AVIA, el analista del Vigilante del observatorio turístico ORBITA (Bolivia). Trabaja SOLO con estas señales (son datos de ejemplo de una demostración). Cita los códigos SEN-xxxx. Escribe en español claro, para personas no técnicas, con títulos cortos y listas breves; máximo 300 palabras. No inventes datos que no estén en las señales.\n\nTAREA: ${AN_TYPES[a.type][0]} — ${AN_TYPES[a.type][1]}${a.type==='libre'?'\nPREGUNTA: '+a.q:''}\nTERRITORIO: ${a.dep==='all'?'Todo Bolivia':a.dep}\n\nSEÑALES:\n${JSON.stringify(anSignals().map(compact))}`;
+   await sample(prompt,{signal:anCtl.signal,modelTier:'default',onText:({text})=>{out.innerHTML=md(text)}});
+  }
+ }catch(e){
+  if(e&&e.code==='cancelled'){out.innerHTML+=`<p class="note">Detenido.</p>`}
+  else if(e&&e.code==='not_granted'){$('anMode').textContent='análisis local';out.innerHTML=`<p class="note">No se dio permiso para usar Claude en esta vista. Se muestra el análisis local.</p>`+localAnalysis()}
+  else {$('anMode').textContent='análisis local';out.innerHTML=`<p class="note">AVIA no respondió (${esc(e&&e.code||'error')}). Se muestra el análisis local.</p>`+localAnalysis()}
+ }finally{const b=$('runAn');if(b){b.disabled=false;$('stopAn').hidden=true}}
+}
+function evalCard(r,withAdd){
+ const nat=['oportunidad','riesgo','mixta'].includes(r.naturaleza)?r.naturaleza:'mixta';
+ window.__lastEval=r;
+ return `<div style="display:flex;gap:6px;flex-wrap:wrap">${natPill(nat)}<span class="tag">${esc(CATS[r.categoria]||r.categoria||'—')}</span>${(r.departamentos||[]).map(d=>`<span class="tag">${esc(d)}</span>`).join('')}</div><h3>${esc(r.titulo||'Noticia evaluada')}</h3>
+ <div class="eval"><div><small>Relevancia</small><b>${esc(r.relevancia??'—')}/10</b></div><div><small>Novedad</small><b>${esc(r.novedad??'—')}/10</b></div><div><small>Confianza</small><b>${r.confianza!=null?Math.round(r.confianza*100)+'%':'—'}</b></div></div>
+ <p><b>Por qué importa:</b> ${esc(r.importancia||'')}</p>${(r.acciones||[]).length?`<p><b>Acciones:</b></p><ul>${r.acciones.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${r.verificar?`<p><b>Qué verificar:</b> ${esc(r.verificar)}</p>`:''}
+ ${withAdd&&canDecide()?`<button class="btn sm gold" data-act="addeval">${ico('plus')} Añadir como señal detectada</button>`:''}`;
+}
+function md(t){
+ const lines=esc(t).split('\n');let html='',inList=false;
+ for(const l of lines){
+  const b=l.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+  if(/^#{1,4}\s/.test(l)){if(inList){html+='</ul>';inList=false}html+=`<h4>${b.replace(/^#{1,4}\s/,'')}</h4>`}
+  else if(/^\s*[-*•]\s/.test(l)){if(!inList){html+='<ul>';inList=true}html+=`<li>${b.replace(/^\s*[-*•]\s/,'')}</li>`}
+  else{if(inList){html+='</ul>';inList=false}html+=b?`<p style="margin:0 0 8px">${b}</p>`:''}
+ }
+ if(inList)html+='</ul>';return `<div style="white-space:normal">${html}</div>`;
+}
+function localAnalysis(){
+ const a=S.analysis;
+ if(a.type==='noticia'){
+  const t=norm(a.text);
+  const has=w=>w.some(x=>t.includes(x));
+  const cat=has(['lluvia','granizo','helada','senamhi','incendio','humo','inunda'])?'clima':has(['dengue','salud','epidem','brote'])?'salud':has(['carretera','bloqueo','abc','tramo'])?'vial':has(['vuelo','aerolinea','aeropuerto','ruta aerea'])?'conectividad':has(['convocatoria','fondo','licitacion','financ'])?'financiacion':has(['festival','feria','evento'])?'eventos':has(['decreto','ley','norma'])?'normativa':'mercado';
+  const risk=has(['alerta','riesgo','bloqueo','cierre','brote','corte','emergencia']),opp=has(['convocatoria','fondo','nueva','festival','feria','crece','aumento','ruta']);
+  const deps=DEPS.filter(d=>t.includes(norm(d)));
+  return `<p class="note">Análisis local por palabras clave (sin IA). Con AVIA la evaluación es mucho más fina.</p>`+evalCard({naturaleza:risk&&opp?'mixta':risk?'riesgo':'oportunidad',categoria:cat,departamentos:deps.length?deps:['Por confirmar'],titulo:a.text.slice(0,90)+(a.text.length>90?'…':''),relevancia:Math.min(10,4+deps.length*2+(risk||opp?2:0)),novedad:6,confianza:.4,importancia:`Clasificada como ${CATS[cat].toLowerCase()} por las palabras del texto. Falta corroborar con una fuente oficial.`,acciones:['Buscar una segunda fuente independiente','Revisar si afecta a un destino con visitantes en los próximos 7 días','Decidir si pasa a verificación'],verificar:'Comparar con la fuente oficial del canal correspondiente.'},true);
+ }
+ const l=anSignals();const o=l.filter(s=>s.naturaleza!=='riesgo'),r=l.filter(s=>s.naturaleza==='riesgo');
+ const top=[...o].sort((a,b)=>scoreOf(b)-scoreOf(a)).slice(0,3),tr=[...r].sort((a,b)=>scoreOf(b)-scoreOf(a)).slice(0,3);
+ const byDep=DEPS.map(d=>[d,l.filter(s=>s.deps.includes(d)).length]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);
+ return `<p class="note">Análisis local calculado con reglas (sin IA). Abre esta página en Claude para que lo haga AVIA.</p>
+ <h4>Resumen</h4><p>${l.length} señales en ${a.dep==='all'?'todo Bolivia':a.dep}: ${o.length} oportunidades o mixtas y ${r.length} riesgos.</p>
+ ${top.length?`<h4>Oportunidades con mejor puntuación</h4><ul>${top.map(s=>`<li><b>${s.id}</b> · ${esc(s.titulo)}${s.plazo?` (${s.plazo} días)`:''} → ${esc(s.soluciones[0].t)}</li>`).join('')}</ul>`:''}
+ ${tr.length?`<h4>Riesgos a vigilar</h4><ul>${tr.map(s=>`<li><b>${s.id}</b> · ${esc(s.titulo)} → ${esc(s.soluciones[0].t)}</li>`).join('')}</ul>`:''}
+ ${byDep.length?`<h4>Territorios con más señales</h4><p>${byDep.slice(0,4).map(([d,n])=>`${d} (${n})`).join(', ')}.</p>`:''}
+ ${a.type==='cruce'?`<h4>Cruces detectados</h4><ul>${crossings(l).map(x=>`<li>${x}</li>`).join('')||'<li>No hay riesgo y oportunidad en el mismo destino.</li>'}</ul>`:''}`;
+}
+function crossings(l){const res=[];l.filter(s=>s.naturaleza==='riesgo').forEach(r=>{l.filter(s=>s.naturaleza!=='riesgo').forEach(o=>{const d=r.deps.filter(x=>o.deps.includes(x));if(d.length)res.push(`${d.join(', ')}: <b>${r.id}</b> (riesgo) se cruza con <b>${o.id}</b> (${o.naturaleza})`)})});return res.slice(0,6)}
+
+/* ───────── Bitácora ───────── */
+function vBitacora(){
+ return `<section class="head"><div><div class="eyebrow">Trazabilidad</div><h1>Todo lo que pasó, <em>en orden</em></h1><p class="sub">Comprobaciones de fuentes, señales nuevas y decisiones de las personas. En la versión real este registro no se puede borrar.</p></div></section>
+ <section class="panel" style="--w:12"><div class="panel-h"><h2>${ico('bitacora')}Registro</h2><span class="meta">${EVENTS.length} eventos</span></div><div class="panel-b">${eventsHTML(EVENTS)}</div></section>`;
+}
+
+/* ───────── Drawer, búsqueda, avisos ───────── */
+let lastFocus=null;
+function openDrawer(html){lastFocus=document.activeElement;$('drawer').innerHTML=html;$('drawer').hidden=false;$('scrim').hidden=false;const f=$('drawer').querySelector('button,input,textarea');f&&f.focus()}
+function closeDrawer(){$('drawer').hidden=true;$('scrim').hidden=true;lastFocus&&lastFocus.focus&&lastFocus.focus()}
+function toast(m){const t=document.createElement('div');t.className='toast';t.innerHTML=ico('check')+`<span>${esc(m)}</span>`;$('toasts').appendChild(t);setTimeout(()=>t.remove(),3800)}
+function openSearch(){$('search').hidden=false;$('searchIn').value='';renderSearch();setTimeout(()=>$('searchIn').focus(),10)}
+function closeSearch(){$('search').hidden=true}
+function renderSearch(){
+ const q=norm($('searchIn').value);
+ const R=[];
+ SIGNALS.forEach(s=>{if(!q||norm(s.id+' '+s.titulo+' '+s.destinos.join(' ')+' '+s.deps.join(' ')).includes(q))R.push({k:'Señal',t:s.titulo,s:`${s.id} · ${s.deps.join(', ')}`,a:()=>openSignal(s.id)})});
+ SOURCES.forEach(s=>{if(q&&norm(s.nombre+' '+s.url+' '+s.canal).includes(q))R.push({k:'Fuente',t:s.nombre,s:STATE_TXT[s.estado],a:()=>openSource(s.id)})});
+ Object.entries(PANELS).forEach(([k,p])=>{if(q&&norm(p.t+' '+p.d).includes(q))R.push({k:'Panel',t:'Añadir: '+p.t,s:p.d,a:()=>addPanel(k)})});
+ VIEWS.forEach(([id,n])=>{if(q&&norm(n).includes(q))R.push({k:'Vista',t:'Ir a '+n,s:'',a:()=>go(id)})});
+ window.__sr=R.slice(0,10);
+ $('searchRes').innerHTML=window.__sr.length?window.__sr.map((r,i)=>`<button class="sres ${i===0?'on':''}" data-sr="${i}"><span><b>${esc(r.t)}</b><small>${esc(r.s)}</small></span><span class="k">${r.k}</span></button>`).join(''):'<div class="empty"><b>Sin resultados</b>Prueba con un destino, un departamento o una fuente.</div>';
+}
+
+/* ───────── Ajustes de accesibilidad ───────── */
+function openA11y(){
+ openDrawer(`<div class="drawer-h">Accesibilidad y apariencia<button class="icon-btn" data-act="close" aria-label="Cerrar">${ico('close')}</button></div><div class="drawer-b">
+ <div class="field"><label>Tema</label><div class="seg"><button class="${!S.theme?'on':''}" data-theme-set="">Del sistema</button><button class="${S.theme==='dark'?'on':''}" data-theme-set="dark">Oscuro</button><button class="${S.theme==='light'?'on':''}" data-theme-set="light">Claro</button></div></div>
+ <div class="field"><label>Tamaño del texto</label><div class="seg">${[[.9,'Pequeño'],[1,'Normal'],[1.15,'Grande'],[1.3,'Muy grande']].map(([v,n])=>`<button class="${S.fs===v?'on':''}" data-fs="${v}">${n}</button>`).join('')}</div></div>
+ <div class="field"><label>Contraste</label><div class="seg"><button class="${S.contrast==='normal'?'on':''}" data-contrast="normal">Normal</button><button class="${S.contrast==='alto'?'on':''}" data-contrast="alto">Alto</button></div></div>
+ <div class="field"><label>Modo sencillo</label><div class="seg"><button class="${!S.simple?'on':''}" data-simple="0">Completo</button><button class="${S.simple?'on':''}" data-simple="1">Sencillo</button></div><p class="note" style="margin:0">El modo sencillo oculta datos técnicos (tiempos de respuesta, puntuaciones) y deja lo esencial.</p></div>
+ <div class="sect">Atajos de teclado</div><p class="note" style="margin:0"><span class="kbd">Ctrl K</span> buscar · <span class="kbd">H</span> abrir AVIA · <span class="kbd">E</span> editar tablero · <span class="kbd">Esc</span> cerrar</p></div>`);
+}
+
+/* ───────── AVIA: asistente conversacional ───────── */
+let sampleFn, sampleTried=false;
+async function getSample(){
+ if(sampleTried) return sampleFn;
+ sampleTried=true;
+ try{ sampleFn = (window.claude&&window.claude.use) ? await window.claude.use('sample') : null }catch{ sampleFn=null }
+ updateChatMode(); return sampleFn;
+}
+function updateChatMode(){
+ $('chatMode').textContent=sampleFn?'Conectado a Claude · datos de ejemplo':'Modo local (sin IA) · datos de ejemplo';
+ $('chatNote').textContent=sampleFn?'AVIA puede consultar señales y fuentes, abrir vistas y cambiar el tablero.':'Respuestas por reglas. Abre la página dentro de Claude para hablar con la IA.';
+}
+const CHIPS=['¿Qué oportunidades cierran pronto?','¿Qué fuentes fallan?','Riesgos en La Paz','Añade el mapa al tablero','Haz un resumen para el ministerio'];
+function renderChips(){$('chatChips').innerHTML=CHIPS.map(c=>`<button class="chip" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}
+function addMsg(role,text,act){const d=document.createElement('div');d.className='msg '+role;d.textContent=text;if(act){const a=document.createElement('span');a.className='act';a.textContent=act;d.appendChild(a)}$('chatLog').appendChild(d);$('chatLog').scrollTop=1e9;return d}
+function openChat(prefill){$('chat').hidden=false;$('chatFab').hidden=true;S.chatOpen=true;$('chat').classList.toggle('docked',S.docked);if(!$('chatLog').children.length){addMsg('a','Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te propongo oportunidades y soluciones.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.');renderChips();getSample()}if(prefill){$('chatIn').value=prefill;sendChat()}else $('chatIn').focus()}
+function closeChat(){$('chat').hidden=true;$('chatFab').hidden=false;S.chatOpen=false}
+const TOOLS=[
+ {name:'consultar_senales',description:'Busca señales del observatorio. Devuelve una lista resumida. Todos los filtros son opcionales.',inputSchema:{type:'object',properties:{texto:{type:'string',description:'palabras a buscar en título, resumen o destinos'},naturaleza:{type:'string',enum:['oportunidad','riesgo','mixta']},departamento:{type:'string',enum:DEPS},estado:{type:'string',enum:STAGES.map(s=>s[0])}}},execute(i){i=i||{};return SIGNALS.filter(s=>(!i.naturaleza||s.naturaleza===i.naturaleza)&&(!i.departamento||s.deps.includes(i.departamento))&&(!i.estado||s.estado===i.estado)&&(!i.texto||norm(s.titulo+' '+s.resumen+' '+s.destinos.join(' ')).includes(norm(i.texto)))).slice(0,10).map(compact)}},
+ {name:'estado_fuentes',description:'Estado actual de cada fuente vigilada (OK, WARN=aviso, CRIT=crítico, UNKNOWN, MANT=mantenimiento) y la información de su última comprobación.',inputSchema:{type:'object',properties:{}},execute(){return SOURCES.map(s=>({id:s.id,nombre:s.nombre,estado:s.estado,info:s.info,canal:s.canal,url:s.url}))}},
+ {name:'abrir',description:'Abre en pantalla una vista, una señal (por código SEN-xxxx) o una fuente (por id).',inputSchema:{type:'object',properties:{vista:{type:'string',enum:VIEWS.map(v=>v[0])},senal:{type:'string'},fuente:{type:'string'}}},execute(i){i=i||{};if(i.vista)go(i.vista);if(i.senal){if(!sig(i.senal))throw new Error('No existe esa señal');openSignal(i.senal)}if(i.fuente){if(!src(i.fuente))throw new Error('No existe esa fuente');openSource(i.fuente)}return {ok:true}}},
+ {name:'cambiar_tablero',description:'Añade o quita un panel del tablero Panorama.',inputSchema:{type:'object',properties:{accion:{type:'string',enum:['agregar','quitar']},panel:{type:'string',enum:Object.keys(PANELS)}},required:['accion','panel']},execute(i){const ok=i.accion==='agregar'?addPanel(i.panel,true):(S.layout.some(p=>p.id===i.panel)&&removePanel(i.panel,true));if(S.view!=='panorama')go('panorama');return {ok:!!ok,tablero:S.layout.map(p=>p.id)}}}
+];
+const RULES=`Eres AVIA, el asistente del Vigilante de ORBITA, el observatorio turístico de Bolivia. Hablas en español claro y cercano, para cualquier persona (también no técnicas). Respuestas breves: 2 a 6 frases o una lista corta. Usa las herramientas para consultar datos; no inventes señales, cifras ni fuentes. Cita los códigos SEN-xxxx. Cuando des una oportunidad, di quién puede aprovecharla y el siguiente paso. Cuando hables de un riesgo, di qué verificar. Todos los datos son de una DEMOSTRACIÓN (ejemplos inventados); si te preguntan, dilo. Paneles disponibles: ${Object.entries(PANELS).map(([k,p])=>k+' ('+p.t+')').join(', ')}. Rol de quien escribe: ${'{ROL}'}. Fecha: 3 de noviembre de 2026.`;
+let chatCtl=null,busy=false;
+async function sendChat(){
+ const txt=$('chatIn').value.trim();if(!txt||busy)return;$('chatIn').value='';
+ addMsg('u',txt);$('chatChips').innerHTML='';
+ const sample=await getSample();
+ busy=true;$('chatSend').disabled=true;
+ const bubble=addMsg('a','Pensando…');
+ if(!sample){setTimeout(()=>{const r=localReply(txt);bubble.textContent=r.text;if(r.act){const a=document.createElement('span');a.className='act';a.textContent=r.act;bubble.appendChild(a)}busy=false;$('chatSend').disabled=false;$('chatLog').scrollTop=1e9},350);return}
+ S.turns.push({role:'user',content:txt});
+ chatCtl=new AbortController();const acts=[];
+ const tools=TOOLS.map(t=>({...t,execute:(i)=>{acts.push(t.name);bubble.textContent='Consultando '+t.name.replace('_',' ')+'…';return t.execute(i)}}));
+ try{
+  const {text}=await sample([{role:'user',content:RULES.replace('{ROL}',roleName())},{role:'assistant',content:'Entendido. Usaré las herramientas y responderé en español claro.'},...S.turns.slice(-10)],{cache:false,signal:chatCtl.signal,tools,modelTier:'quick',onText:({text})=>{bubble.textContent=text;$('chatLog').scrollTop=1e9}});
+  bubble.textContent=text;S.turns.push({role:'assistant',content:text});
+  if(acts.length){const a=document.createElement('span');a.className='act';a.textContent='Usó: '+[...new Set(acts)].join(', ');bubble.appendChild(a)}
+ }catch(e){
+  S.turns.pop();
+  if(e&&e.code==='not_granted'){sampleFn=null;updateChatMode();const r=localReply(txt);bubble.textContent='(Sin permiso para usar la IA; respondo en modo local.)\n\n'+r.text}
+  else if(e&&e.code==='cancelled'){bubble.textContent=e.text||'Detenido.'}
+  else{bubble.textContent=(e&&e.text)||('No pude responder ahora ('+(e&&e.code||'error')+'). Prueba otra vez en un momento.')}
+ }finally{busy=false;$('chatSend').disabled=false;$('chatLog').scrollTop=1e9}
+}
+function localReply(q){
+ const t=norm(q);
+ const panelHit=Object.entries(PANELS).find(([k,p])=>t.includes(norm(p.t))||t.includes(k)||(k==='mapa'&&t.includes('mapa'))||(k==='evolucion'&&t.includes('grafic'))||(k==='temas'&&t.includes('tema'))||(k==='actividad'&&t.includes('actividad')));
+ if(/(anade|agrega|pon|muestra|añade)/.test(t)&&panelHit){if(S.layout.some(p=>p.id===panelHit[0])){go('panorama');return {text:`«${panelHit[1].t}» ya está en el tablero. Te llevé al Panorama.`}}addPanel(panelHit[0],true);return {text:`Listo, añadí «${panelHit[1].t}» al tablero.`,act:'Tablero actualizado'}}
+ if(/(quita|elimina|saca|oculta)/.test(t)&&panelHit){removePanel(panelHit[0],true);return {text:`Quité «${panelHit[1].t}». Puedes volver a ponerlo cuando quieras.`,act:'Tablero actualizado'}}
+ if(/fuente|falla|caid|estado/.test(t)){const bad=SOURCES.filter(s=>['WARN','CRIT','UNKNOWN'].includes(s.estado));go('fuentes');return {text:bad.length?`Hay ${bad.length} fuentes que revisar:\n`+bad.map(s=>`• ${s.nombre}: ${STATE_TXT[s.estado]} — ${s.info}`).join('\n'):'Todas las fuentes están bien.',act:'Abrí la vista Fuentes'}}
+ const dep=DEPS.find(d=>t.includes(norm(d)));
+ if(/riesgo|peligro|alerta/.test(t)){const l=active().filter(s=>s.naturaleza==='riesgo'&&(!dep||s.deps.includes(dep)));return {text:l.length?`Riesgos${dep?' en '+dep:''}:\n`+l.map(s=>`• ${s.id} ${s.titulo} (${STL[s.estado]}). Verificar: ${s.soluciones[0].t.toLowerCase()}.`).join('\n'):`No hay riesgos activos${dep?' en '+dep:''}.`}}
+ if(/oportunidad|plazo|cierra|fondo|convocatoria/.test(t)){const l=active().filter(s=>s.naturaleza!=='riesgo'&&(!dep||s.deps.includes(dep))).sort((a,b)=>(a.plazo??999)-(b.plazo??999)).slice(0,4);return {text:l.length?'Oportunidades por plazo:\n'+l.map(s=>`• ${s.id} ${s.titulo}${s.plazo?` — ${s.plazo} días`:''}. Siguiente paso: ${s.soluciones[0].t.toLowerCase()}.`).join('\n'):'No encontré oportunidades con ese filtro.'}}
+ if(/resumen|sintesis|ministerio|informe/.test(t)){const a=active();return {text:`Resumen (datos de ejemplo): ${a.length} señales activas. Lo más urgente es la alerta naranja en Yungas y Rurrenabaque (SEN-0418). Las mejores oportunidades son el fondo de CAF para turismo comunitario, que cierra en 12 días (SEN-0417), y la nueva frecuencia aérea a Santa Cruz (SEN-0413). Falta confirmar la señal de dengue con el Ministerio de Salud (SEN-0415).`}}
+ const m=q.match(/SEN-\d{4}/i);if(m&&sig(m[0].toUpperCase())){const s=sig(m[0].toUpperCase());openSignal(s.id);return {text:`${s.id}: ${s.titulo}. ${s.importancia}`,act:'Abrí la señal'}}
+ if(dep){const l=active().filter(s=>s.deps.includes(dep));return {text:`${dep} tiene ${l.length} señales:\n`+l.map(s=>`• ${s.id} ${s.titulo} (${s.naturaleza})`).join('\n')}}
+ return {text:'En modo local entiendo preguntas sobre oportunidades, riesgos, fuentes, un departamento o un código SEN, y órdenes como «añade el mapa» o «quita la actividad». Con la IA activa puedo hacer análisis más abiertos.'};
+}
+/* Mover el asistente flotante */
+(function(){let sx,sy,ox,oy,drag=false;const ch=$('chat'),hd=$('chatHead');
+ hd.addEventListener('pointerdown',e=>{if(e.target.closest('button')||S.docked)return;drag=true;const r=ch.getBoundingClientRect();sx=e.clientX;sy=e.clientY;ox=r.left;oy=r.top;hd.setPointerCapture(e.pointerId)});
+ hd.addEventListener('pointermove',e=>{if(!drag)return;const x=Math.max(0,Math.min(innerWidth-ch.offsetWidth,ox+e.clientX-sx)),y=Math.max(0,Math.min(innerHeight-60,oy+e.clientY-sy));ch.style.left=x+'px';ch.style.top=y+'px';ch.style.right='auto';ch.style.bottom='auto';ch.style.height=Math.min(640,innerHeight-y-16)+'px'});
+ hd.addEventListener('pointerup',()=>{drag=false});
+})();
+
+/* ───────── Simulación en vivo ───────── */
+let liveTimer=null,tick=0;
+function liveStep(){
+ tick++;
+ EVENTS.forEach(e=>e.t-=0.33);SOURCES.forEach(s=>{s.last=(s.last??((s.freq*.4)|0))+.33;s.desde+=.33});SIGNALS.forEach(s=>{s.min+=.33;if(s.sla)s.sla=Math.max(1,s.sla-0.33|0)});
+ const cand=SOURCES.filter(s=>s.estado!=='MANT'&&s.estado!=='UNKNOWN');recheck(cand[Math.floor(Math.random()*cand.length)].id,true);
+ if(tick%3===0&&PENDING.length){const n=PENDING.shift();n.min=0;SIGNALS.unshift(n);EVENTS.unshift({t:0,k:'spark',w:'AVIA detectó una señal nueva',d:`${n.id} · ${n.titulo}`});toast(`Nueva señal: ${n.titulo}`)}
+ renderNav();
+ if(!document.querySelector('.drawer:not([hidden])')&&!S.editing&&!document.activeElement?.matches('input,textarea,select')&&S.view!=='analisis'){const y=scrollY;render();scrollTo(0,y)}
+}
+function setLive(on){S.live=on;clearInterval(liveTimer);if(on)liveTimer=setInterval(liveStep,20000);$('liveBtn').className='pill hide-sm '+(on?'st-OK live':'st-UNKNOWN');$('liveTxt').textContent=on?'Simulación activa':'Simulación en pausa'}
+
+/* ───────── Eventos ───────── */
+document.addEventListener('click',e=>{
+ const t=e.target.closest('button,[data-src],[data-sig]');if(!t)return;
+ const D=t.dataset;
+ if(D.view) return go(D.view);
+ if(D.preset) return applyPreset(D.preset);
+ if(D.pmove) return movePanel(D.id,+D.pmove);
+ if(D.pwide) return widenPanel(D.pwide);
+ if(D.premove) return removePanel(D.premove);
+ if(D.add){if(!S.layout.some(p=>p.id===D.add)){addPanel(D.add);closeDrawer()}return}
+ if(D.dep){S.sigFilter={nat:'all',dep:D.dep,q:''};return go('senales')}
+ if(D.move) return moveSignal(D.move,D.to);
+ if(D.decide){const note=$('decNote')?.value.trim();const sel=document.querySelector('input[name="sol"]:checked');const s=sig(D.decide);const n=(sel?'Acción: '+s.soluciones[+sel.value].t+'. ':'')+(note||'');closeDrawer();return moveSignal(D.decide,D.to,n.trim())}
+ if(D.askabout){closeDrawer();const s=sig(D.askabout);return openChat(`Dame un plan de acción para ${s.id} (${s.titulo}). ¿Quién puede aprovecharlo o a quién afecta y qué hago primero?`)}
+ if(D.recheck){recheck(D.recheck);renderNav();openSource(D.recheck);if(S.view!=='panorama'||!S.editing)render();return}
+ if(D.ack){const s=src(D.ack);s.ack=true;EVENTS.unshift({t:0,k:'check',w:`${roleName()} reconoció el problema en ${s.nombre.split(' ·')[0]}`,d:s.info});toast('Problema reconocido.');openSource(D.ack);render();return}
+ if(D.mant){const s=src(D.mant);if(s.estado==='MANT'){s.estado='UNKNOWN';s.info='Pendiente de la primera comprobación'}else{s.estado='MANT';s.info='Mantenimiento programado por el administrador'}s.desde=0;renderNav();openSource(D.mant);render();return}
+ if(D.sf){S.srcFilter=D.sf===S.srcFilter&&D.sf!=='all'?'all':D.sf;return render()}
+ if(D.nat){S.sigFilter.nat=D.nat;return render()}
+ if(D.antype){S.analysis.type=D.antype;return render()}
+ if(D.anscope){S.analysis.scope=D.anscope;return render()}
+ if(D.sr!==undefined){const r=window.__sr[+D.sr];closeSearch();return r&&r.a()}
+ if(D.chip){$('chatIn').value=D.chip;return sendChat()}
+ if(D.themeSet!==undefined){S.theme=D.themeSet||null;store.set('theme',S.theme);if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);else document.documentElement.removeAttribute('data-theme');return openA11y()}
+ if(D.fs){S.fs=+D.fs;store.set('fs',S.fs);applyPrefs();return openA11y()}
+ if(D.contrast){S.contrast=D.contrast;store.set('contrast',S.contrast);applyPrefs();return openA11y()}
+ if(D.simple!==undefined){S.simple=D.simple==='1';store.set('simple',S.simple);applyPrefs();render();return openA11y()}
+ if(D.src&&!t.matches('button[data-recheck]')) return openSource(D.src);
+ if(D.sig) return openSignal(D.sig);
+ switch(D.act){
+  case 'edit': S.editing=!S.editing; return render();
+  case 'catalog': return openCatalog();
+  case 'close': return closeDrawer();
+  case 'resetview': return applyPreset(S.preset.startsWith('c:')?'ejecutivo':S.preset);
+  case 'saveview': return openDrawer(`<div class="drawer-h">${ico('save')} Guardar tablero<button class="icon-btn" data-act="close" aria-label="Cerrar">${ico('close')}</button></div><div class="drawer-b"><form id="saveForm" class="field"><label for="saveName">Nombre del tablero</label><input class="inp" id="saveName" maxlength="30" placeholder="Por ejemplo: Mi semana" required><button class="btn gold" style="margin-top:8px;align-self:flex-start">${ico('save')} Guardar</button></form><p class="note">Aparecerá en «Tableros guardados». Se guarda solo en este navegador.</p></div>`);
+  case 'brief': return openChat('Haz el resumen del día para el equipo de supervisión turística: lo urgente, las 3 mejores oportunidades y qué falta verificar.');
+  case 'oppbrief': return openChat('Mirando todas las señales, ¿qué oportunidades nuevas propones que todavía no estén planteadas? Combina señales cuando tenga sentido.');
+  case 'checkall': SOURCES.forEach(s=>recheck(s.id,true));renderNav();render();return toast('Se comprobaron todas las fuentes.');
+  case 'addsrc': return openDrawer(`<div class="drawer-h">${ico('plus')} Añadir fuente<button class="icon-btn" data-act="close" aria-label="Cerrar">${ico('close')}</button></div><div class="drawer-b"><form id="srcForm" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="nsN">Nombre</label><input class="inp" id="nsN" required placeholder="Por ejemplo: Viceministerio de Defensa Civil"></div><div class="field"><label for="nsU">Dirección web</label><input class="inp" id="nsU" type="url" required placeholder="https://"></div><div class="field"><label for="nsC">Canal</label><select id="nsC">${Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div><div class="field"><label for="nsF">Comprobar cada</label><select id="nsF"><option value="30">30 min</option><option value="60" selected>1 hora</option><option value="360">6 horas</option><option value="1440">1 día</option></select></div><button class="btn gold" style="align-self:flex-start">${ico('plus')} Añadir</button></form><p class="note">La fuente entra como DESCONOCIDO hasta su primera comprobación. En la versión real se añade al catálogo de AVIA y a la tabla de fuentes.</p></div>`);
+  case 'runan': return runAnalysis();
+  case 'stopan': return anCtl&&anCtl.abort();
+  case 'addeval':{const r=window.__lastEval;if(!r)return;const id='SEN-'+String(422+SIGNALS.length).padStart(4,'0');SIGNALS.unshift({id,titulo:r.titulo||'Noticia evaluada',resumen:'Añadida desde Análisis.',naturaleza:['oportunidad','riesgo','mixta'].includes(r.naturaleza)?r.naturaleza:'mixta',categoria:CATS[r.categoria]?r.categoria:'mercado',deps:(r.departamentos||[]).filter(d=>DEPS.includes(d)),destinos:r.destinos||[],estado:'detectada',prioridad:'media',rel:+r.relevancia||5,nov:+r.novedad||5,conf:+r.confianza||.5,fuentes:[],corr:0,min:0,importancia:r.importancia||'',soluciones:(r.acciones||['Verificar']).map(x=>({t:x,d:''}))});renderNav();return toast(`${id} añadida como detectada.`)}
+ }
+});
+document.addEventListener('submit',e=>{
+ e.preventDefault();
+ if(e.target.id==='chatForm') return sendChat();
+ if(e.target.id==='saveForm'){const n=$('saveName').value.trim();if(!n)return;S.custom[n]=S.layout.map(p=>({...p}));store.set('custom',S.custom);S.preset='c:'+n;saveLayout();closeDrawer();renderNav();return toast(`Tablero «${n}» guardado.`)}
+ if(e.target.id==='srcForm'){const id='nueva_'+Date.now().toString(36);SOURCES.push({id,nombre:$('nsN').value.trim(),canal:$('nsC').value,tipo:'nueva',url:$('nsU').value.trim(),metodo:'Por definir',freq:+$('nsF').value,estado:'UNKNOWN',info:'Pendiente de la primera comprobación',lat:null,items:0,desde:0,hist:h24('uuuuuuuuuuuuuuuuuuuuuuuu'),verif:'por confirmar'});EVENTS.unshift({t:0,k:'UNKNOWN',w:'Fuente añadida',d:$('nsN').value.trim()});closeDrawer();renderNav();render();return toast('Fuente añadida. Pulsa «Comprobar ahora» para probarla.')}
+});
+document.addEventListener('input',e=>{
+ if(e.target.id==='srcQ'){S.srcQ=e.target.value;const p=e.target.selectionStart;render();const i=$('srcQ');i.focus();i.setSelectionRange(p,p)}
+ if(e.target.id==='sigQ'){S.sigFilter.q=e.target.value;const p=e.target.selectionStart;render();const i=$('sigQ');i.focus();i.setSelectionRange(p,p)}
+ if(e.target.id==='searchIn') renderSearch();
+ if(e.target.id==='chatIn'){e.target.style.height='auto';e.target.style.height=Math.min(120,e.target.scrollHeight)+'px'}
+});
+document.addEventListener('change',e=>{
+ if(e.target.id==='sigDep'){S.sigFilter.dep=e.target.value;render()}
+ if(e.target.id==='anDep'){S.analysis.dep=e.target.value;render()}
+ if(e.target.id==='role'){S.role=e.target.value;store.set('role',S.role);render();toast(`Ahora entras como ${roleName()}.`)}
+});
+document.addEventListener('keydown',e=>{
+ const typing=e.target.matches('input,textarea,select');
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();return openSearch()}
+ if(e.key==='Escape'){if(!$('search').hidden)return closeSearch();if(!$('drawer').hidden)return closeDrawer();if(S.chatOpen)return closeChat();if(S.editing){S.editing=false;return render()}}
+ if(!$('search').hidden&&e.key==='Enter'){const r=window.__sr&&window.__sr[0];if(r){closeSearch();r.a()}return}
+ if(e.target.id==='chatIn'&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();return sendChat()}
+ if(e.target.matches('tr[data-src]')&&e.key==='Enter') return openSource(e.target.dataset.src);
+ if(typing||e.ctrlKey||e.metaKey||e.altKey)return;
+ if(e.key==='h'||e.key==='H'){e.preventDefault();S.chatOpen?$('chatIn').focus():openChat()}
+ if((e.key==='e'||e.key==='E')&&S.view==='panorama'){S.editing=!S.editing;render()}
+});
+$('scrim').onclick=closeDrawer;
+$('search').addEventListener('click',e=>{if(e.target.id==='search')closeSearch()});
+$('searchBtn').onclick=openSearch;
+$('healthBtn').onclick=()=>go('fuentes');
+$('liveBtn').onclick=()=>setLive(!S.live);
+$('fontUp').onclick=()=>{S.fs=Math.min(1.3,Math.round((S.fs+.1)*100)/100);store.set('fs',S.fs);applyPrefs()};
+$('fontDown').onclick=()=>{S.fs=Math.max(.85,Math.round((S.fs-.1)*100)/100);store.set('fs',S.fs);applyPrefs()};
+$('a11yBtn').onclick=openA11y;
+$('menuBtn').onclick=()=>$('side').classList.toggle('open');
+$('chatFab').onclick=()=>openChat();
+$('chatClose').onclick=closeChat;
+$('chatClear').onclick=()=>{S.turns=[];$('chatLog').innerHTML='';chatCtl&&chatCtl.abort();openChat()};
+$('chatDock').onclick=()=>{S.docked=!S.docked;store.set('docked',S.docked);const c=$('chat');c.style.left=c.style.top=c.style.height='';c.style.right=c.style.bottom='';c.classList.toggle('docked',S.docked)};
+$('role').value=S.role;
+
+applyPrefs();renderNav();render();setLive(true);getSample();
+})();
+</script>

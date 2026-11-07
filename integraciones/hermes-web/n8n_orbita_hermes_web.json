@@ -1,0 +1,427 @@
+{
+  "name": "ORBITA · Hermes → web",
+  "nodes": [
+    {
+      "id": "823b03e4-0975-4b36-ac5c-7f2fdf2483b7",
+      "name": "Recibir señal de Hermes",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "orbita-senal",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "ORBITA clave Hermes"
+        }
+      },
+      "webhookId": "a7dd877f-c323-46e1-965c-427ef5e5cf8c"
+    },
+    {
+      "id": "73ddf3d7-9123-40fa-911b-91982eee9834",
+      "name": "Guardar señal",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT orbita.registrar_senal_hermes($orbita${{ JSON.stringify($json.body).replaceAll('$', '\\\\u0024') }}$orbita$::jsonb) AS r;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "",
+          "name": "ORBITA Postgres"
+        }
+      }
+    },
+    {
+      "id": "76c50a90-ec45-4997-a966-31c05bd78618",
+      "name": "Responder a Hermes",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": "={{ $json.r.ok ? 200 : 400 }}"
+        }
+      }
+    },
+    {
+      "id": "cae0977f-4a72-4f95-ad37-b4d4672016b7",
+      "name": "¿Necesita analista?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3c3f8353-e78e-4e39-90eb-e2e30a6d6605",
+              "leftValue": "={{ $json.r.accion }}",
+              "rightValue": "en_revision",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "af5f649d-db0a-4921-b78b-6ee995ae8bdf",
+      "name": "Pedir aprobación al analista",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        -100
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendAndWait",
+        "chatId": "CHAT_ID_DEL_ANALISTA",
+        "message": "=ORBITA · revisar antes de publicar\n\n{{ $json.r.titulo }}\n\n{{ $json.r.resumen }}\n\nCategoría: {{ $json.r.categoria }} · Prioridad: {{ $json.r.prioridad }}\nFuente: {{ $json.r.enlace || 'sin enlace' }}\nMotivo de revisión: {{ $json.r.motivo }}",
+        "responseType": "approval",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "✅ Aprobar y publicar",
+            "disapproveLabel": "❌ Descartar"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 24,
+              "resumeUnit": "hours"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Bot Telegram ORBITA"
+        }
+      },
+      "webhookId": "118e6b0b-e978-4ef3-8406-eeab7aed33d6"
+    },
+    {
+      "id": "03a7b4db-093d-4d98-8c15-ef3e962c59da",
+      "name": "¿Respondió?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1200,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b41cf505-d49d-45fa-bdde-f8adcf08c92b",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cb16dc78-9b4c-4d3c-bd3d-646e26a35896",
+      "name": "Publicar o descartar",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1440,
+        -100
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT orbita.decidir_y_publicar($1::bigint, $2::text) AS r;",
+        "options": {
+          "queryReplacement": "={{ $('Guardar señal').item.json.r.review_id }},{{ $json.data.approved ? 'aprobada' : 'rechazada' }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "",
+          "name": "ORBITA Postgres"
+        }
+      }
+    },
+    {
+      "id": "360b84eb-69e7-4590-aa31-0d3649056085",
+      "name": "Confirmar al analista",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1680,
+        -100
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "CHAT_ID_DEL_ANALISTA",
+        "text": "={{ $json.r.ok ? ($json.r.accion === 'publicada' ? '✅ Publicada en la web: ' : '🗑️ Descartada: ') + $json.r.titulo : '⚠️ ' + $json.r.error }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Bot Telegram ORBITA"
+        }
+      },
+      "webhookId": "b5faf057-821d-47b1-b6f0-ed10b491aa7d"
+    },
+    {
+      "id": "9392e974-de58-471b-b469-21efedf8bc57",
+      "name": "La web pide alertas",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "orbita-alertas",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "8ce8b259-9c00-46d1-a064-64cc98b5fcfb"
+    },
+    {
+      "id": "68b64d80-a59d-4c3e-ba3c-4e0270b8de91",
+      "name": "Leer alertas aprobadas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        400
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT coalesce(json_agg(a ORDER BY a.prioridad DESC, a.publicada_en DESC), '[]'::json) AS alertas FROM (SELECT * FROM orbita.v_alertas_web LIMIT 200) a;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "",
+          "name": "ORBITA Postgres"
+        }
+      }
+    },
+    {
+      "id": "13b96cc2-136c-4e1c-ba6a-ee44faaffc59",
+      "name": "Entregar JSON a la web",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        480,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ actualizado: $now.toISO(), alertas: $json.alertas }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "public, max-age=60"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "06133fcc-b3be-48fb-beae-9512ac5eea21",
+      "name": "Nota 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -340
+      ],
+      "parameters": {
+        "content": "## 1 · Hermes envía lo que encuentra\nHermes hace POST a /webhook/orbita-senal con la cabecera X-Orbita-Key.\nLo que exige revisión (clima, salud, vial, seguridad, fuente no oficial) llega al analista por Telegram con dos botones. Lo demás, de fuente oficial, se publica solo.\n\nAntes de activar: crear las 3 credenciales y cambiar CHAT_ID_DEL_ANALISTA (2 nodos).",
+        "width": 560,
+        "height": 220
+      }
+    },
+    {
+      "id": "0b69a345-ecf3-4dce-a613-89d6d041e1e2",
+      "name": "Nota 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        240
+      ],
+      "parameters": {
+        "content": "## 2 · La web lee las alertas aprobadas\nGET /webhook/orbita-alertas devuelve JSON con las alertas públicas, vigentes y aprobadas (vista orbita.v_alertas_web). No lleva clave: solo expone información pública.",
+        "width": 560,
+        "height": 140
+      }
+    }
+  ],
+  "connections": {
+    "Recibir señal de Hermes": {
+      "main": [
+        [
+          {
+            "node": "Guardar señal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar señal": {
+      "main": [
+        [
+          {
+            "node": "Responder a Hermes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder a Hermes": {
+      "main": [
+        [
+          {
+            "node": "¿Necesita analista?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Necesita analista?": {
+      "main": [
+        [
+          {
+            "node": "Pedir aprobación al analista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir aprobación al analista": {
+      "main": [
+        [
+          {
+            "node": "¿Respondió?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Respondió?": {
+      "main": [
+        [
+          {
+            "node": "Publicar o descartar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar o descartar": {
+      "main": [
+        [
+          {
+            "node": "Confirmar al analista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "La web pide alertas": {
+      "main": [
+        [
+          {
+            "node": "Leer alertas aprobadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer alertas aprobadas": {
+      "main": [
+        [
+          {
+            "node": "Entregar JSON a la web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

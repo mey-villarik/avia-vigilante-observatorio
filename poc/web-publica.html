@@ -1,0 +1,537 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>ORBITA Vigilancia</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Concepto: tablero de operaciones de un observatorio. Banda de aviso fija, pestañas por módulo, lista + ficha lateral. Verde azulado frío con rojo/ámbar solo para prioridad. */
+:root{
+  --bg:#EFF3F2; --surface:#FFFFFF; --surface2:#F6F9F8; --ink:#13232B; --muted:#58696F; --line:#D3DDDB;
+  --accent:#0E5A6B; --accent-ink:#FFFFFF; --accent-soft:#DAEAED;
+  --crit:#B3261E; --crit-soft:#F8E1DF; --warn:#9A5B00; --warn-soft:#FBEBCF; --ok:#2B7A4B; --ok-soft:#DDF0E4;
+  --mix:#5E4A9A; --mix-soft:#E8E3F5; --banner:#2A2118; --banner-ink:#FFE9B8; --shadow:0 8px 30px rgba(10,30,40,.18);
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif; --f-body:'Public Sans','Segoe UI',system-ui,sans-serif; --f-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1A1F; --surface:#15262D; --surface2:#1A2E36; --ink:#E6EFF0; --muted:#97AAB0; --line:#2A4049;
+  --accent:#58B4C6; --accent-ink:#06262D; --accent-soft:#17414B;
+  --crit:#FF8A80; --crit-soft:#432322; --warn:#F0B25A; --warn-soft:#41311A; --ok:#7BD39B; --ok-soft:#1B3A29;
+  --mix:#B7A6F0; --mix-soft:#2E2750; --banner:#3A2E1C; --banner-ink:#FFE9B8; --shadow:0 8px 30px rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1A1F; --surface:#15262D; --surface2:#1A2E36; --ink:#E6EFF0; --muted:#97AAB0; --line:#2A4049;
+  --accent:#58B4C6; --accent-ink:#06262D; --accent-soft:#17414B;
+  --crit:#FF8A80; --crit-soft:#432322; --warn:#F0B25A; --warn-soft:#41311A; --ok:#7BD39B; --ok-soft:#1B3A29;
+  --mix:#B7A6F0; --mix-soft:#2E2750; --banner:#3A2E1C; --banner-ink:#FFE9B8; --shadow:0 8px 30px rgba(0,0,0,.5); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--f-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+button,select,input{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;line-height:1.15}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto}
+/* banner */
+.banner{background:var(--banner);color:var(--banner-ink);margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));font-size:12.5px;position:sticky;top:env(safe-area-inset-top,0px);z-index:30;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner b{font-family:var(--f-mono);letter-spacing:.06em;font-weight:500;background:var(--banner-ink);color:var(--banner);padding:1px 7px;border-radius:3px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--banner);z-index:40}
+header.top{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;padding:22px 0 14px}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand h1{font-size:30px;letter-spacing:-.02em}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:0;color:var(--muted);max-width:56ch}
+.role{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:7px 12px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:18px;scrollbar-width:thin}
+nav.tabs button{border:0;background:transparent;padding:10px 14px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;font-weight:500}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs .n{font-family:var(--f-mono);font-size:11px;background:var(--accent-soft);color:var(--accent);border-radius:9px;padding:0 6px;margin-left:5px}
+/* common */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px}
+.kpi{padding:12px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.kpi .v{font:700 28px/1 var(--f-display);margin-top:4px}
+.kpi.hot .v{color:var(--crit)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:99px;white-space:nowrap;border:1px solid transparent}
+.c-alta{background:var(--crit-soft);color:var(--crit)}
+.c-media{background:var(--warn-soft);color:var(--warn)}
+.c-baja{background:var(--surface2);color:var(--muted);border-color:var(--line)}
+.c-riesgo{background:var(--crit-soft);color:var(--crit)}
+.c-oportunidad{background:var(--ok-soft);color:var(--ok)}
+.c-mixta{background:var(--mix-soft);color:var(--mix)}
+.c-conf{background:var(--ok-soft);color:var(--ok)}
+.c-ver{background:var(--warn-soft);color:var(--warn)}
+.c-pot{background:var(--surface2);color:var(--muted);border-color:var(--line)}
+.c-cat{background:var(--accent-soft);color:var(--accent)}
+.c-ex{font-family:var(--f-mono);font-weight:500;background:var(--banner);color:var(--banner-ink);font-size:10.5px;letter-spacing:.05em}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.bad{color:var(--crit)}
+h2.sec{font-size:20px;margin:26px 0 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+h2.sec small{font:400 13px var(--f-body);color:var(--muted)}
+.note{color:var(--muted);font-size:12.5px}
+/* filters */
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.filters label{display:flex;flex-direction:column;gap:3px}
+.filters select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 10px;min-width:140px}
+/* panel layout */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
+.list{display:flex;flex-direction:column;gap:8px}
+.al{display:grid;grid-template-columns:5px minmax(0,1fr);background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;text-align:left;padding:0;width:100%}
+.al:hover{border-color:var(--accent)}
+.al .stripe{background:var(--line)}
+.al.p-alta .stripe{background:var(--crit)} .al.p-media .stripe{background:var(--warn)}
+.al .body{padding:11px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.al .t{font:600 15px/1.3 var(--f-display);overflow-wrap:anywhere}
+.al .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
+.side{display:flex;flex-direction:column;gap:14px}
+.digest ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.digest li{cursor:pointer} .digest li:hover{color:var(--accent)}
+.scn{border-left:3px dashed var(--mix);padding:6px 0 6px 12px;margin-top:10px}
+.scn b{color:var(--mix)}
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(5,15,20,.45);z-index:50}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:min(520px,100%);background:var(--surface);z-index:60;box-shadow:var(--shadow);overflow-y:auto;padding:max(18px,env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) max(24px,env(safe-area-inset-bottom,0px)) 20px;display:flex;flex-direction:column;gap:14px}
+.drawer h2{font-size:22px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.fields div{min-width:0} .fields .w{grid-column:1/-1}
+.fields dt{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.fields dd{margin:2px 0 0;overflow-wrap:anywhere}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.steps li{display:flex;gap:8px}
+.steps .ck{font-family:var(--f-mono);width:18px;text-align:center}
+.steps .y{color:var(--ok)} .steps .n{color:var(--muted)}
+.tl{list-style:none;margin:0;padding:0 0 0 12px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.tl li{font-size:13px;position:relative}
+.tl li::before{content:"";position:absolute;left:-18px;top:6px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.wa{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;white-space:pre-wrap}
+.fb{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* map */
+.maprow{display:grid;grid-template-columns:minmax(260px,420px) minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:760px){.maprow{grid-template-columns:minmax(0,1fr)}}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:78px;gap:6px}
+.tile{border:1px solid var(--line);background:var(--surface);border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:7px 8px;text-align:left;min-width:0}
+.tile .nm{font:600 12.5px/1.15 var(--f-display);overflow-wrap:anywhere}
+.tile .ct{font:500 11px var(--f-mono);color:var(--muted)}
+.tile.p-alta{background:var(--crit-soft);border-color:var(--crit)} .tile.p-media{background:var(--warn-soft);border-color:var(--warn)}
+.tile[aria-pressed="true"]{outline:3px solid var(--accent);outline-offset:1px}
+.tile.empty{visibility:hidden}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--line)}
+.ind{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.ind div{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface2)}
+.ind b{display:block;font:700 22px var(--f-display)}
+/* opportunities */
+.opps{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.opp{display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left}
+.opp:hover{border-color:var(--accent)}
+.days{display:flex;align-items:baseline;gap:6px}
+.days b{font:700 30px/1 var(--f-display)}
+.cal{display:flex;flex-direction:column}
+.cal .row{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:12px;padding:10px 0;border-top:1px solid var(--line);align-items:center;cursor:pointer}
+.cal .row:first-child{border-top:0}
+.cal .d{font-family:var(--f-mono);font-size:13px}
+.cal .h{font:600 11px var(--f-mono);color:var(--muted)}
+@media(max-width:560px){.cal .row{grid-template-columns:76px minmax(0,1fr)} .cal .row .chip{grid-column:2}}
+.rem{display:flex;gap:8px;flex-wrap:wrap}
+/* vigilancia */
+.vig{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.vcard{display:flex;flex-direction:column;gap:8px}
+.vcard h3{font-size:17px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.vcard dl{margin:0;display:grid;grid-template-columns:96px minmax(0,1fr);gap:4px 10px;font-size:13px}
+.vcard dt{color:var(--muted)} .vcard dd{margin:0;overflow-wrap:anywhere}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:500}
+/* gestión */
+.q{display:flex;flex-direction:column;gap:10px}
+.qi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}
+@media(max-width:620px){.qi{grid-template-columns:minmax(0,1fr)}}
+.sla{font:500 13px var(--f-mono)}
+.sla.late{color:var(--crit)}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.fun{display:flex;flex-direction:column;gap:6px}
+.fun .r{display:grid;grid-template-columns:110px minmax(0,1fr) 28px;gap:10px;align-items:center;font-size:13px}
+.fun .b{height:16px;background:var(--surface2);border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.fun .b i{display:block;height:100%;background:var(--accent)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.dot.ok{background:var(--ok)} .dot.slow{background:var(--warn)} .dot.err{background:var(--crit)}
+.lock{max-width:520px;margin:30px auto;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;z-index:80;font-size:13px;max-width:92vw}
+footer{margin-top:34px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px}
+@media(prefers-reduced-motion:no-preference){.drawer{animation:in .18s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.5}}}
+</style>
+
+<div class="banner" role="note"><b id="modo">MAQUETA</b><span id="modo-txt">Todos los datos son <strong>ejemplos ficticios</strong>. No se ha consultado ni verificado ninguna fuente real. Los nombres de fuentes son las previstas para la beta.</span></div>
+<div class="wrap">
+<header class="top">
+  <div class="brand">
+    <span class="lbl">Observatorio · Bolivia</span>
+    <h1>ORBITA <span>Vigilancia</span></h1>
+    <p id="lema">Cómo se vería el observatorio con vigilancia activa: alertas verificadas, oportunidades con plazo y un analista que decide antes de publicar.</p>
+  </div>
+  <div class="role">
+    <span class="lbl">Ver como</span>
+    <div class="seg" role="group" aria-label="Rol">
+      <button id="r-pub" aria-pressed="true">Visitante público</button>
+      <button id="r-ana" aria-pressed="false">Analista</button>
+    </div>
+  </div>
+</header>
+<nav class="tabs" role="tablist" id="tabs"></nav>
+<main id="view"></main>
+<footer id="pie">
+  Maqueta de la beta de 30 días (todo Bolivia, turismo). Ejemplos ficticios con identificadores EJ-n. Los mapas son esquemáticos (un recuadro por departamento). Las predicciones se muestran siempre como escenario.
+</footer>
+</div>
+<div id="overlay"></div>
+
+<script>
+(function(){
+/* =====================================================================
+   CONFIGURACIÓN: pega aquí la URL del webhook de n8n que entrega las alertas
+   (workflow "ORBITA · Hermes → web", nodo "La web pide alertas", URL de producción).
+   Si se deja vacía, o si n8n no responde, la página muestra los ejemplos ficticios.
+   ===================================================================== */
+const API_URL='';
+let TODAY='2026-10-31';
+let LIVE=false;
+const DAY=864e5;
+const dleft=d=>Math.round((Date.parse(d)-Date.parse(TODAY))/DAY);
+const fmt=d=>{const [y,m,dd]=d.split('-');const M=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];return (+dd)+' '+M[+m-1]+' '+y};
+const DEPTS=['La Paz','Oruro','Potosí','Cochabamba','Chuquisaca','Tarija','Santa Cruz','Beni','Pando'];
+const CATS={clima:'Clima',salud:'Salud',vial:'Vial y conectividad',eventos:'Eventos',fin:'Financiación y licitaciones',pol:'Políticas',mercados:'Mercados',redes:'Redes sociales'};
+const ESTADOS={detectada:'Detectada',en_analisis:'En análisis',en_verificacion:'En verificación',confirmada:'Confirmada',publicada:'Publicada',cerrada:'Cerrada',descartada:'Descartada'};
+const PRIO={alta:3,media:2,baja:1};
+
+/* ---- datos ficticios ---- */
+let A=[
+{id:'EJ-001',cat:'clima',tipo:'riesgo',dep:'Beni',t:'Aviso naranja de lluvias intensas en el norte del Beni',res:'Lluvias persistentes previstas durante 48 horas con posible desborde de ríos menores. Afecta accesos fluviales y terrestres a zonas de ecoturismo.',fuente:'SENAMHI (fuente prevista)',oficial:true,verif:'confirmado',conf:92,prio:'alta',imp:'Operadores de ecoturismo y transporte fluvial',plazo:'2026-11-02',acc:'Avisar a operadores, reprogramar salidas y publicar recomendaciones de seguridad.',resp:'Analista de turno',estado:'publicada',det:'2026-10-31',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['31 oct 06:12','Detectada en la fuente'],['31 oct 06:20','En análisis (clasificada: clima, riesgo)'],['31 oct 06:31','Aprobada por el analista'],['31 oct 06:32','Publicada en web y enviada']],fb:[14,1]},
+{id:'EJ-002',cat:'salud',tipo:'riesgo',dep:'Santa Cruz',t:'Aumento de casos de dengue en municipios de la Chiquitania',res:'Un boletín epidemiológico menciona un incremento semanal. Falta confirmar el alcance y si hay recomendaciones para visitantes.',fuente:'Ministerio de Salud, boletín (fuente prevista)',oficial:true,verif:'en verificación',conf:68,prio:'alta',imp:'Visitantes a misiones y áreas rurales',plazo:'2026-11-07',acc:'Esperar confirmación; si se confirma, publicar recomendaciones de prevención.',resp:'Analista de turno',estado:'en_verificacion',det:'2026-10-31',checks:[['Fuente original localizada',1],['Segunda fuente coincide',0],['Aprobada por analista',0]],hist:[['31 oct 07:40','Detectada en el boletín'],['31 oct 07:48','En análisis'],['31 oct 07:55','En verificación: falta segunda fuente']],fb:[3,0]},
+{id:'EJ-003',cat:'vial',tipo:'riesgo',dep:'Cochabamba',t:'Corte de ruta por derrumbe en el tramo Cochabamba–Santa Cruz',res:'Tránsito cerrado en un tramo montañoso. Se informa de desvío alternativo con mayor tiempo de viaje.',fuente:'ABC, estado de carreteras (fuente prevista)',oficial:true,verif:'confirmado',conf:88,prio:'alta',imp:'Rutas terrestres entre dos de los principales destinos',plazo:'2026-11-03',acc:'Publicar ruta alterna y avisar a agencias con salidas en las próximas 72 h.',resp:'Analista de turno',estado:'confirmada',det:'2026-10-31',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',0]],hist:[['31 oct 05:02','Detectada'],['31 oct 05:30','Confirmada con segunda fuente'],['31 oct 05:31','Pendiente de aprobación del analista']],fb:[9,0]},
+{id:'EJ-004',cat:'vial',tipo:'riesgo',dep:'La Paz',t:'Cierre nocturno de pista de aeropuerto por mantenimiento',res:'Cierre programado en horario nocturno durante dos semanas. Puede afectar vuelos de llegada tardía.',fuente:'DGAC (fuente prevista)',oficial:true,verif:'potencial',conf:55,prio:'media',imp:'Llegadas internacionales de madrugada',plazo:'2026-11-12',acc:'Revisar itinerarios afectados y avisar a operadores.',resp:'Analista de turno',estado:'en_analisis',det:'2026-10-30',checks:[['Fuente original localizada',1],['Segunda fuente coincide',0],['Aprobada por analista',0]],hist:[['30 oct 18:20','Detectada'],['30 oct 18:25','En análisis']],fb:[1,0]},
+{id:'EJ-005',cat:'vial',tipo:'oportunidad',dep:'Santa Cruz',t:'Posible nueva ruta aérea regional desde Santa Cruz',res:'Una aerolínea habría anunciado interés en una ruta nueva. Solo hay medios como fuente.',fuente:'Medios de comunicación (no oficial)',oficial:false,verif:'potencial',conf:48,prio:'alta',imp:'Conectividad con un mercado emisor vecino',plazo:null,acc:'Buscar el comunicado de la aerolínea o de la autoridad antes de publicar.',resp:'Analista de turno',estado:'en_verificacion',det:'2026-10-30',checks:[['Fuente original localizada',0],['Segunda fuente coincide',0],['Aprobada por analista',0]],hist:[['30 oct 15:05','Detectada en prensa'],['30 oct 15:12','En verificación: fuente no oficial']],fb:[2,0]},
+{id:'EJ-006',cat:'eventos',tipo:'oportunidad',dep:'Oruro',t:'Festival andino de danza con asistencia alta',res:'Evento de gran convocatoria con visitantes nacionales y extranjeros. Demanda de alojamiento prevista alta.',fuente:'Ministerio de Turismo y Culturas (fuente prevista)',oficial:true,verif:'confirmado',conf:90,prio:'alta',imp:'Alojamiento, transporte y artesanía',plazo:'2026-11-28',acc:'Avisar a operadores con 30 días de antelación y publicar guía de capacidad.',resp:'Analista de turno',estado:'publicada',det:'2026-10-29',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['29 oct 10:00','Detectada'],['29 oct 10:20','Confirmada'],['29 oct 10:40','Publicada (fuente oficial)']],fb:[11,0],fechaEv:'2026-11-28'},
+{id:'EJ-007',cat:'eventos',tipo:'oportunidad',dep:'Potosí',t:'Feria de turismo de aventura en el altiplano sur',res:'Feria con operadores y prensa especializada. Posibilidad de presencia institucional.',fuente:'ORBITA (fuente prevista)',oficial:true,verif:'confirmado',conf:84,prio:'media',imp:'Promoción de rutas de aventura',plazo:'2027-01-16',acc:'Contactar a la organización para reservar espacio.',resp:'Equipo ORBITA',estado:'publicada',det:'2026-10-27',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['27 oct 09:00','Detectada'],['27 oct 09:30','Publicada']],fb:[4,0],fechaEv:'2027-01-16'},
+{id:'EJ-008',cat:'eventos',tipo:'oportunidad',dep:'Tarija',t:'Temporada de vendimia y rutas del vino',res:'Calendario anual de vendimia con actividades para visitantes en valles de altura.',fuente:'Ministerio de Turismo y Culturas (fuente prevista)',oficial:true,verif:'confirmado',conf:80,prio:'baja',imp:'Enoturismo y gastronomía',plazo:'2027-02-20',acc:'Preparar paquete de promoción a 90 días.',resp:'Equipo ORBITA',estado:'publicada',det:'2026-10-25',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['25 oct 12:00','Detectada y publicada']],fb:[2,0],fechaEv:'2027-02-20'},
+{id:'EJ-009',cat:'fin',tipo:'oportunidad',dep:'Nacional',t:'Convocatoria de apoyo a turismo comunitario',res:'Banco de desarrollo abre convocatoria para proyectos comunitarios de turismo con componente ambiental.',fuente:'CAF (fuente prevista)',oficial:true,verif:'confirmado',conf:94,prio:'alta',imp:'Comunidades y emprendimientos rurales',plazo:'2026-11-10',acc:'Identificar 3 candidatos, preparar carta de intención y calendario de entrega.',resp:'Equipo ORBITA',estado:'publicada',det:'2026-10-28',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['28 oct 09:10','Detectada'],['28 oct 09:35','Publicada en web'],['31 oct 08:00','Recordatorio automático: faltan 10 días']],fb:[8,0],conv:true},
+{id:'EJ-010',cat:'fin',tipo:'oportunidad',dep:'Nacional',t:'Licitación de consultoría de señalética en áreas protegidas',res:'Agencia de desarrollo publica una licitación abierta con requisitos de experiencia en turismo.',fuente:'PNUD, licitaciones (fuente prevista)',oficial:true,verif:'confirmado',conf:90,prio:'media',imp:'Consultoras y equipos técnicos',plazo:'2026-11-19',acc:'Evaluar elegibilidad y decidir si se presenta oferta.',resp:'Equipo ORBITA',estado:'publicada',det:'2026-10-26',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['26 oct 11:00','Detectada y publicada']],fb:[3,1],conv:true},
+{id:'EJ-011',cat:'fin',tipo:'oportunidad',dep:'Nacional',t:'Línea de financiamiento para pymes turísticas',res:'Fondo multilateral abre una línea de crédito para renovación de servicios turísticos.',fuente:'BID (fuente prevista)',oficial:true,verif:'confirmado',conf:86,prio:'media',imp:'Hoteles, hostales y operadores pequeños',plazo:'2026-12-15',acc:'Difundir requisitos y preparar webinar de orientación.',resp:'Equipo ORBITA',estado:'publicada',det:'2026-10-24',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['24 oct 10:00','Detectada y publicada']],fb:[5,0],conv:true},
+{id:'EJ-012',cat:'fin',tipo:'oportunidad',dep:'Cochabamba',t:'Operador europeo busca socios de turismo rural',res:'Un operador publicó interés en alianzas con comunidades de valles. Aún sin condiciones claras.',fuente:'Búsqueda abierta (no oficial)',oficial:false,verif:'potencial',conf:40,prio:'baja',imp:'Comunidades de valles',plazo:null,acc:'Contactar y pedir condiciones antes de difundir.',resp:'Equipo ORBITA',estado:'detectada',det:'2026-10-31',checks:[['Fuente original localizada',0],['Segunda fuente coincide',0],['Aprobada por analista',0]],hist:[['31 oct 09:00','Detectada']],fb:[0,0]},
+{id:'EJ-013',cat:'pol',tipo:'mixta',dep:'Nacional',t:'Proyecto de norma para el registro de alojamientos',res:'Se publica un borrador con nuevos requisitos de registro. Puede ordenar el sector pero implica costos de adecuación.',fuente:'Gaceta Oficial (fuente prevista)',oficial:true,verif:'confirmado',conf:82,prio:'media',imp:'Alojamientos formales e informales',plazo:'2026-12-05',acc:'Resumir impactos y abrir consulta con operadores.',resp:'Equipo ORBITA',estado:'publicada',det:'2026-10-28',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['28 oct 14:00','Detectada y publicada']],fb:[6,2]},
+{id:'EJ-014',cat:'mercados',tipo:'oportunidad',dep:'Potosí',t:'Más búsquedas de vuelos hacia Uyuni desde un país vecino',res:'Las búsquedas turísticas crecen en las últimas dos semanas. Es una tendencia, no una cifra oficial.',fuente:'Búsqueda abierta (no oficial)',oficial:false,verif:'potencial',conf:52,prio:'media',imp:'Operadores del salar',plazo:null,acc:'Seguir dos semanas más y contrastar con llegadas oficiales.',resp:'Equipo ORBITA',estado:'en_analisis',det:'2026-10-30',checks:[['Fuente original localizada',0],['Segunda fuente coincide',0],['Aprobada por analista',0]],hist:[['30 oct 12:00','Detectada'],['30 oct 12:05','En análisis']],fb:[1,0]},
+{id:'EJ-015',cat:'redes',tipo:'riesgo',dep:'La Paz',t:'Convocatoria a bloqueo difundida en redes sociales',res:'Varias publicaciones anuncian un bloqueo para el lunes. No hay comunicado oficial.',fuente:'Redes sociales (no oficial)',oficial:false,verif:'potencial',conf:35,prio:'alta',imp:'Acceso a destinos desde el aeropuerto',plazo:'2026-11-02',acc:'No difundir hasta contrastar con fuente oficial o medio confiable.',resp:'Analista de turno',estado:'en_analisis',det:'2026-10-31',checks:[['Fuente original localizada',0],['Segunda fuente coincide',0],['Aprobada por analista',0]],hist:[['31 oct 08:20','Detectada en redes'],['31 oct 08:26','En análisis: fuente no oficial']],fb:[0,0]},
+{id:'EJ-016',cat:'redes',tipo:'oportunidad',dep:'Pando',t:'Ruta de selva viralizada por un creador de contenido',res:'Un video con alto alcance muestra una ruta poco conocida. Posible interés de visitantes nuevos.',fuente:'Redes sociales (no oficial)',oficial:false,verif:'potencial',conf:45,prio:'baja',imp:'Operadores locales de selva',plazo:null,acc:'Contactar a operadores y verificar capacidad de recibir visitantes.',resp:'Equipo ORBITA',estado:'detectada',det:'2026-10-31',checks:[['Fuente original localizada',0],['Segunda fuente coincide',0],['Aprobada por analista',0]],hist:[['31 oct 09:10','Detectada']],fb:[0,0]},
+{id:'EJ-017',cat:'clima',tipo:'riesgo',dep:'Potosí',t:'Helada intensa en el altiplano sur',res:'Temperaturas muy bajas por la madrugada. Puede afectar excursiones y tramos de carretera.',fuente:'SENAMHI (fuente prevista)',oficial:true,verif:'confirmado',conf:90,prio:'media',imp:'Excursiones de varios días',plazo:'2026-11-01',acc:'Recomendar ropa de abrigo y revisar combustible y neumáticos.',resp:'Analista de turno',estado:'publicada',det:'2026-10-31',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['31 oct 04:30','Detectada'],['31 oct 04:50','Publicada']],fb:[6,0]},
+{id:'EJ-018',cat:'salud',tipo:'riesgo',dep:'Nacional',t:'Alerta epidemiológica regional por influenza',res:'Un organismo regional emite una actualización para países de la región, con recomendaciones generales.',fuente:'OPS/OMS (fuente prevista)',oficial:true,verif:'confirmado',conf:91,prio:'media',imp:'Viajeros y personal de servicios',plazo:null,acc:'Resumir recomendaciones para operadores.',resp:'Analista de turno',estado:'confirmada',det:'2026-10-30',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',0]],hist:[['30 oct 16:00','Detectada'],['30 oct 16:30','Confirmada']],fb:[2,0]},
+{id:'EJ-019',cat:'vial',tipo:'riesgo',dep:'La Paz',t:'Recomendación de seguridad vial nocturna en carretera de los Yungas',res:'Aviso a conductores por visibilidad reducida y tramos en reparación.',fuente:'ABC, estado de carreteras (fuente prevista)',oficial:true,verif:'confirmado',conf:85,prio:'media',imp:'Excursiones en bicicleta y transporte turístico',plazo:null,acc:'Recomendar viajar de día.',resp:'Analista de turno',estado:'publicada',det:'2026-10-29',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['29 oct 17:00','Publicada']],fb:[4,0]},
+{id:'EJ-020',cat:'mercados',tipo:'oportunidad',dep:'Nacional',t:'Cambio en la demanda de un mercado emisor para la temporada de verano',res:'Informe sectorial señala mayor gasto de viajeros regionales. Útil para planificar promoción.',fuente:'ORBITA (fuente prevista)',oficial:true,verif:'confirmado',conf:78,prio:'baja',imp:'Planificación de promoción',plazo:null,acc:'Incluir en el informe semanal.',resp:'Equipo ORBITA',estado:'publicada',det:'2026-10-22',checks:[['Fuente original localizada',1],['Segunda fuente coincide',1],['Aprobada por analista',1]],hist:[['22 oct 10:00','Publicada']],fb:[3,0]}
+];
+const ESCENARIOS=[
+ {t:'Temporada de lluvias reduce el acceso por tierra al norte del país entre diciembre y febrero',p:'probabilidad media',h:'3 meses',dep:'Beni'},
+ {t:'Fin de año con alta demanda hacia el altiplano sur: presión sobre alojamiento',p:'probabilidad alta',h:'60 días',dep:'Potosí'},
+ {t:'Nuevas ventanas de financiación para turismo comunitario en el primer trimestre',p:'probabilidad media',h:'90 días',dep:'Nacional'}
+];
+const VIG=[
+ {k:'clima',n:'Clima',q:'Avisos meteorológicos e hidrológicos, heladas, lluvias, sequías.',f:'SENAMHI',fr:'cada 30–60 min',rev:true,ref:'Tirol del Sur: riesgo ambiental y capacidad del destino',tr:'Aviso naranja o rojo'},
+ {k:'salud',n:'Salud',q:'Alertas epidemiológicas, brotes, recomendaciones para viajeros.',f:'Ministerio de Salud, OPS/OMS',fr:'cada 1–4 h',rev:true,ref:'Red INSTO: indicadores de bienestar y riesgo',tr:'Alerta epidemiológica oficial'},
+ {k:'vial',n:'Vial y conectividad',q:'Estado de carreteras, aeropuertos, rutas aéreas, seguridad del visitante.',f:'ABC, DGAC, aerolíneas',fr:'cada 1–2 h',rev:true,ref:'Buenos Aires: movilidad y acceso en mapas',tr:'Corte vial, cierre aéreo, ruta nueva'},
+ {k:'eventos',n:'Eventos',q:'Festivales, ferias, congresos y fechas de alta demanda.',f:'Min. de Turismo, Conoce Bolivia, ORBITA',fr:'diaria',rev:false,ref:'São Paulo (OTE): calendario de eventos',tr:'Evento de alto impacto con fecha próxima'},
+ {k:'fin',n:'Financiación y licitaciones',q:'Convocatorias, fondos, licitaciones y socios para proyectos.',f:'CAF, BID, PNUD',fr:'diaria',rev:false,ref:'ORBITA Oportunidades (producto A)',tr:'Plazo menor a 15 días'},
+ {k:'pol',n:'Políticas',q:'Normas, decretos y proyectos que cambian las reglas del sector.',f:'Gaceta Oficial, Min. de Turismo',fr:'diaria',rev:false,ref:'Observatorio de Derecho del Turismo (TurismoLex)',tr:'Norma con impacto en operadores'},
+ {k:'mercados',n:'Mercados',q:'Demanda de mercados emisores, tendencias de búsqueda, competidores.',f:'Búsqueda abierta, informes sectoriales',fr:'semanal',rev:false,ref:'Dashboard y Barómetro de UN Tourism',tr:'Cambio sostenido de demanda'},
+ {k:'redes',n:'Redes sociales',q:'Bloqueos, conflictos y contenido viral. Siempre fuente no oficial.',f:'Redes y medios locales',fr:'cada 1–2 h',rev:true,ref:'Centro de Vigilancia de Batanes: vigilancia continua',tr:'Revisión obligatoria por analista'}
+];
+const FUENTES=[
+ ['SENAMHI alertas','Clima','ok','hace 12 min',4],['Ministerio de Salud','Salud','ok','hace 38 min',2],['OPS/OMS','Salud','ok','hace 1 h 10',1],
+ ['Min. de Turismo y Culturas','Eventos','ok','hace 2 h',3],['ORBITA','Eventos','ok','hace 5 h',2],['ABC caminos','Vial','slow','hace 3 h (lenta)',3],
+ ['CAF / BID / PNUD','Financiación','ok','hace 6 h',5],['Gaceta Oficial','Políticas','err','falló a las 04:00',0],['Redes (búsqueda abierta)','Redes','ok','hace 25 min',9]
+];
+const REFS=[
+ ['Observatorio de Turismo de Buenos Aires','Mapas y tableros con datos de varias fuentes','Vista por departamento y tarjetas de indicadores'],
+ ['Observatorio de Turismo y Eventos de São Paulo','Calendario de eventos con impacto','Calendario inteligente a 30, 60 y 90 días'],
+ ['Red INSTO de UN Tourism','Indicadores comparables de turismo sostenible','Panel de indicadores por departamento (fase 2)'],
+ ['Observatorio de Tirol del Sur','Capacidad del destino y riesgo ambiental','Alertas de clima con capacidad de carga'],
+ ['Observatorio de Derecho del Turismo (ALC)','Vigilancia de normas y regulación','Vigilancia de políticas y Gaceta Oficial'],
+ ['ORBITA (SDSN Bolivia)','Conocimiento y alianzas público, privado y académico','Núcleo institucional y oportunidades de cooperación']
+];
+
+/* ---- estado ---- */
+let role='pub',view='panel',sel=null,toast=null;
+const F={dep:'',cat:'',prio:'',fecha:'',tipo:''};
+let mapDep=null;
+let sla={}; // minutos restantes simulados
+A.forEach((a,i)=>{ if(needsReview(a)&&a.estado!=='publicada'&&a.estado!=='confirmada'||a.estado==='confirmada'&&needsReview(a)&&!a.checks[2][1]) sla[a.id]=[11,6,14,3,9,12,5,8][i%8]; });
+function inDep(a,d){return (a.deps||[a.dep]).includes(d)}
+function needsReview(a){return ['clima','salud','vial','redes'].includes(a.cat)&&a.tipo!=='oportunidad'||!a.oficial}
+const el=id=>document.getElementById(id);
+const pubVisible=a=>['en_verificacion','confirmada','publicada'].includes(a.estado);
+const vis=()=>A.filter(a=>role==='ana'?a.estado!=='descartada':pubVisible(a));
+const open_=a=>!['cerrada','descartada'].includes(a.estado);
+
+function chipPrio(p){return `<span class="chip c-${p}">Prioridad ${p}</span>`}
+function chipTipo(t){return `<span class="chip c-${t}">${t[0].toUpperCase()+t.slice(1)}</span>`}
+function chipVer(v){const c=v==='confirmado'?'conf':v==='potencial'?'pot':'ver';return `<span class="chip c-${c}">${v==='en verificación'?'En verificación':v[0].toUpperCase()+v.slice(1)}</span>`}
+function plazoTxt(a){if(!a.plazo)return '';const d=dleft(a.plazo);return d<0?'vencido':d===0?'hoy':d===1?'mañana':'en '+d+' días'}
+function applyFilters(list){
+  return list.filter(a=>(!F.dep||inDep(a,F.dep))&&(!F.cat||a.cat===F.cat)&&(!F.prio||a.prio===F.prio)&&(!F.tipo||a.tipo===F.tipo)&&
+   (!F.fecha||-dleft(a.det)<=+F.fecha));
+}
+function sortAl(l){return l.slice().sort((a,b)=>PRIO[b.prio]-PRIO[a.prio]||Date.parse(b.det)-Date.parse(a.det))}
+
+/* ---- tarjetas ---- */
+function alCard(a){
+  return `<button class="al p-${a.prio}" data-open="${a.id}"><span class="stripe"></span><span class="body">
+   <span class="meta"><span class="mono">${a.id}</span>${chipPrio(a.prio)}${chipTipo(a.tipo)}<span class="chip c-cat">${CATS[a.cat]}</span>${chipVer(a.verif)}</span>
+   <span class="t">${a.t}</span>
+   <span class="meta"><span>${a.dep}</span><span>·</span><span>${a.fuente}</span>${a.plazo?`<span>·</span><span>${a.tipo==='oportunidad'?'plazo':'vigente hasta'} ${fmt(a.plazo)} (${plazoTxt(a)})</span>`:''}</span>
+  </span></button>`;
+}
+
+/* ---- vistas ---- */
+function vPanel(){
+  const all=vis().filter(open_);
+  const list=sortAl(applyFilters(all));
+  const high=all.filter(a=>a.prio==='alta').length;
+  const ver=all.filter(a=>a.estado==='en_verificacion').length;
+  const plz=all.filter(a=>a.tipo==='oportunidad'&&a.plazo&&dleft(a.plazo)<15&&dleft(a.plazo)>=0).length;
+  const digest=sortAl(all.filter(a=>a.estado==='publicada'||a.estado==='confirmada')).slice(0,7);
+  const opt=(arr,v)=>arr.map(([k,l])=>`<option value="${k}"${v===k?' selected':''}>${l}</option>`).join('');
+  return `
+  <div class="grid kpis">
+   <div class="kpi"><span class="lbl">Alertas activas</span><div class="v">${all.length}</div></div>
+   <div class="kpi hot"><span class="lbl">Prioridad alta</span><div class="v">${high}</div></div>
+   <div class="kpi"><span class="lbl">En verificación</span><div class="v">${ver}</div></div>
+   <div class="kpi"><span class="lbl">Oportunidades con plazo &lt; 15 días</span><div class="v">${plz}</div></div>
+  </div>
+  <div class="filters" id="filters">
+   <label><span class="lbl">Departamento</span><select id="f-dep"><option value="">Todos</option>${opt(DEPTS.concat('Nacional').map(d=>[d,d]),F.dep)}</select></label>
+   <label><span class="lbl">Categoría</span><select id="f-cat"><option value="">Todas</option>${opt(Object.entries(CATS),F.cat)}</select></label>
+   <label><span class="lbl">Prioridad</span><select id="f-prio"><option value="">Todas</option>${opt([['alta','Alta'],['media','Media'],['baja','Baja']],F.prio)}</select></label>
+   <label><span class="lbl">Tipo</span><select id="f-tipo"><option value="">Todos</option>${opt([['riesgo','Riesgo'],['oportunidad','Oportunidad'],['mixta','Mixta']],F.tipo)}</select></label>
+   <label><span class="lbl">Fecha</span><select id="f-fecha"><option value="">Todas</option>${opt([['1','Últimas 24 h'],['7','7 días'],['30','30 días']],F.fecha)}</select></label>
+   <button class="btn" id="f-clear">Limpiar</button>
+  </div>
+  <div class="cols">
+   <section>
+    <div class="note" style="margin-bottom:8px">${list.length} de ${all.length} alertas · ordenadas por prioridad y fecha${role==='pub'?' · vista pública: solo alertas publicadas, confirmadas o marcadas “en verificación”':''}</div>
+    <div class="list">${list.length?list.map(alCard).join(''):'<div class="empty">No hay alertas confirmadas en este momento.</div>'}</div>
+   </section>
+   <aside class="side">
+    <div class="card digest"><h3>Resumen diario</h3><div class="note">Máximo 7 alertas · se envía a las 08:00 (hora de Bolivia, por definir)</div>
+      <ol>${digest.map(a=>`<li data-open="${a.id}">${a.t}</li>`).join('')}</ol></div>
+    ${ESCENARIOS.length?'':'<!--'}<div class="card"><h3>Escenarios</h3><div class="note">Predicciones a 24 h–90 días. Son hipótesis, no hechos.</div>
+     ${ESCENARIOS.map(s=>`<div class="scn"><span class="chip c-mixta">ESCENARIO</span> <b>${s.dep}</b><div>${s.t}</div><div class="note">${s.p} · horizonte ${s.h}</div></div>`).join('')}</div>${ESCENARIOS.length?'':'-->'}
+   </aside>
+  </div>`;
+}
+
+function vMapa(){
+  const all=vis().filter(open_);
+  const G={Pando:[0,1],'La Paz':[1,0],Beni:[1,1],Oruro:[2,0],Cochabamba:[2,1],'Santa Cruz':[2,2],Potosí:[3,0],Chuquisaca:[3,1],Tarija:[4,1]};
+  const cells=[];for(let r=0;r<5;r++)for(let c=0;c<4;c++)cells.push(null);
+  Object.entries(G).forEach(([d,[r,c]])=>cells[r*4+c]=d);
+  const info=d=>{const l=all.filter(a=>inDep(a,d));const mx=l.reduce((m,a)=>Math.max(m,PRIO[a.prio]),0);return {l,mx,o:l.filter(a=>a.tipo!=='riesgo').length,r:l.filter(a=>a.tipo!=='oportunidad').length}};
+  const nat=all.filter(a=>a.dep==='Nacional');
+  const d=mapDep;
+  const I=d?info(d):null;
+  const lst=d?sortAl(I.l.concat(nat)):[];
+  return `<div class="maprow">
+   <div><div class="tiles" role="group" aria-label="Departamentos de Bolivia (mapa esquemático)">
+   ${cells.map(n=>{if(!n)return '<div class="tile empty"></div>';const i=info(n);const p=i.mx===3?'p-alta':i.mx===2?'p-media':'';return `<button class="tile ${p}" data-dep="${n}" aria-pressed="${d===n}"><span class="nm">${n}</span><span class="ct">${i.r} riesgos · ${i.o} oport.</span></button>`}).join('')}
+   </div>
+   <div class="legend"><span><i style="background:var(--crit-soft);border-color:var(--crit)"></i>Alerta de prioridad alta</span><span><i style="background:var(--warn-soft);border-color:var(--warn)"></i>Prioridad media</span><span><i></i>Baja o sin alertas</span></div>
+   <p class="note">Mapa esquemático: un recuadro por departamento, ubicado de forma aproximada. Las alertas “Nacional” (${nat.length}) se suman a cada departamento seleccionado.</p></div>
+   <div>${d?`<h2 style="font-size:22px">${d}</h2>
+     <div class="ind"><div><span class="lbl">Riesgos activos</span><b>${I.r}</b></div><div><span class="lbl">Oportunidades</span><b>${I.o}</b></div><div><span class="lbl">Acceso vial (ilustrativo)</span><b>${d==='Cochabamba'||d==='Beni'?'Afectado':'Normal'}</b></div></div>
+     <div class="list">${lst.length?lst.map(alCard).join(''):'<div class="empty">No hay alertas confirmadas en este momento.</div>'}</div>`
+     :`<div class="empty">Elige un departamento para ver sus alertas, oportunidades y estado de acceso. El mismo recorte se usará para las preferencias de cada usuario.</div>`}</div>
+  </div>`;
+}
+
+function vOpps(){
+  const all=vis().filter(open_);
+  const conv=all.filter(a=>a.conv&&a.plazo).sort((a,b)=>Date.parse(a.plazo)-Date.parse(b.plazo));
+  const ev=all.filter(a=>a.fechaEv).sort((a,b)=>Date.parse(a.fechaEv)-Date.parse(b.fechaEv));
+  const other=all.filter(a=>a.tipo!=='riesgo'&&!a.conv&&!a.fechaEv);
+  const rec=(d)=>{const n=conv.filter(a=>{const x=dleft(a.plazo);return x<=d&&x>=0}).length;return n};
+  const horiz=d=>d<=30?'30 días':d<=60?'60 días':d<=90?'90 días':'más de 90 días';
+  return `
+  <h2 class="sec" style="margin-top:4px">Convocatorias con plazo <small>ordenadas por días restantes · recordatorios a 30, 15 y 5 días</small></h2>
+  <div class="grid opps">${conv.map(a=>{const d=dleft(a.plazo);return `<button class="card opp" data-open="${a.id}"><div class="days"><b class="${d<15?'':''}" style="${d<15?'color:var(--crit)':''}">${d}</b><span class="note">días para el cierre · ${fmt(a.plazo)}</span></div>
+   <div class="bar"><i style="width:${Math.max(4,Math.min(100,100-d*100/60))}%;${d<15?'background:var(--crit)':''}"></i></div>
+   <div style="font:600 15px var(--f-display)">${a.t}</div><div class="meta" style="display:flex;gap:6px;flex-wrap:wrap">${chipPrio(a.prio)}<span class="chip c-cat">${a.fuente.split(' (')[0]}</span></div><div class="note">${a.acc}</div></button>`}).join('')}</div>
+  <div class="rem" style="margin-top:12px"><span class="chip c-media">Recordatorio 30 días: ${rec(30)} convocatorias</span><span class="chip c-alta">15 días: ${rec(15)}</span><span class="chip c-alta">5 días: ${rec(5)}</span></div>
+
+  <h2 class="sec">Calendario inteligente <small>eventos a 90, 60 y 30 días</small></h2>
+  <div class="card cal">${ev.map(a=>{const d=dleft(a.fechaEv);return `<div class="row" data-open="${a.id}"><div><div class="d">${fmt(a.fechaEv)}</div><div class="h">${horiz(d).toUpperCase()}</div></div><div><b>${a.t}</b><div class="note">${a.dep} · ${a.imp}</div></div>${chipPrio(a.prio)}</div>`}).join('')}</div>
+
+  <h2 class="sec">Otras posibilidades <small>mercados, alianzas y conectividad, aún sin plazo</small></h2>
+  <div class="list">${sortAl(other).map(alCard).join('')}</div>
+  ${ESCENARIOS.length?'':'<!--'}<h2 class="sec">Escenarios</h2>
+  <div class="grid vig">${ESCENARIOS.map(s=>`<div class="card"><span class="chip c-mixta">ESCENARIO · no es un hecho</span><h3 style="font-size:16px;margin:8px 0">${s.t}</h3><div class="note">${s.dep} · ${s.p} · horizonte ${s.h}</div></div>`).join('')}</div>${ESCENARIOS.length?'':'-->'}`;
+}
+
+function vVig(){
+  const all=vis().filter(open_);
+  return `<p style="max-width:70ch;margin-top:0">Ocho tipos de vigilancia con la misma ficha de alerta. Las que implican riesgo para el visitante pasan por el analista antes de publicarse.</p>
+  <div class="grid vig">${VIG.map(v=>{const n=all.filter(a=>a.cat===v.k).length;return `<div class="card vcard"><h3>${v.n}<span class="chip c-cat">${n} activas</span></h3>
+   <div class="note">${v.q}</div>
+   <dl><dt>Fuentes</dt><dd>${v.f}</dd><dt>Frecuencia</dt><dd>${v.fr}</dd><dt>Prioridad alta si</dt><dd>${v.tr}</dd><dt>Revisión</dt><dd>${v.rev?'Obligatoria (15 min)':'Automática si la fuente es oficial'}</dd><dt>Inspirado en</dt><dd>${v.ref}</dd></dl>
+   <button class="btn" data-goto="panel" data-cat="${v.k}">Ver alertas</button></div>`}).join('')}</div>
+  <h2 class="sec">Qué se toma de otros observatorios <small>referencias estudiadas</small></h2>
+  <div class="card tbl"><table><thead><tr><th>Observatorio</th><th>Qué hace bien</th><th>Dónde se ve aquí</th></tr></thead><tbody>${REFS.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table></div>
+  <h2 class="sec">Seis etapas de cada señal</h2>
+  <div class="card"><div style="display:flex;gap:8px;flex-wrap:wrap">${['Detectar','Localizar','Verificar','Evaluar','Alertar','Seguimiento'].map((s,i)=>`<span class="chip c-cat" style="font-size:13px;padding:3px 12px">${i+1}. ${s}</span>`).join('')}</div>
+  <p class="note" style="margin-bottom:0">Estados en el sistema: detectada → en análisis → en verificación → confirmada → publicada → cerrada (o descartada). Cada cambio guarda su historial.</p></div>`;
+}
+
+function vGestion(){
+  if(role!=='ana') return `<div class="card lock"><h3>Zona privada</h3><p class="note">La gestión de alertas, la cola de aprobación y el estado de las fuentes son solo para el analista y el administrador.</p><button class="btn pri" id="to-ana">Ver como analista</button></div>`;
+  const queue=A.filter(a=>sla[a.id]!==undefined&&['detectada','en_analisis','en_verificacion','confirmada'].includes(a.estado));
+  const counts=Object.keys(ESTADOS).map(k=>[k,A.filter(a=>a.estado===k).length]);
+  const mx=Math.max(...counts.map(c=>c[1]),1);
+  const fb=A.reduce((s,a)=>[s[0]+a.fb[0],s[1]+a.fb[1]],[0,0]);
+  return `
+  <h2 class="sec" style="margin-top:4px">Cola de aprobación <small>riesgos de clima, salud, vial y seguridad, redes, y toda fuente no oficial · plazo de 15 min</small></h2>
+  <div class="q">${queue.length?queue.map(a=>`<div class="card qi"><div style="min-width:0"><div class="meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:5px"><span class="mono">${a.id}</span>${chipPrio(a.prio)}${chipVer(a.verif)}<span class="chip c-cat">${CATS[a.cat]}</span></div>
+    <div style="font:600 15px var(--f-display);cursor:pointer" data-open="${a.id}">${a.t}</div><div class="note">${a.fuente} · confianza ${a.conf}%</div></div>
+    <div><div class="sla ${sla[a.id]<=3?'late':''}" data-sla="${a.id}">${sla[a.id]} min restantes</div>
+    <div class="acts" style="margin-top:6px"><button class="btn pri" data-act="ok" data-id="${a.id}">Aprobar</button><button class="btn" data-act="ver" data-id="${a.id}">Enviar “en verificación”</button><button class="btn bad" data-act="no" data-id="${a.id}">Descartar</button></div></div></div>`).join(''):'<div class="empty">La cola está vacía. Buen trabajo.</div>'}</div>
+  <p class="note">Si el plazo termina sin respuesta, el sistema publica con estado “en verificación” solo si reproduce un aviso oficial con enlace. Los botones de esta maqueta funcionan y actualizan las vistas.</p>
+
+  <div class="cols" style="margin-top:8px">
+   <div><h2 class="sec">Alertas por estado</h2><div class="card fun">${counts.map(([k,n])=>`<div class="r"><span>${ESTADOS[k]}</span><span class="b"><i style="width:${n*100/mx}%"></i></span><span class="mono">${n}</span></div>`).join('')}</div>
+   <h2 class="sec">Fuentes <small>estado de la última recolección (ficticio)</small></h2>
+   <div class="card tbl"><table><thead><tr><th>Fuente</th><th>Categoría</th><th>Estado</th><th>Última lectura</th><th>Ítems hoy</th></tr></thead><tbody>${FUENTES.map(f=>`<tr><td>${f[0]}</td><td>${f[1]}</td><td><span class="dot ${f[2]}"></span>${f[2]==='ok'?'Activa':f[2]==='slow'?'Lenta':'Con error'}</td><td>${f[3]}</td><td class="mono">${f[4]}</td></tr>`).join('')}</tbody></table></div></div>
+   <aside class="side"><div class="card"><h3>Utilidad percibida</h3><div class="note">Botones útil / no útil de los visitantes (ficticio)</div>
+     <div class="kpi" style="border:0;padding:8px 0"><div class="v">${Math.round(fb[0]*100/(fb[0]+fb[1]||1))}%</div></div><div class="bar"><i style="width:${fb[0]*100/(fb[0]+fb[1]||1)}%"></i></div><div class="note">${fb[0]} útil · ${fb[1]} no útil</div></div>
+    <div class="card"><h3>Presupuesto de la beta</h3><div class="note">Meta: menos de USD 50 al mes</div><div class="kpi" style="border:0;padding:8px 0"><div class="v">USD 13–33</div></div><div class="note">Servidor, base de datos, modelo de lenguaje y extracción de fuentes difíciles.</div></div>
+    <div class="card"><h3>Revisión semanal</h3><div class="note">Cada semana se revisan alertas útiles, falsos positivos y fuentes caídas. El administrador decide la continuidad.</div></div>
+   </aside></div>`;
+}
+
+/* ---- drawer ---- */
+function drawer(a){
+  const prevMsg=`ORBITA · ${a.prio==='alta'?'ALERTA':'Aviso'} ${a.tipo}\n${a.t}\n${a.dep} · ${a.verif==='en verificación'||a.verif==='potencial'?'EN VERIFICACIÓN':'Confirmada'}\nAcción: ${a.acc}\nFuente: ${a.fuente}`;
+  return `<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-modal="true" aria-label="Detalle de alerta">
+   <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="display:flex;gap:6px;flex-wrap:wrap">${LIVE?'<span class="chip c-conf">DATO REAL</span>':'<span class="chip c-ex">EJEMPLO FICTICIO</span>'}<span class="mono note">${a.id}</span>${chipPrio(a.prio)}${chipTipo(a.tipo)}</div><button class="btn" id="close">Cerrar</button></div>
+   <h2>${a.t}</h2><p style="margin:0">${a.res}</p>
+   <dl class="fields">
+    <div><dt>Categoría</dt><dd>${CATS[a.cat]}</dd></div><div><dt>Departamento</dt><dd>${a.dep}</dd></div>
+    <div class="w"><dt>Fuente</dt><dd>${a.fuente} · ${a.oficial?'oficial':'<b>no oficial</b>'}</dd></div>
+    <div><dt>Verificación</dt><dd>${chipVer(a.verif)}</dd></div><div><dt>Confianza</dt><dd>${a.conf}%<div class="bar"><i style="width:${a.conf}%"></i></div></dd></div>
+    <div class="w"><dt>Impacto potencial</dt><dd>${a.imp}</dd></div>
+    <div><dt>${a.tipo==='oportunidad'?'Plazo':'Vigencia'}</dt><dd>${a.plazo?fmt(a.plazo)+' ('+plazoTxt(a)+')':'Sin plazo'}</dd></div><div><dt>Estado</dt><dd>${ESTADOS[a.estado]}</dd></div>
+    <div class="w"><dt>Acción recomendada</dt><dd>${a.acc}</dd></div>
+    <div><dt>Responsable</dt><dd>${a.resp}</dd></div><div><dt>Detectada</dt><dd>${fmt(a.det)}</dd></div>
+   </dl>
+   <div><div class="lbl">Cómo se verificó</div><ul class="steps" style="margin-top:6px">${a.checks.map(c=>`<li><span class="ck ${c[1]?'y':'n'}">${c[1]?'✓':'○'}</span>${c[0]}</li>`).join('')}</ul></div>
+   <div><div class="lbl" style="margin-bottom:6px">Historial</div><ul class="tl">${a.hist.map(h=>`<li><span class="mono note">${h[0]}</span> ${h[1]}</li>`).join('')}</ul></div>
+   <div><div class="lbl" style="margin-bottom:6px">Así llegaría por Telegram (WhatsApp cuando esté disponible)</div><div class="wa">${prevMsg}</div></div>
+   <div class="fb"><span>¿Te sirvió esta alerta?</span><button class="btn" data-fb="0" data-id="${a.id}">Útil (${a.fb[0]})</button><button class="btn" data-fb="1" data-id="${a.id}">No útil (${a.fb[1]})</button></div>
+   ${LIVE?(a.link?`<a class="btn" href="${a.link}" target="_blank" rel="noopener noreferrer">Ver la fuente original</a>`:''):'<div class="note">Los datos y la fuente de esta ficha son ficticios.</div>'}
+  </aside>`;
+}
+
+
+/* ---- datos reales desde n8n (alertas aprobadas por el analista) ---- */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CAT_WEB={clima:'clima',salud:'salud',vial:'vial',seguridad:'vial',conectividad:'vial',eventos:'eventos',financiamiento:'fin',mercados:'mercados'};
+const dia=v=>v?new Date(v).toLocaleDateString('en-CA',{timeZone:'America/La_Paz'}):null;
+const hora=v=>{const d=new Date(v);return fmt(dia(v)).split(' ').slice(0,2).join(' ')+' '+d.toLocaleTimeString('es-BO',{timeZone:'America/La_Paz',hour:'2-digit',minute:'2-digit',hour12:false})};
+function desdeApi(r){
+  const deps=(r.departamentos&&r.departamentos.length&&!r.alcance_nacional)?r.departamentos:['Nacional'];
+  const enVer=r.estado_verificacion==='en_verificacion';
+  const cat=CAT_WEB[r.categoria]||'mercados';
+  const link=/^https?:\/\//i.test(r.enlace_fuente||'')?esc(r.enlace_fuente):'';
+  const plazo=dia(r.plazo_hasta||r.fecha_evento_fin||r.fecha_evento_inicio);
+  const hist=[[hora(r.detectada_en||r.publicada_en),'Detectada por Hermes (Vigía)']];
+  if(r.aprobada_en)hist.push([hora(r.aprobada_en),'Aprobada por el analista']);
+  hist.push([hora(r.publicada_en),enVer?'Publicada “en verificación”':'Publicada en la web']);
+  return {id:'AL-'+r.id,cat,tipo:r.naturaleza||'riesgo',dep:esc(deps.join(', ')),deps:deps.map(esc),
+    t:esc(r.titulo),res:esc(r.texto),fuente:esc(r.fuente_nombre||'Fuente oficial'),oficial:!!r.fuente_oficial,
+    verif:enVer?'en verificación':'confirmado',conf:Math.round((+r.confianza||0.5)*100),prio:r.prioridad||'media',
+    imp:esc(r.categoria_nombre||''),plazo,acc:esc(r.recomendacion||'Ver la fuente original.'),resp:'Analista de turno',
+    estado:enVer?'en_verificacion':'publicada',det:dia(r.publicada_en)||TODAY,
+    checks:[['Fuente original localizada',link?1:0],['Clasificada por Hermes',1],['Aprobada por analista',r.aprobada_en?1:0]],
+    hist,fb:[0,0],link,
+    fechaEv:r.categoria==='eventos'?dia(r.fecha_evento_inicio):undefined,
+    conv:r.categoria==='financiamiento'&&!!r.plazo_hasta};
+}
+async function cargarAlertas(){
+  if(!API_URL)return;
+  try{
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),10000);
+    const res=await fetch(API_URL,{signal:ctl.signal,headers:{Accept:'application/json'}});clearTimeout(tm);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const filas=Array.isArray(data)?data:(data.alertas||[]);
+    LIVE=true;TODAY=dia(new Date());
+    A=filas.map(desdeApi);
+    ESCENARIOS.length=0;sla={};role='pub';
+    TABS=TABS.filter(t=>t[0]!=='gestion');if(view==='gestion')view='panel';
+    el('modo').textContent='EN VIVO';
+    el('modo-txt').textContent=`Alertas reales detectadas por Hermes y aprobadas por el analista · ${A.length} activas · actualizado ${hora(data.actualizado||new Date())}`;
+    el('pie').textContent='ORBITA · beta de 30 días. Solo se publican alertas aprobadas por un analista o avisos oficiales con enlace. Los mapas son esquemáticos (un recuadro por departamento).';
+    document.querySelector('.role').hidden=true;
+    el('lema').textContent='Alertas para el turismo en Bolivia: riesgos verificados y oportunidades con plazo. Cada alerta de riesgo la revisa un analista antes de publicarse.';
+    render();
+  }catch(e){
+    el('modo-txt').textContent='No se pudo conectar con el servidor de alertas; se muestran ejemplos ficticios.';
+  }
+}
+
+/* ---- render ---- */
+let TABS=[['panel','Panel de alertas'],['mapa','Por departamento'],['oportunidades','Oportunidades'],['vigilancia','Tipos de vigilancia'],['gestion','Gestión del analista']];
+function render(){
+  const q=A.filter(a=>sla[a.id]!==undefined&&['detectada','en_analisis','en_verificacion','confirmada'].includes(a.estado)).length;
+  el('tabs').innerHTML=TABS.map(([k,l])=>`<button role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${view===k}">${l}${k==='gestion'&&role==='ana'?`<span class="n">${q}</span>`:''}${k==='gestion'&&role!=='ana'?' (privada)':''}</button>`).join('');
+  el('view').innerHTML=({panel:vPanel,mapa:vMapa,oportunidades:vOpps,vigilancia:vVig,gestion:vGestion})[view]();
+  el('overlay').innerHTML=sel?drawer(A.find(a=>a.id===sel)):'';
+  el('r-pub').setAttribute('aria-pressed',role==='pub');el('r-ana').setAttribute('aria-pressed',role==='ana');
+  if(toast){const t=document.createElement('div');t.className='toast';t.textContent=toast;document.body.appendChild(t);setTimeout(()=>t.remove(),2600);toast=null}
+}
+function go(v){view=v;try{history.replaceState(null,'','#'+v)}catch(e){location.hash=v}render()}
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-open],[data-tab],[data-dep],[data-act],[data-fb],[data-goto],#r-pub,#r-ana,#close,#scrim,#f-clear,#to-ana');
+  if(!t)return;
+  if(t.dataset.open){sel=t.dataset.open;render();return}
+  if(t.dataset.tab){go(t.dataset.tab);return}
+  if(t.dataset.dep){mapDep=t.dataset.dep;render();return}
+  if(t.dataset.goto){F.cat=t.dataset.cat||'';go(t.dataset.goto);return}
+  if(t.dataset.fb!==undefined){const a=A.find(x=>x.id===t.dataset.id);a.fb[+t.dataset.fb]++;toast='Gracias por tu opinión (ejemplo)';render();return}
+  if(t.dataset.act){
+    const a=A.find(x=>x.id===t.dataset.id),k=t.dataset.act,now='31 oct 09:'+String(30+Math.floor(Math.random()*20));
+    if(k==='ok'){a.estado='publicada';a.verif='confirmado';a.checks[2][1]=1;a.hist.push([now,'Aprobada por el analista y publicada']);toast=a.id+' publicada'}
+    if(k==='ver'){a.estado='en_verificacion';a.hist.push([now,'Enviada con estado “en verificación”']);toast=a.id+' enviada en verificación'}
+    if(k==='no'){a.estado='descartada';a.hist.push([now,'Descartada por el analista']);toast=a.id+' descartada'}
+    delete sla[a.id];render();return}
+  if(t.id==='r-pub'){role='pub';if(view==='gestion')view='panel';render();return}
+  if(t.id==='r-ana'||t.id==='to-ana'){role='ana';render();return}
+  if(t.id==='close'||t.id==='scrim'){sel=null;render();return}
+  if(t.id==='f-clear'){Object.keys(F).forEach(k=>F[k]='');render();return}
+});
+document.addEventListener('change',e=>{const m=e.target.id&&e.target.id.match(/^f-(dep|cat|prio|tipo|fecha)$/);if(m){F[m[1]]=e.target.value;render()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sel){sel=null;render()}});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(TABS.some(t=>t[0]===h)&&h!==view){view=h;render()}});
+// cuenta atrás simulada de los 15 minutos (1 s = 1 min de la maqueta cada 20 s)
+setInterval(()=>{let ch=false;Object.keys(sla).forEach(k=>{if(sla[k]>0){sla[k]--;ch=true}});if(ch&&view==='gestion'&&role==='ana'&&!sel){document.querySelectorAll('[data-sla]').forEach(n=>{const v=sla[n.dataset.sla];if(v!==undefined){n.textContent=v+' min restantes';n.classList.toggle('late',v<=3)}})}},20000);
+const h0=location.hash.slice(1);if(TABS.some(t=>t[0]===h0))view=h0;
+render();
+cargarAlertas();
+setInterval(()=>{if(LIVE&&!sel)cargarAlertas()},5*60*1000);
+})();
+</script>
+
+</body></html>
