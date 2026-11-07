@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Sube vigilante.json (el que genera Hermes en el VPS) al almacenamiento privado de Supabase.
-# Así la web solo muestra los datos a quien ha iniciado sesión con un perfil activo.
+# Sube vigilante.json (el que genera Hermes en el VPS) a Supabase:
+#  1) al almacenamiento privado, para que la web solo muestre los datos a quien inició sesión;
+#  2) a las tablas (fuentes y señales), con vigilante.sincronizar_vigilante(), para que las
+#     decisiones de las personas sobre cada señal se guarden en la base de datos.
 #
 # Uso:   subir_vigilante_json.sh /ruta/a/vigilante.json
 # Cron:  */5 * * * * /opt/avia/subir_vigilante_json.sh /ruta/a/vigilante.json >> /var/log/avia-subida.log 2>&1
@@ -37,10 +39,25 @@ CODIGO="$(curl -sS -o /tmp/avia-subida.out -w '%{http_code}' -X POST \
   -H 'x-upsert: true' \
   --data-binary @"$ARCHIVO")"
 
-if [ "$CODIGO" = 200 ]; then
-  echo "$SUMA" > "$MARCA"
-  echo "$(date -Is) subido $CLIENTE/vigilante.json"
-else
-  echo "$(date -Is) error $CODIGO: $(cat /tmp/avia-subida.out)" >&2
+if [ "$CODIGO" != 200 ]; then
+  echo "$(date -Is) error al subir $CODIGO: $(cat /tmp/avia-subida.out)" >&2
   exit 1
 fi
+echo "$(date -Is) subido $CLIENTE/vigilante.json"
+
+# 2) pasar fuentes y señales a las tablas (respeta las etapas que cambiaron las personas)
+python3 -c 'import json,sys; print(json.dumps({"p_cliente": sys.argv[2], "p_json": json.load(open(sys.argv[1]))}))' \
+  "$ARCHIVO" "$CLIENTE" > /tmp/avia-sinc.json
+CODIGO="$(curl -sS -o /tmp/avia-sinc.out -w '%{http_code}' -X POST \
+  "$SUPABASE_URL/rest/v1/rpc/sincronizar_vigilante" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H 'Content-Type: application/json' \
+  -H 'Content-Profile: vigilante' \
+  --data-binary @/tmp/avia-sinc.json)"
+if [ "$CODIGO" != 200 ]; then
+  echo "$(date -Is) error al sincronizar $CODIGO: $(cat /tmp/avia-sinc.out)" >&2
+  exit 1
+fi
+echo "$(date -Is) sincronizado: $(cat /tmp/avia-sinc.out)"
+echo "$SUMA" > "$MARCA"

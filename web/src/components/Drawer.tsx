@@ -95,6 +95,7 @@ function SenalDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.senales.find((x) => x.id === id));
   const fuentes = useStore((st) => st.fuentes);
   const role = useStore((st) => st.role);
+  const enBd = useStore((st) => st.enBd);
   const real = useStore((st) => st.origen === 'vps');
   const { moveSignal, closeDrawer } = useStore.getState();
   const { openChat } = useChat();
@@ -169,7 +170,7 @@ function SenalDetalle({ id }: { id: string }) {
             ))}
           </>
         )}
-        <Lock>{real ? 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.' : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
+        <Lock>{real ? (enBd ? 'Señal real publicada por AVIA. Al cambiar su etapa se guarda en la base de datos, con tu nombre y la nota, y queda en la Bitácora.' : 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.') : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
       </div>
     </>
   );

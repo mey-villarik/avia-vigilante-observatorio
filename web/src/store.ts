@@ -7,6 +7,7 @@ import {
 } from './data/demo';
 import { cargarVps } from './services/datos';
 import { accesoConfigurado, type Perfil } from './services/auth';
+import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
 } from './types';
@@ -34,6 +35,8 @@ interface State {
   role: Rol;
   /** persona que ha iniciado sesión (null sin login) */
   perfil: Perfil | null;
+  /** true si los estados de las señales se leen y guardan en la base de datos */
+  enBd: boolean;
   sideOpen: boolean;
   editing: boolean;
   preset: string;
@@ -171,6 +174,7 @@ export const useStore = create<Store>()((set, get) => {
     view: initialView(),
     role: accesoConfigurado ? 'visor' : storage.get<Rol>('role', 'analista'),
     perfil: null,
+    enBd: false,
     sideOpen: false,
     editing: false,
     preset: savedPreset,
@@ -329,7 +333,12 @@ export const useStore = create<Store>()((set, get) => {
       const { role } = get();
       const s = get().senales.find((x) => x.id === id);
       if (!s || role === 'visor' || s.estado === to) return false;
-      const quien = ROLE_NAME[role];
+      const conBd = Boolean(get().perfil) && get().origen === 'vps';
+      if (conBd && !transicionValida(s.estado, to)) {
+        get().toast(`No se puede pasar de «${STL[s.estado]}» a «${STL[to]}». Desde aquí: ${siguientesPasos(s.estado)}, o descartar.`);
+        return false;
+      }
+      const quien = get().perfil?.nombre ?? ROLE_NAME[role];
       const updated: Senal = {
         ...s, estado: to,
         historial: [{ de: s.estado, a: to, quien, cuando: clock(0), nota: note }, ...(s.historial ?? [])],
@@ -338,6 +347,13 @@ export const useStore = create<Store>()((set, get) => {
       set({ senales: get().senales.map((x) => (x.id === id ? updated : x)) });
       logEvent({ t: 0, k: 'check', w: `${quien} movió ${id} a «${STL[to]}»`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
       get().toast(`${id} → ${STL[to]}`);
+      if (conBd) {
+        moverSenal(id, to, note).catch((e: unknown) => {
+          // no se guardó: se deshace en pantalla
+          set({ senales: get().senales.map((x) => (x.id === id ? s : x)) });
+          get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+        });
+      }
       return true;
     },
     addEvaluatedSignal: (r) => {
@@ -383,9 +399,21 @@ export const useStore = create<Store>()((set, get) => {
       set({ cargando: true });
       try {
         const d = await cargarVps(get().perfil);
+        // con sesión: el estado de cada señal y los movimientos de las personas salen de la base de datos
+        let bd = false;
+        if (get().perfil) {
+          try {
+            const [estados, movs] = await Promise.all([leerEstados(), leerMovimientos()]);
+            d.senales = d.senales.map((s) => (estados.has(s.id) ? { ...s, estado: estados.get(s.id)! } : s));
+            d.eventos = [...movs, ...d.eventos].sort((a, b) => b.t - a.t);
+            bd = estados.size > 0;
+          } catch (e) {
+            console.warn('Sin estados de la base de datos:', e);
+          }
+        }
         const primera = get().origen !== 'vps';
         set({
-          origen: 'vps', live: false, pendientes: [], errorDatos: null,
+          origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
           temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,

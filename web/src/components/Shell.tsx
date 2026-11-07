@@ -26,6 +26,7 @@ export function Sidebar() {
   const custom = useStore((s) => s.custom);
   const sideOpen = useStore((s) => s.sideOpen);
   const real = useStore((s) => s.origen === 'vps');
+  const enBd = useStore((s) => s.enBd);
   const senales = useStore((s) => s.senales);
   const fuentes = useStore((s) => s.fuentes);
   const perfil = useStore((s) => s.perfil);
@@ -92,7 +93,7 @@ export function Sidebar() {
           </div>
         )}
         {real
-          ? <div className="demo-card"><strong>Datos reales</strong>Señales y fuentes publicadas por AVIA en el VPS. Las decisiones que tomes aquí todavía no se guardan en el servidor.</div>
+          ? <div className="demo-card"><strong>Datos reales</strong>Señales y fuentes publicadas por AVIA en el VPS. {enBd ? 'Las etapas de las señales se guardan en la base de datos.' : 'Las decisiones que tomes aquí todavía no se guardan en el servidor.'}</div>
           : <div className="demo-card"><strong>Demostración</strong>Todas las señales, cifras y estados son ejemplos inventados. Las URL de fuentes son las del catálogo real.</div>}
       </div>
     </aside>

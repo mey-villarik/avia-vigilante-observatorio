@@ -151,10 +151,11 @@ export function EventsList({ list }: { list: Evento[] }) {
 
 export function Foot() {
   const real = useStore((s) => s.origen === 'vps');
+  const enBd = useStore((s) => s.enBd);
   return (
     <footer className="foot">
       <span>ORBITA Vigilante · {real ? 'datos del VPS' : 'prueba de concepto'}</span>
-      <span>{real ? 'Señales publicadas por AVIA · las decisiones aún no se guardan en el servidor' : 'Datos de ejemplo inventados · no usar para decisiones reales'}</span>
+      <span>{real ? (enBd ? 'Señales publicadas por AVIA · las etapas de las señales se guardan en la base de datos' : 'Señales publicadas por AVIA · las decisiones aún no se guardan en el servidor') : 'Datos de ejemplo inventados · no usar para decisiones reales'}</span>
     </footer>
   );
 }
