@@ -42,11 +42,14 @@ export async function actualizarPersona(id: string, cambios: { rol?: Rol; activo
 /** Llama a la función crear-usuario. Sin clave, Supabase envía una invitación por correo. */
 async function funcion(cuerpo: Record<string, unknown>): Promise<void> {
   if (!supabase) throw new Error('El acceso no está configurado.');
-  // nombre oficial «crear-usuario»; se acepta también «crear_usuario» (el panel de Supabase a veces lo sube así)
-  let { data, error } = await supabase.functions.invoke('crear-usuario', { body: cuerpo });
-  if (error && (error as { context?: Response }).context?.status === 404) {
-    const alt = await supabase.functions.invoke('crear_usuario', { body: cuerpo });
-    if (!(alt.error && (alt.error as { context?: Response }).context?.status === 404)) ({ data, error } = alt);
+  // Se prueban los dos nombres: «crear_usuario» (como lo guarda el panel de Supabase) y «crear-usuario».
+  // Si la función no existe, el navegador a veces ve un fallo de conexión (la comprobación previa da 404)
+  // en lugar de un 404, así que cualquier error sin respuesta propia pasa al otro nombre.
+  const sinRespuestaPropia = (e: unknown) => { const c = (e as { context?: Response })?.context; return !c || c.status === 404; };
+  let { data, error } = await supabase.functions.invoke('crear_usuario', { body: cuerpo });
+  if (error && sinRespuestaPropia(error)) {
+    const alt = await supabase.functions.invoke('crear-usuario', { body: cuerpo });
+    if (!(alt.error && sinRespuestaPropia(alt.error))) ({ data, error } = alt);
   }
   if (error) {
     // el detalle viene en el cuerpo de la respuesta
