@@ -51,3 +51,7 @@ src/
 2. Login con la cuenta de AVIA (OIDC) y roles reales (visor, analista, administrador) en lugar del selector «Entrar como».
 3. Backend de AVIA con el contrato de `docs/api-avia.md`.
 4. Proteger `vigilante.json`: ahora cualquiera con la URL puede leerlo.
+
+## Acceso con usuario y clave
+
+La web exige iniciar sesión (Supabase Auth) cuando `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` están definidos. El rol (visor, analista, administrador) sale del perfil de la persona en `vigilante.users`. Sin esas variables, `npm run dev` entra sin login con el selector de rol. Puesta en marcha completa: [docs/acceso.md](../docs/acceso.md).

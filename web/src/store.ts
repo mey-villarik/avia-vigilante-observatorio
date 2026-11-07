@@ -6,6 +6,7 @@ import {
   CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
 } from './data/demo';
 import { cargarVps } from './services/datos';
+import { accesoConfigurado, type Perfil } from './services/auth';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
 } from './types';
@@ -17,7 +18,9 @@ export type Drawer =
   | { kind: 'catalogo' }
   | { kind: 'a11y' }
   | { kind: 'guardar' }
-  | { kind: 'nueva-fuente' };
+  | { kind: 'nueva-fuente' }
+  | { kind: 'equipo' }
+  | { kind: 'mi-clave' };
 
 export interface Toast { id: number; msg: string }
 export interface ChatMsg { id: number; role: 'a' | 'u'; text: string; act?: string }
@@ -29,6 +32,8 @@ interface State {
   // navegación y preferencias
   view: VistaId;
   role: Rol;
+  /** persona que ha iniciado sesión (null sin login) */
+  perfil: Perfil | null;
   sideOpen: boolean;
   editing: boolean;
   preset: string;
@@ -74,6 +79,7 @@ interface State {
 interface Actions {
   go: (v: VistaId) => void;
   setRole: (r: Rol) => void;
+  setSesion: (p: Perfil | null) => void;
   setSideOpen: (o: boolean) => void;
   setEditing: (e: boolean) => void;
   applyPreset: (k: string) => void;
@@ -163,7 +169,8 @@ export const useStore = create<Store>()((set, get) => {
 
   return {
     view: initialView(),
-    role: storage.get<Rol>('role', 'analista'),
+    role: accesoConfigurado ? 'visor' : storage.get<Rol>('role', 'analista'),
+    perfil: null,
     sideOpen: false,
     editing: false,
     preset: savedPreset,
@@ -207,7 +214,10 @@ export const useStore = create<Store>()((set, get) => {
       try { history.replaceState(null, '', '#' + v); } catch { /* iframe sin historial */ }
       window.scrollTo({ top: 0 });
     },
-    setRole: (r) => { storage.set('role', r); set({ role: r }); get().toast(`Ahora entras como ${ROLE_NAME[r]}.`); },
+    setSesion: (p) => set({ perfil: p, role: p?.rol ?? 'visor' }),
+    setRole: (r) => {
+      if (accesoConfigurado) return; // con login, el rol lo da el perfil
+      storage.set('role', r); set({ role: r }); get().toast(`Ahora entras como ${ROLE_NAME[r]}.`); },
     setSideOpen: (o) => set({ sideOpen: o }),
     setEditing: (e) => set({ editing: e }),
 
@@ -372,7 +382,7 @@ export const useStore = create<Store>()((set, get) => {
       if (get().cargando) return;
       set({ cargando: true });
       try {
-        const d = await cargarVps();
+        const d = await cargarVps(get().perfil);
         const primera = get().origen !== 'vps';
         set({
           origen: 'vps', live: false, pendientes: [], errorDatos: null,

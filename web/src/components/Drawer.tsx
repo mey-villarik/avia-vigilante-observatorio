@@ -8,6 +8,7 @@ import { Icon } from './Icon';
 import { Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
+import { Equipo, MiClave } from './Equipo';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -321,6 +322,8 @@ export function Drawer() {
     case 'a11y': body = <A11y />; break;
     case 'guardar': body = <GuardarTablero />; break;
     case 'nueva-fuente': body = <NuevaFuente />; break;
+    case 'equipo': body = <Equipo />; break;
+    case 'mi-clave': body = <MiClave />; break;
   }
   return (
     <>

@@ -4,4 +4,6 @@ interface ImportMetaEnv {
   readonly VITE_AVIA_API_URL?: string;
   /** Ruta de vigilante.json. Por defecto /data/vigilante.json */
   readonly VITE_DATA_URL?: string;
+  readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_ANON_KEY?: string;
 }

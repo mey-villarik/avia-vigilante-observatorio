@@ -1,11 +1,13 @@
 // Barra lateral, barra superior y avisos.
 import type { EstadoFuente, Rol } from '../types';
 import { PRESETS, STATE_TXT, VIEWS } from '../data/demo';
-import { activeSignals, countStates, pendingDecision, useStore } from '../store';
+import { activeSignals, countStates, isAdmin, pendingDecision, useStore } from '../store';
+import { accesoConfigurado, salir } from '../services/auth';
+import { ROLE_NAME } from '../lib/util';
 import { Icon } from './Icon';
 import { clock } from '../lib/util';
 
-const BrandMark = () => (
+export const BrandMark = () => (
   <svg className="brand-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true">
     <circle cx="22" cy="22" r="18" stroke="var(--bo-red)" strokeWidth="2" strokeDasharray="37.7 75.4" transform="rotate(-90 22 22)" />
     <circle cx="22" cy="22" r="18" stroke="var(--bo-yel)" strokeWidth="2" strokeDasharray="0 37.7 37.7 37.7" transform="rotate(-90 22 22)" />
@@ -26,7 +28,8 @@ export function Sidebar() {
   const real = useStore((s) => s.origen === 'vps');
   const senales = useStore((s) => s.senales);
   const fuentes = useStore((s) => s.fuentes);
-  const { go, applyPreset, setRole } = useStore.getState();
+  const perfil = useStore((s) => s.perfil);
+  const { go, applyPreset, setRole, openDrawer } = useStore.getState();
 
   const c = countStates(fuentes);
   const cnt: Partial<Record<string, [number, boolean]>> = {
@@ -69,14 +72,25 @@ export function Sidebar() {
         ))}
       </div>
       <div className="side-foot">
-        <div className="role">
-          <label htmlFor="role">Entrar como</label>
-          <select id="role" value={role} onChange={(e) => setRole(e.target.value as Rol)}>
-            <option value="visor">Visor (consulta)</option>
-            <option value="analista">Analista (verifica y decide)</option>
-            <option value="admin">Administrador (fuentes y equipo)</option>
-          </select>
-        </div>
+        {perfil ? (
+          <div className="cuenta">
+            <div className="cuenta-q"><Icon name="usuario" /><span><b>{perfil.nombre}</b><small>{ROLE_NAME[perfil.rol]} · {perfil.clienteNombre}</small></span></div>
+            <div className="cuenta-b">
+              {isAdmin(role) && <button className="btn sm" onClick={() => openDrawer({ kind: 'equipo' })}><Icon name="equipo" /> Equipo</button>}
+              <button className="btn sm ghost" onClick={() => openDrawer({ kind: 'mi-clave' })}><Icon name="candado" /> Clave</button>
+              <button className="btn sm ghost" onClick={() => void salir()}><Icon name="salir" /> Salir</button>
+            </div>
+          </div>
+        ) : !accesoConfigurado && (
+          <div className="role">
+            <label htmlFor="role">Entrar como (solo desarrollo)</label>
+            <select id="role" value={role} onChange={(e) => setRole(e.target.value as Rol)}>
+              <option value="visor">Visor (consulta)</option>
+              <option value="analista">Analista (verifica y decide)</option>
+              <option value="admin">Administrador (fuentes y equipo)</option>
+            </select>
+          </div>
+        )}
         {real
           ? <div className="demo-card"><strong>Datos reales</strong>Señales y fuentes publicadas por AVIA en el VPS. Las decisiones que tomes aquí todavía no se guardan en el servidor.</div>
           : <div className="demo-card"><strong>Demostración</strong>Todas las señales, cifras y estados son ejemplos inventados. Las URL de fuentes son las del catálogo real.</div>}
