@@ -8,12 +8,12 @@ Los agentes de cara al usuario se llaman **AVIA**. Hermes Agent es el motor inte
 
 | Carpeta | Contenido |
 | --- | --- |
-| `web/` | Aplicación del Vigilante en React (Vite + TypeScript). Llega por pull request. |
+| `web/` | Aplicación del Vigilante en React (Vite + TypeScript). Ver `web/README.md`. |
 | `poc/` | Prototipos HTML originales: `vigilante.html` (panel del analista) y `web-publica.html` (web pública conectada a Hermes). Referencia para la conversión a React. |
 | `db/` | Base de datos PostgreSQL / Supabase. `generico/` es el esquema multicliente `vigilante` que usará el producto; la raíz es el esquema `orbita` de la primera versión. |
 | `hermes/` | Fuentes vigiladas (`fuentes.yaml`), skill de vigilancia y ejemplos para Hermes Agent. |
 | `integraciones/hermes-web/` | Conexión Hermes → n8n → web (SQL, workflow y guía). |
-| `docs/` | Especificación de la beta, roadmap y diagrama de conexiones. |
+| `docs/` | Especificación de la beta, roadmap, diagrama de conexiones y contrato de la API de AVIA (`api-avia.md`). |
 
 ## Reglas
 
