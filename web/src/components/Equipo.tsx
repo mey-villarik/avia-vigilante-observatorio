@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import type { Rol } from '../types';
 import { useStore } from '../store';
 import { ROLE_NAME } from '../lib/util';
-import { actualizarPersona, altaPersona, listarEquipo, ponerClave, type Persona } from '../services/equipo';
+import { actualizarPersona, altaPersona, crearCuenta, listarEquipo, ponerClave, type Persona } from '../services/equipo';
 import { Icon } from './Icon';
 import { NuevaClave } from './Acceso';
 
@@ -31,7 +31,7 @@ export function Equipo() {
   const [nueva, setNueva] = useState({ nombre: '', email: '', rol: 'visor' as Rol, clave: '' });
   const [busy, setBusy] = useState(false);
   const [aviso, setAviso] = useState('');
-  const [claveDe, setClaveDe] = useState<Persona | null>(null);
+  const [claveDe, setClaveDe] = useState<{ p: Persona; modo: 'clave' | 'crear' } | null>(null);
 
   const cargar = useCallback(async () => {
     try { setGente(await listarEquipo()); setError(''); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -83,7 +83,8 @@ export function Equipo() {
                   </select>
                   <div className="eq-a">
                     {!yo && <button className="btn sm" onClick={() => void cambiar(p, { activo: !p.activo })}>{p.activo ? 'Quitar acceso' : 'Devolver acceso'}</button>}
-                    {!yo && p.email && p.conCuenta && <button className="btn sm ghost" onClick={() => setClaveDe(p)}>Poner clave</button>}
+                    {!yo && p.email && p.conCuenta && <button className="btn sm ghost" onClick={() => setClaveDe({ p, modo: 'clave' })}>Poner clave</button>}
+                    {p.email && !p.conCuenta && p.activo && <button className="btn sm primary" onClick={() => setClaveDe({ p, modo: 'crear' })}>Crear cuenta</button>}
                   </div>
                 </li>
               );
@@ -91,7 +92,7 @@ export function Equipo() {
           </ul>
         )}
 
-        {claveDe && <PonerClave persona={claveDe} onFin={() => setClaveDe(null)} />}
+        {claveDe && <PonerClave key={claveDe.p.id + claveDe.modo} persona={claveDe.p} modo={claveDe.modo} onFin={() => { setClaveDe(null); void cargar(); }} />}
 
         <h3 className="eq-t">Dar de alta a una persona</h3>
         <form className="eq-f" onSubmit={alta}>
@@ -118,25 +119,36 @@ export function Equipo() {
   );
 }
 
-function PonerClave({ persona, onFin }: { persona: Persona; onFin: () => void }) {
+function PonerClave({ persona, modo, onFin }: { persona: Persona; modo: 'clave' | 'crear'; onFin: () => void }) {
   const toast = useStore((s) => s.toast);
   const [clave, setClave] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const crear = modo === 'crear';
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (clave.length < 8) { setError('Usa al menos 8 caracteres.'); return; }
-    setBusy(true);
-    try { await ponerClave(persona.email!, clave); toast(`Clave nueva para ${persona.nombre}.`); onFin(); } catch (err) { setError(err instanceof Error ? err.message : String(err)); setBusy(false); }
+    if ((!crear || clave) && clave.length < 8) { setError('Usa al menos 8 caracteres.'); return; }
+    setBusy(true); setError('');
+    try {
+      if (crear) {
+        await crearCuenta(persona.email!, clave);
+        toast(clave ? `${persona.nombre} ya puede entrar con su correo y esa clave.` : `Se envió una invitación a ${persona.email}.`);
+      } else {
+        await ponerClave(persona.email!, clave);
+        toast(`Clave nueva para ${persona.nombre}.`);
+      }
+      onFin();
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); setBusy(false); }
   };
   return (
     <form className="eq-f eq-clave" onSubmit={submit}>
-      <div className="field"><label htmlFor="pcC">Clave nueva para {persona.nombre}</label>
-        <input className="inp" id="pcC" type="password" autoComplete="new-password" minLength={8} required autoFocus value={clave} onChange={(e) => setClave(e.target.value)} />
+      <div className="field"><label htmlFor="pcC">{crear ? `Clave inicial para ${persona.nombre} (opcional)` : `Clave nueva para ${persona.nombre}`}</label>
+        <input className="inp" id="pcC" type="password" autoComplete="new-password" minLength={8} required={!crear} autoFocus value={clave} onChange={(e) => setClave(e.target.value)} />
       </div>
+      {crear && <p className="note">Si la dejas vacía, le llega un correo de invitación para crear su clave.</p>}
       {error && <p className="acceso-err" role="alert">{error}</p>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn primary sm" disabled={busy}>Guardar</button>
+        <button className="btn primary sm" disabled={busy}>{crear ? 'Crear cuenta' : 'Guardar'}</button>
         <button className="btn sm ghost" type="button" onClick={onFin}>Cancelar</button>
       </div>
     </form>

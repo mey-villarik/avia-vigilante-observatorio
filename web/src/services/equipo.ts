@@ -46,7 +46,11 @@ async function funcion(cuerpo: Record<string, unknown>): Promise<void> {
   if (error) {
     // el detalle viene en el cuerpo de la respuesta
     let msg = error.message;
-    try { const j = await (error as { context?: Response }).context?.json(); if (j?.error) msg = j.error; } catch { /* sin cuerpo */ }
+    const ctx = (error as { context?: Response }).context;
+    let propio = false;
+    try { const j = await ctx?.clone().json(); if (j?.error) { msg = j.error; propio = true; } } catch { /* sin cuerpo */ }
+    // la función no está subida: Supabase responde 404 sin nuestro campo «error», o no hay respuesta
+    if (!propio && (ctx?.status === 404 || /failed to send/i.test(msg))) msg = 'falta subir la función crear-usuario a Supabase';
     throw new Error(msg);
   }
   if (data?.error) throw new Error(String(data.error));
@@ -72,6 +76,11 @@ export async function altaPersona(a: Alta, yo: Perfil): Promise<string | null> {
     const m = e instanceof Error ? e.message : String(e);
     return `La ficha está creada, pero no la cuenta de acceso (${m}). Créala en Supabase → Authentication → Add user con el mismo correo: se enlaza sola.`;
   }
+}
+
+/** Crea la cuenta de acceso de una ficha que aún no la tiene. Sin clave, envía invitación. */
+export async function crearCuenta(email: string, clave?: string): Promise<void> {
+  await funcion({ accion: 'crear', email: email.trim().toLowerCase(), clave: clave || undefined });
 }
 
 export async function ponerClave(email: string, clave: string): Promise<void> {
