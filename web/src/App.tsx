@@ -8,6 +8,7 @@ import { Search } from './components/Search';
 import { Chat } from './components/Chat';
 import { Foot } from './components/common';
 import { useChat } from './services/chat';
+import { REFRESCO_MS } from './services/datos';
 import { Panorama } from './views/Panorama';
 import { Fuentes } from './views/Fuentes';
 import { Senales } from './views/Senales';
@@ -34,7 +35,16 @@ function usePrefs() {
   }, [fs, theme, contrast, simple]);
 }
 
-/** Simulación de comprobaciones cada 20 s (solo en la demo) */
+/** Carga vigilante.json del VPS al arrancar y lo vuelve a pedir cada 5 minutos */
+function useDatosVps() {
+  useEffect(() => {
+    void useStore.getState().loadRemote();
+    const t = setInterval(() => void useStore.getState().loadRemote(true), REFRESCO_MS);
+    return () => clearInterval(t);
+  }, []);
+}
+
+/** Simulación de comprobaciones cada 20 s (solo con datos de ejemplo) */
 function useLiveSimulation() {
   const live = useStore((s) => s.live);
   useEffect(() => {
@@ -75,6 +85,7 @@ function useShortcuts() {
 export default function App() {
   const view = useStore((s) => s.view);
   usePrefs();
+  useDatosVps();
   useLiveSimulation();
   useShortcuts();
   const Vista = VISTAS[view];

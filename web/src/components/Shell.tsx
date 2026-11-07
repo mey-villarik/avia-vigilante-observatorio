@@ -3,6 +3,7 @@ import type { EstadoFuente, Rol } from '../types';
 import { PRESETS, STATE_TXT, VIEWS } from '../data/demo';
 import { activeSignals, countStates, pendingDecision, useStore } from '../store';
 import { Icon } from './Icon';
+import { clock } from '../lib/util';
 
 const BrandMark = () => (
   <svg className="brand-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true">
@@ -22,6 +23,7 @@ export function Sidebar() {
   const preset = useStore((s) => s.preset);
   const custom = useStore((s) => s.custom);
   const sideOpen = useStore((s) => s.sideOpen);
+  const real = useStore((s) => s.origen === 'vps');
   const senales = useStore((s) => s.senales);
   const fuentes = useStore((s) => s.fuentes);
   const { go, applyPreset, setRole } = useStore.getState();
@@ -75,7 +77,9 @@ export function Sidebar() {
             <option value="admin">Administrador (fuentes y equipo)</option>
           </select>
         </div>
-        <div className="demo-card"><strong>Demostración</strong>Todas las señales, cifras y estados son ejemplos inventados. Las URL de fuentes son las del catálogo real.</div>
+        {real
+          ? <div className="demo-card"><strong>Datos reales</strong>Señales y fuentes publicadas por AVIA en el VPS. Las decisiones que tomes aquí todavía no se guardan en el servidor.</div>
+          : <div className="demo-card"><strong>Demostración</strong>Todas las señales, cifras y estados son ejemplos inventados. Las URL de fuentes son las del catálogo real.</div>}
       </div>
     </aside>
   );
@@ -89,7 +93,12 @@ export function Topbar() {
   const live = useStore((s) => s.live);
   const sideOpen = useStore((s) => s.sideOpen);
   const fs = useStore((s) => s.fs);
-  const { go, setLive, setSearchOpen, setPrefs, openDrawer, setSideOpen } = useStore.getState();
+  const origen = useStore((s) => s.origen);
+  const generado = useStore((s) => s.generado);
+  const cargando = useStore((s) => s.cargando);
+  const errorDatos = useStore((s) => s.errorDatos);
+  const { go, setLive, setSearchOpen, setPrefs, openDrawer, setSideOpen, loadRemote } = useStore.getState();
+  const minGen = generado ? (Date.now() - Date.parse(generado)) / 60000 : null;
   const c = countStates(fuentes);
   const crumb = (VIEWS.find((v) => v[0] === view) ?? VIEWS[0])[1];
 
@@ -105,9 +114,17 @@ export function Topbar() {
             <span className="lbl">FUENTES</span>
             <span>{ESTADOS.filter((k) => c[k]).map((k, i) => <span key={k}>{i > 0 && ' '}<span className={`pill st-${k}`} title={STATE_TXT[k]}>{c[k]}</span></span>)}</span>
           </button>
-          <button className={`pill hide-sm ${live ? 'st-OK live' : 'st-UNKNOWN'}`} title="Pausar o reanudar la simulación de comprobaciones" onClick={() => setLive(!live)}>
-            <span className="d" /><span>{live ? 'Simulación activa' : 'Simulación en pausa'}</span>
-          </button>
+          {origen === 'vps' ? (
+            <button className={`pill hide-sm ${errorDatos ? 'st-WARN' : 'st-OK'}`}
+              title={errorDatos ? `Última actualización fallida: ${errorDatos}. Pulsa para reintentar.` : 'Datos de vigilante.json en el VPS. Pulsa para recargar.'}
+              onClick={() => void loadRemote()}>
+              <span className="d" /><span>{cargando ? 'Actualizando…' : `Datos del VPS${minGen != null && !Number.isNaN(minGen) ? ' · ' + clock(-minGen) : ''}`}</span>
+            </button>
+          ) : (
+            <button className={`pill hide-sm ${live ? 'st-OK live' : 'st-UNKNOWN'}`} title="Datos de ejemplo. Pausar o reanudar la simulación de comprobaciones" onClick={() => setLive(!live)}>
+              <span className="d" /><span>{cargando ? 'Conectando…' : live ? 'Ejemplo · simulación activa' : 'Ejemplo · simulación en pausa'}</span>
+            </button>
+          )}
           <button className="icon-btn" aria-label="Buscar (Ctrl+K)" title="Buscar (Ctrl+K)" onClick={() => setSearchOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
           </button>

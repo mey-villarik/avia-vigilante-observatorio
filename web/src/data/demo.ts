@@ -5,7 +5,7 @@ import type {
 } from '../types';
 
 export const DEPS: string[] =['La Paz','Cochabamba','Santa Cruz','Oruro','Potosí','Chuquisaca','Tarija','Beni','Pando'];
-export const CATS: Record<CategoriaId, string> ={clima:'Clima',salud:'Salud',vial:'Vial',seguridad:'Seguridad',conectividad:'Conectividad',eventos:'Eventos',financiacion:'Financiación',mercado:'Mercado y demanda',normativa:'Normativa'};
+export const CATS: Record<CategoriaId, string> ={clima:'Clima',salud:'Salud',vial:'Vial',seguridad:'Seguridad',conectividad:'Conectividad',eventos:'Eventos',financiacion:'Financiación',mercado:'Mercado y demanda',normativa:'Normativa',turismo:'Turismo'};
 export const STAGES: [Etapa, string][] =[['detectada','Detectada'],['en_analisis','En análisis'],['en_verificacion','En verificación'],['confirmada','Confirmada'],['publicada','Publicada'],['descartada','Descartada']];
 export const STL = Object.fromEntries(STAGES) as Record<Etapa, string>;
 export const STATE_TXT: Record<EstadoFuente, string> ={OK:'OK',WARN:'AVISO',CRIT:'CRÍTICO',UNKNOWN:'DESCONOCIDO',MANT:'MANTENIMIENTO'};
@@ -77,7 +77,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
  oportunidades:{t:'Oportunidades abiertas',i:'oportunidades',d:'Las oportunidades con mejor puntuación y su plazo.',w:6},
  riesgos:{t:'Riesgos activos',i:'riesgo',d:'Riesgos confirmados o en verificación.',w:6},
  mapa:{t:'Mapa por departamento',i:'mapa',d:'Esquema de Bolivia con señales por departamento.',w:5},
- evolucion:{t:'Evolución de 14 días',i:'analisis',d:'Señales detectadas, oportunidades y riesgos por día.',w:7},
+ evolucion:{t:'Evolución diaria',i:'analisis',d:'Señales detectadas, oportunidades y riesgos por día.',w:7},
  decision:{t:'Pendiente de tu decisión',i:'decision',d:'Señales que esperan verificación humana.',w:6},
  actividad:{t:'Actividad reciente',i:'actividad',d:'Registro de comprobaciones y decisiones.',w:6},
  temas:{t:'Temas emergentes',i:'temas',d:'Macrotemas que agrupa AVIA y su tendencia.',w:5},
@@ -98,3 +98,6 @@ export const VIEWS: [VistaId, string, string][] = [
   ['analisis', 'Análisis', 'analisis'],
   ['bitacora', 'Bitácora', 'bitacora'],
 ];
+
+/** nombre visible de una categoría o canal; si no se reconoce, el texto tal cual */
+export const catName = (c: string): string => (CATS as Record<string, string>)[c] ?? c;

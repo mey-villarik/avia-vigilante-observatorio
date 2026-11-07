@@ -13,6 +13,15 @@ npm run build      # comprueba tipos y genera dist/
 
 Requiere Node 20 o superior.
 
+## Datos reales del VPS
+
+Al arrancar, la web pide `/data/vigilante.json`, el archivo que publica Hermes en el VPS (https://vigilante-bolivia.duckdns.org). Lo vuelve a pedir cada 5 minutos.
+
+- En `npm run dev` y `npm run preview`, Vite reenvía `/data` al VPS (`vite.config.ts`), porque el VPS no permite que otras webs lean sus datos directamente desde el navegador. Para usar otro servidor: `VIGILANTE_VPS=https://otro npm run dev`.
+- Si el VPS no responde, la web muestra los datos de ejemplo y lo avisa. La simulación en vivo solo funciona con los datos de ejemplo, nunca con los reales.
+- La conversión del formato de `vigilante.json` al de la web está en `src/services/datos.ts`.
+- Las decisiones (mover una señal, reconocer un problema) todavía no se guardan en el VPS: solo cambian el navegador y se pierden al recargar.
+
 ## Estructura
 
 ```text
@@ -24,6 +33,7 @@ src/
   views/                 una vista por pantalla: Panorama, Fuentes, Señales, Oportunidades, Análisis, Bitácora
   panels/panels.tsx      los 12 paneles del tablero Panorama
   components/            barra lateral y superior, panel de detalle, búsqueda, chat, piezas comunes
+  services/datos.ts      lectura de vigilante.json del VPS y conversión al formato de la web
   services/avia.ts       cliente del backend de AVIA + análisis local sin IA
   services/chat.ts       lógica del chat «Pregunta a AVIA»
   styles/app.css         estilos del prototipo, sin cambios
@@ -37,7 +47,7 @@ src/
 
 ## Siguientes pasos
 
-1. Conectar `store.ts` a Supabase (esquema `vigilante`, `db/generico/`) en lugar de `data/demo.ts`.
+1. Guardar las decisiones en el servidor (Supabase, esquema `vigilante`, `db/generico/`) en lugar de solo en el navegador.
 2. Login con la cuenta de AVIA (OIDC) y roles reales (visor, analista, administrador) en lugar del selector «Entrar como».
 3. Backend de AVIA con el contrato de `docs/api-avia.md`.
-4. Quitar la simulación en vivo cuando el ciclo de 30 minutos escriba los estados reales.
+4. Proteger `vigilante.json`: ahora cualquiera con la URL puede leerlo.

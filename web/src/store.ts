@@ -3,10 +3,11 @@
 // fuentes y señales deben llamar a src/services/api.ts además de actualizar el estado.
 import { create } from 'zustand';
 import {
-  CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, STATE_TXT, STL, VIEWS, h24,
+  CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
 } from './data/demo';
+import { cargarVps } from './services/datos';
 import type {
-  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, TipoAnalisis, VistaId,
+  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
 
@@ -44,6 +45,17 @@ interface State {
   simple: boolean;
   theme: 'dark' | 'light' | null;
   // datos
+  /** de dónde vienen los datos: ejemplo inventado o vigilante.json del VPS */
+  origen: 'demo' | 'vps';
+  cargando: boolean;
+  errorDatos: string | null;
+  /** fecha en que Hermes generó los datos (ISO) */
+  generado: string | null;
+  ventanaHoras: number | null;
+  noticiasRevisadas: number | null;
+  sintesis: { frase: string; texto: string } | null;
+  temas: Tema[];
+  serie: Serie;
   fuentes: Fuente[];
   senales: Senal[];
   pendientes: Senal[];
@@ -84,6 +96,8 @@ interface Actions {
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
+  /** carga vigilante.json del VPS; si falla, deja los datos que hubiera */
+  loadRemote: (quiet?: boolean) => Promise<void>;
   setLive: (on: boolean) => void;
   setPrefs: (p: Partial<Pick<State, 'fs' | 'contrast' | 'simple' | 'theme' | 'docked'>>) => void;
   openDrawer: (d: Drawer) => void;
@@ -165,6 +179,15 @@ export const useStore = create<Store>()((set, get) => {
     contrast: storage.get('contrast', 'normal'),
     simple: storage.get('simple', false),
     theme: storage.get('theme', null),
+    origen: 'demo',
+    cargando: false,
+    errorDatos: null,
+    generado: null,
+    ventanaHoras: null,
+    noticiasRevisadas: null,
+    sintesis: null,
+    temas: TEMAS_DEMO,
+    serie: SERIE_DEMO,
     fuentes: FUENTES_DEMO.map((f) => ({ ...f })),
     senales: SENALES_DEMO.map((s) => ({ ...s })),
     pendientes: PENDIENTES_DEMO.map((s) => ({ ...s })),
@@ -256,6 +279,7 @@ export const useStore = create<Store>()((set, get) => {
     setAnalysis: (a) => set({ analysis: { ...get().analysis, ...a } }),
 
     recheck: (id, quiet) => {
+      if (get().origen === 'vps') { void get().loadRemote(quiet); return; }
       const s = get().fuentes.find((f) => f.id === id);
       if (!s || s.estado === 'MANT') return;
       const { fuente, evento, cambio } = simulateCheck(s);
@@ -263,7 +287,11 @@ export const useStore = create<Store>()((set, get) => {
       logEvent(evento);
       if (!quiet) get().toast(cambio ? `${shortName(s)}: ${STATE_TXT[fuente.estado]}` : `Comprobada: ${STATE_TXT[fuente.estado]}`);
     },
-    checkAll: () => { get().fuentes.forEach((f) => get().recheck(f.id, true)); get().toast('Se comprobaron todas las fuentes.'); },
+    checkAll: () => {
+      if (get().origen === 'vps') { void get().loadRemote(); return; }
+      get().fuentes.forEach((f) => get().recheck(f.id, true));
+      get().toast('Se comprobaron todas las fuentes.');
+    },
     ackSource: (id) => {
       const s = get().fuentes.find((f) => f.id === id);
       if (!s) return;
@@ -320,12 +348,13 @@ export const useStore = create<Store>()((set, get) => {
 
     liveStep: () => {
       const st = get();
+      if (st.origen !== 'demo') return; // la simulación nunca toca datos reales
       const tick = st.tick + 1;
       const dt = 0.33;
       set({
         tick,
         eventos: st.eventos.map((e) => ({ ...e, t: e.t - dt })),
-        fuentes: st.fuentes.map((f) => ({ ...f, last: (f.last ?? Math.floor(f.freq * 0.4)) + dt, desde: f.desde + dt })),
+        fuentes: st.fuentes.map((f) => ({ ...f, last: (f.last ?? Math.floor((f.freq ?? 30) * 0.4)) + dt, desde: (f.desde ?? 0) + dt })),
         senales: st.senales.map((s) => ({ ...s, min: s.min + dt, sla: s.sla ? Math.max(1, Math.floor(s.sla - dt)) : s.sla })),
       });
       const cand = get().fuentes.filter((f) => f.estado !== 'MANT' && f.estado !== 'UNKNOWN');
@@ -337,7 +366,30 @@ export const useStore = create<Store>()((set, get) => {
         get().toast(`Nueva señal: ${n.titulo}`);
       }
     },
-    setLive: (on) => set({ live: on }),
+    setLive: (on) => set({ live: on && get().origen === 'demo' }),
+
+    loadRemote: async (quiet) => {
+      if (get().cargando) return;
+      set({ cargando: true });
+      try {
+        const d = await cargarVps();
+        const primera = get().origen !== 'vps';
+        set({
+          origen: 'vps', live: false, pendientes: [], errorDatos: null,
+          fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
+          temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis,
+          generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
+        });
+        if (primera) get().toast(`Datos reales del Vigilante: ${d.senales.length} señales, ${d.fuentes.length} fuentes.`);
+        else if (!quiet) get().toast('Datos actualizados.');
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'error desconocido';
+        set({ errorDatos: msg });
+        if (!quiet) get().toast(get().origen === 'vps' ? `No se pudo actualizar: ${msg}` : 'Sin conexión con el VPS: se muestran datos de ejemplo.');
+      } finally {
+        set({ cargando: false });
+      }
+    },
 
     setPrefs: (p) => { Object.entries(p).forEach(([k, v]) => storage.set(k, v)); set(p); },
     openDrawer: (d) => set({ drawer: d }),
