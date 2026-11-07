@@ -7,6 +7,7 @@ import {
 } from './data/demo';
 import { cargarVps } from './services/datos';
 import { accesoConfigurado, type Perfil } from './services/auth';
+import { activarFuente, altaFuente, leerFuentesBd, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
@@ -101,7 +102,7 @@ interface Actions {
   checkAll: () => void;
   ackSource: (id: string) => void;
   toggleMant: (id: string) => void;
-  addSource: (f: { nombre: string; url: string; canal: CategoriaId; freq: number }) => void;
+  addSource: (f: AltaFuente) => Promise<boolean>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
@@ -313,12 +314,36 @@ export const useStore = create<Store>()((set, get) => {
       logEvent({ t: 0, k: 'check', w: `${ROLE_NAME[get().role]} reconoció el problema en ${shortName(s)}`, d: s.info });
       get().toast('Problema reconocido.');
     },
-    toggleMant: (id) => set({
+    toggleMant: (id) => {
+      const f0 = get().fuentes.find((f) => f.id === id);
+      if (f0?.enBd && get().perfil) {
+        const activa = f0.estado === 'MANT';
+        activarFuente(id, activa)
+          .then(() => { get().toast(activa ? `${f0.nombre}: AVIA vuelve a vigilarla.` : `${f0.nombre} en pausa: AVIA deja de vigilarla.`); return get().loadRemote(true); })
+          .catch((e: unknown) => get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`));
+        return;
+      }
+      set({
       fuentes: get().fuentes.map((f) => (f.id !== id ? f : f.estado === 'MANT'
         ? { ...f, estado: 'UNKNOWN', info: 'Pendiente de la primera comprobación', desde: 0 }
         : { ...f, estado: 'MANT', info: 'Mantenimiento programado por el administrador', desde: 0 })),
-    }),
-    addSource: ({ nombre, url, canal, freq }) => {
+      });
+    },
+    addSource: async (a) => {
+      if (get().perfil) {
+        try {
+          const codigo = await altaFuente(a);
+          set({ drawer: null });
+          get().toast(`Fuente guardada (${codigo}). AVIA la vigilará desde su próxima ronda.`);
+          await get().loadRemote(true);
+          return true;
+        } catch (e) {
+          get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+          return false;
+        }
+      }
+      const { nombre, url, freq } = a;
+      const canal = a.canal as CategoriaId;
       const f: Fuente = {
         id: 'nueva_' + Date.now().toString(36), nombre, canal, tipo: 'nueva', url, metodo: 'Por definir', freq,
         estado: 'UNKNOWN', info: 'Pendiente de la primera comprobación', lat: null, items: 0, desde: 0,
@@ -327,6 +352,7 @@ export const useStore = create<Store>()((set, get) => {
       set({ fuentes: [...get().fuentes, f], drawer: null });
       logEvent({ t: 0, k: 'UNKNOWN', w: 'Fuente añadida', d: nombre });
       get().toast('Fuente añadida. Pulsa «Comprobar ahora» para probarla.');
+      return true;
     },
 
     moveSignal: (id, to, note = '') => {
@@ -403,7 +429,8 @@ export const useStore = create<Store>()((set, get) => {
         let bd = false;
         if (get().perfil) {
           try {
-            const [estados, movs] = await Promise.all([leerEstados(), leerMovimientos()]);
+            const [estados, movs, fbd] = await Promise.all([leerEstados(), leerMovimientos(), leerFuentesBd().catch(() => [])]);
+            d.fuentes = mezclarFuentes(d.fuentes, fbd);
             d.senales = d.senales.map((s) => (estados.has(s.id) ? { ...s, estado: estados.get(s.id)! } : s));
             d.eventos = [...movs, ...d.eventos].sort((a, b) => b.t - a.t);
             bd = estados.size > 0;

@@ -1,6 +1,6 @@
 // Panel lateral de detalle: fuente, señal, catálogo de paneles, accesibilidad y formularios.
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import type { CategoriaId, Etapa, Fuente } from '../types';
+import type { Etapa, Fuente } from '../types';
 import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
 import { ago, clock } from '../lib/util';
@@ -82,10 +82,10 @@ function FuenteDetalle({ id }: { id: string }) {
             <button className="btn" onClick={() => ackSource(s.id)}><Icon name="check" /> Reconocer problema</button>
           )}
           {isAdmin(role) && (
-            <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento'}</button>
+            <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.enBd ? (s.estado === 'MANT' ? 'Reactivar (AVIA vuelve a vigilarla)' : 'Pausar (AVIA deja de vigilarla)') : (s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento')}</button>
           )}
         </div>
-        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? 'Por ahora solo cambia este navegador: no se guarda en el VPS.' : 'En la demo solo cambia este navegador.'}</Lock>
+        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? (s.enBd ? 'Reconocer todavía solo cambia este navegador; pausar y reactivar sí se guardan y AVIA las respeta en su siguiente ronda.' : 'Por ahora solo cambia este navegador: no se guarda en el VPS.') : 'En la demo solo cambia este navegador.'}</Lock>
       </div>
     </>
   );
@@ -267,8 +267,15 @@ function GuardarTablero() {
 
 function NuevaFuente() {
   const addSource = useStore((s) => s.addSource);
-  const [f, setF] = useState({ nombre: '', url: '', canal: 'clima' as CategoriaId, freq: 60 });
-  const submit = (e: FormEvent) => { e.preventDefault(); addSource({ ...f, nombre: f.nombre.trim(), url: f.url.trim() }); };
+  const conBd = useStore((s) => Boolean(s.perfil));
+  const [f, setF] = useState({ nombre: '', url: '', canal: 'clima', tipo: 'oficial', metodo: 'http_html', freq: 60, queBuscar: '', palabras: '' });
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    await addSource({ ...f, nombre: f.nombre.trim(), url: f.url.trim() });
+    setBusy(false);
+  };
   return (
     <>
       <Head icon="plus">Añadir fuente</Head>
@@ -281,8 +288,23 @@ function NuevaFuente() {
             <input className="inp" id="nsU" type="url" required placeholder="https://" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} />
           </div>
           <div className="field"><label htmlFor="nsC">Canal</label>
-            <select id="nsC" value={f.canal} onChange={(e) => setF({ ...f, canal: e.target.value as CategoriaId })}>
+            <select id="nsC" value={f.canal} onChange={(e) => setF({ ...f, canal: e.target.value })}>
               {Object.entries(CATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div className="field"><label htmlFor="nsT">Tipo de fuente</label>
+            <select id="nsT" value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
+              <option value="oficial">Oficial (gobierno, ministerio)</option>
+              <option value="organismo_internacional">Organismo internacional</option>
+              <option value="medio">Medio de comunicación</option>
+              <option value="no_oficial">Otra (no oficial)</option>
+            </select>
+          </div>
+          <div className="field"><label htmlFor="nsM">Cómo se lee</label>
+            <select id="nsM" value={f.metodo} onChange={(e) => setF({ ...f, metodo: e.target.value })}>
+              <option value="http_html">Página web</option>
+              <option value="rss">RSS</option>
+              <option value="google_news_rss">Búsqueda en Google News</option>
             </select>
           </div>
           <div className="field"><label htmlFor="nsF">Comprobar cada</label>
@@ -290,9 +312,17 @@ function NuevaFuente() {
               <option value={30}>30 min</option><option value={60}>1 hora</option><option value={360}>6 horas</option><option value={1440}>1 día</option>
             </select>
           </div>
-          <button className="btn gold" style={{ alignSelf: 'flex-start' }}><Icon name="plus" /> Añadir</button>
+          <div className="field"><label htmlFor="nsQ">Qué debe buscar AVIA aquí</label>
+            <textarea className="inp" id="nsQ" rows={2} placeholder="Por ejemplo: declaratorias de emergencia que afecten a destinos turísticos" value={f.queBuscar} onChange={(e) => setF({ ...f, queBuscar: e.target.value })} />
+          </div>
+          <div className="field"><label htmlFor="nsP">Palabras clave (separadas por comas)</label>
+            <input className="inp" id="nsP" placeholder="emergencia, desastre, inundación" value={f.palabras} onChange={(e) => setF({ ...f, palabras: e.target.value })} />
+          </div>
+          <button className="btn gold" style={{ alignSelf: 'flex-start' }} disabled={busy}><Icon name="plus" /> {busy ? 'Guardando…' : 'Añadir'}</button>
         </form>
-        <p className="note">La fuente entra como {STATE_TXT.UNKNOWN} hasta su primera comprobación. En la versión real se añade al catálogo de AVIA y a la tabla de fuentes.</p>
+        <p className="note">{conBd
+          ? 'Se guarda en la base de datos. AVIA la incluye en su lista de fuentes en la siguiente ronda; hasta entonces aparece como pendiente de la primera comprobación.'
+          : `La fuente entra como ${STATE_TXT.UNKNOWN} hasta su primera comprobación. Sin inicio de sesión solo se añade en este navegador.`}</p>
       </div>
     </>
   );

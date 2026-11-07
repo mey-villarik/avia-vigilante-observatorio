@@ -33,6 +33,8 @@ export interface Fuente {
   verif: string;
   flap?: boolean;
   ack?: boolean;
+  /** la fuente está en la base de datos (se puede pausar desde la web) */
+  enBd?: boolean;
   /** minutos desde la última comprobación */
   last?: number;
 }
