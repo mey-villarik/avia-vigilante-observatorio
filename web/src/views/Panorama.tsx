@@ -75,6 +75,7 @@ function Panel({ p, drag, setDrag }: { p: PanelEnTablero; drag: DragState; setDr
 export function Panorama() {
   const nFuentes = useStore((s) => s.fuentes.length);
   const editing = useStore((s) => s.editing);
+  const generado = useStore((s) => s.generado);
   const layout = useStore((s) => s.layout);
   const { setEditing, openDrawer, resetBoard } = useStore.getState();
   const { openChat } = useChat();
@@ -89,7 +90,7 @@ export function Panorama() {
           <p className="sub">El Vigilante lee {nFuentes} fuentes, junta noticias dispersas, las verifica y valora su importancia para el turismo. Aquí ves el resultado; arrastra, quita o añade paneles a tu gusto.</p>
         </div>
         <div className="head-actions">
-          <span className="updated">Última comprobación {clock(-1)}</span>
+          <span className="updated">{generado ? `Datos generados ${clock(-(Date.now() - Date.parse(generado)) / 60000)}` : `Última comprobación ${clock(-1)}`}</span>
           <button className={`btn ${editing ? 'on' : ''}`} onClick={() => setEditing(!editing)}><Icon name="edit" /> {editing ? 'Terminar edición' : 'Editar tablero'}</button>
           <button className="btn gold" onClick={() => openChat('Haz el resumen del día para el equipo de supervisión turística: lo urgente, las 3 mejores oportunidades y qué falta verificar.')}><Icon name="sintesis" /> Resumen del día</button>
         </div>

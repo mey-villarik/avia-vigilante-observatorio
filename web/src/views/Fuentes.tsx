@@ -1,5 +1,5 @@
 import type { EstadoFuente } from '../types';
-import { CATS, STATE_TXT } from '../data/demo';
+import { STATE_TXT, catName } from '../data/demo';
 import { countStates, isAdmin, useStore } from '../store';
 import { ago, clock, norm } from '../lib/util';
 import { Icon } from '../components/Icon';
@@ -12,6 +12,7 @@ export function Fuentes() {
   const role = useStore((s) => s.role);
   const srcFilter = useStore((s) => s.srcFilter);
   const srcQ = useStore((s) => s.srcQ);
+  const real = useStore((s) => s.origen === 'vps');
   const { setSrcFilter, setSrcQ, openDrawer, checkAll } = useStore.getState();
   const c = countStates(fuentes);
 
@@ -30,7 +31,7 @@ export function Fuentes() {
         </div>
         <div className="head-actions">
           {isAdmin(role) && <button className="btn" onClick={() => openDrawer({ kind: 'nueva-fuente' })}><Icon name="plus" /> Añadir fuente</button>}
-          <button className="btn primary" onClick={checkAll}><Icon name="refresh" /> Comprobar todas</button>
+          <button className="btn primary" onClick={checkAll}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar todas'}</button>
         </div>
       </section>
       <div className="nag-summary">
@@ -53,7 +54,7 @@ export function Fuentes() {
           <thead>
             <tr>
               <th>Estado</th><th>Fuente</th><th>Canal</th><th>Última comprobación</th><th className="tech">En este estado</th>
-              <th>Últimas 24</th><th className="tech">Información del check</th><th className="tech">Señales 24 h</th>
+              <th>{real ? 'Historial' : 'Últimas 24'}</th><th className="tech">Información del check</th><th className="tech">{real ? 'Elementos nuevos' : 'Señales 24 h'}</th>
             </tr>
           </thead>
           <tbody>
@@ -63,9 +64,9 @@ export function Fuentes() {
                 onKeyDown={(e) => e.key === 'Enter' && openDrawer({ kind: 'fuente', id: s.id })}>
                 <td><StPill s={s.estado} />{s.ack && <div className="ack">✓ reconocido</div>}{s.flap && <div className="flap">⇅ intermitente</div>}</td>
                 <td><div className="srcname">{s.nombre}</div><div className="srcurl">{s.url}</div></td>
-                <td>{CATS[s.canal] || s.canal}<div className="note">{s.tipo}</div></td>
-                <td className="mono">{clock(-(s.last ?? Math.floor(s.freq * 0.4)))}<div className="note">cada {s.freq} min</div></td>
-                <td className="mono tech">{ago(s.desde).replace('hace ', '')}</td>
+                <td>{catName(s.canal)}<div className="note">{s.tipo}</div></td>
+                <td className="mono">{clock(-(s.last ?? Math.floor((s.freq ?? 30) * 0.4)))}{s.freq ? <div className="note">cada {s.freq} min</div> : null}</td>
+                <td className="mono tech">{s.desde != null ? ago(s.desde).replace('hace ', '') : '—'}</td>
                 <td style={{ minWidth: 130 }}><Histo hist={s.hist} /></td>
                 <td className="tech"><div className="info">{s.info}</div></td>
                 <td className="mono tech">{s.items}</td>
@@ -74,7 +75,9 @@ export function Fuentes() {
           </tbody>
         </table>
       </div>
-      <p className="note">Los estados son de ejemplo. Las URL vienen del catálogo de fuentes; las marcadas «no abierta» o «por confirmar» hay que revisarlas a mano antes de activarlas.</p>
+      <p className="note">{real
+        ? 'Estados publicados por AVIA en el VPS. La web los vuelve a leer cada 5 minutos.'
+        : 'Los estados son de ejemplo. Las URL vienen del catálogo de fuentes; las marcadas «no abierta» o «por confirmar» hay que revisarlas a mano antes de activarlas.'}</p>
     </>
   );
 }

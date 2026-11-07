@@ -1,29 +1,50 @@
 // Contenido de cada panel del tablero Panorama. Para añadir un panel:
 // 1) defínelo en PANELS (src/data/demo.ts), 2) añade su cuerpo en PANEL_BODY y su meta en PANEL_META.
 import type { PanelId } from '../types';
-import { DEPS, CATS, SERIE_DEMO, STL, TEMAS_DEMO } from '../data/demo';
+import { DEPS, CATS, STL, catName } from '../data/demo';
 import { activeSignals, canDecide, countStates, pendingDecision, useStore } from '../store';
 import { scoreOf } from '../lib/util';
 import { Icon } from '../components/Icon';
 import { CatBars, Empty, EventsList, Histo, LineChart, NatPill, SigList, StPill } from '../components/common';
 
-const lastDet = SERIE_DEMO.det[SERIE_DEMO.det.length - 1];
+/** noticias leídas: la cifra del VPS, o el último punto de la serie */
+function useNoticias(): number {
+  const n = useStore((s) => s.noticiasRevisadas);
+  const det = useStore((s) => s.serie.det);
+  return n ?? det[det.length - 1] ?? 0;
+}
 const PRIO = { alta: 0, media: 1, baja: 2 } as const;
 
 function Sintesis() {
   const a = activeSignals(useStore((s) => s.senales));
-  const opp = a.filter((s) => s.naturaleza === 'oportunidad').length;
-  const r = a.filter((s) => s.naturaleza === 'riesgo').length;
-  const ver = a.filter((s) => ['confirmada', 'publicada'].includes(s.estado)).length;
+  const sintesis = useStore((s) => s.sintesis);
+  const real = useStore((s) => s.origen === 'vps');
+  const ventana = useStore((s) => s.ventanaHoras);
+  const noticias = useNoticias();
+  const opps = a.filter((s) => s.naturaleza === 'oportunidad');
+  const riesgos = a.filter((s) => s.naturaleza === 'riesgo');
+  const ver = a.filter((s) => ['confirmada', 'publicada'].includes(s.estado));
+  const cortas = opps.filter((s) => s.plazo != null && s.plazo < 15).length;
+  const altas = riesgos.filter((s) => s.prioridad === 'alta').length;
+  const multi = ver.filter((s) => s.corr >= 2).length;
   return (
     <div className="synth">
-      <blockquote>Semana de oportunidades con un frente de lluvias que vigilar en Yungas.</blockquote>
-      <p>AVIA juntó <b>{lastDet} noticias</b> en <b>{a.length} señales</b>. Destacan el fondo de CAF para turismo comunitario (cierra en <b>12 días</b>) y la nueva frecuencia aérea a Santa Cruz. El riesgo principal es la alerta naranja en Yungas y Rurrenabaque, que se cruza con una restricción vial aún sin confirmar.</p>
+      {real ? (
+        <>
+          {sintesis?.frase && <blockquote>{sintesis.frase}</blockquote>}
+          <p>AVIA revisó <b>{noticias} noticias</b> y las juntó en <b>{a.length} señales</b>{ventana ? <> en las últimas <b>{ventana} h</b></> : null}. {sintesis?.texto}</p>
+        </>
+      ) : (
+        <>
+          <blockquote>Semana de oportunidades con un frente de lluvias que vigilar en Yungas.</blockquote>
+          <p>AVIA juntó <b>{noticias} noticias</b> en <b>{a.length} señales</b>. Destacan el fondo de CAF para turismo comunitario (cierra en <b>12 días</b>) y la nueva frecuencia aérea a Santa Cruz. El riesgo principal es la alerta naranja en Yungas y Rurrenabaque, que se cruza con una restricción vial aún sin confirmar.</p>
+        </>
+      )}
       <div className="kpis">
-        <div className="kpi"><small>Señales activas</small><b className="num">{a.length}</b><em>+3 desde ayer</em></div>
-        <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{opp}</b><em>2 con plazo &lt; 15 días</em></div>
-        <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{r}</b><em>1 en alerta naranja</em></div>
-        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{ver}</b><em>con 2 o más fuentes</em></div>
+        <div className="kpi"><small>Señales activas</small><b className="num">{a.length}</b><em>{ventana ? `en ${ventana} h` : 'sin descartadas'}</em></div>
+        <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{opps.length}</b><em>{cortas} con plazo &lt; 15 días</em></div>
+        <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{riesgos.length}</b><em>{altas} de prioridad alta</em></div>
+        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{ver.length}</b><em>{multi} con 2 o más fuentes</em></div>
       </div>
     </div>
   );
@@ -58,7 +79,7 @@ function Pulso() {
         <div className="scale-bar"><i style={{ left: `${att}%` }} /></div>
         <div className="scale-l"><span>Normal</span><span>Vigilancia</span><span>Atención</span><span>Crítico</span></div>
       </div>
-      <p className="note" style={{ margin: '10px 0 0' }}>Índices de ejemplo: suman estado de fuentes, prioridad y número de señales.</p>
+      <p className="note" style={{ margin: '10px 0 0' }}>Índices orientativos: suman estado de fuentes, prioridad y número de señales.</p>
     </>
   );
 }
@@ -73,7 +94,7 @@ function FuentesMatrix() {
           <div className="r"><StPill s={s.estado} /><span className="t mono tech">{s.lat ? Math.round(s.lat / 100) / 10 + ' s' : '—'}</span></div>
           <span className="n">{s.nombre}</span>
           <Histo hist={s.hist} />
-          <span className="t">{CATS[s.canal] || s.canal} · cada {s.freq} min</span>
+          <span className="t">{catName(s.canal)}{s.freq ? ` · cada ${s.freq} min` : ''}</span>
         </button>
       ))}
     </div>
@@ -82,8 +103,9 @@ function FuentesMatrix() {
 
 function Cadena() {
   const a = useStore((s) => s.senales);
+  const noticias = useNoticias();
   const steps: [string, number, string, string][] = [
-    ['senales', lastDet, 'Noticias leídas', 'var(--accent)'],
+    ['senales', noticias, 'Noticias leídas', 'var(--accent)'],
     ['temas', a.length, 'Señales agrupadas', 'var(--mix)'],
     ['shield', a.filter((s) => s.corr >= 2).length, 'Corroboradas', 'var(--ok)'],
     ['oportunidades', a.filter((s) => s.naturaleza !== 'riesgo').length, 'Valoradas para turismo', 'var(--opp)'],
@@ -186,7 +208,8 @@ function Actividad() {
 }
 
 function Temas() {
-  const temas = TEMAS_DEMO;
+  const temas = useStore((s) => s.temas);
+  if (!temas.length) return <Empty title="Sin temas">AVIA todavía no agrupó temas.</Empty>;
   const max = Math.max(...temas.map((t) => t.n));
   return (
     <>
@@ -215,11 +238,12 @@ export const PANEL_BODY: Record<PanelId, () => JSX.Element> = {
 
 export function usePanelMeta(id: PanelId): string {
   const nFuentes = useStore((s) => s.fuentes.length);
+  const real = useStore((s) => s.origen === 'vps');
   const nPend = pendingDecision(useStore((s) => s.senales)).length;
   const meta: Record<PanelId, string> = {
     sintesis: 'Borrador de AVIA', fuentes: `${nFuentes} fuentes`, oportunidades: 'por puntuación', riesgos: 'vigentes',
-    mapa: 'esquema', evolucion: 'demo', decision: `${nPend} pendientes`, actividad: 'en vivo', temas: '7 días',
-    cadena: 'hoy', pulso: 'demo', categorias: 'activas',
+    mapa: 'esquema', evolucion: real ? 'VPS' : 'demo', decision: `${nPend} pendientes`, actividad: real ? 'VPS' : 'en vivo', temas: real ? 'VPS' : '7 días',
+    cadena: 'hoy', pulso: 'índice', categorias: 'activas',
   };
   return meta[id];
 }

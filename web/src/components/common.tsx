@@ -1,6 +1,6 @@
 // Piezas pequeñas reutilizadas en varias vistas.
 import type { EstadoFuente, Evento, Naturaleza, Senal } from '../types';
-import { CATS, SERIE_DEMO, STATE_TXT, STL } from '../data/demo';
+import { CATS, STATE_TXT, STL } from '../data/demo';
 import { clock, scoreOf } from '../lib/util';
 import { useStore } from '../store';
 
@@ -84,8 +84,12 @@ export function CatBars({ list }: { list: Senal[] }) {
 }
 
 export function LineChart() {
-  const S = SERIE_DEMO;
-  const W = 640, H = 200, L = 30, R = 12, T = 12, B = 24, max = 45;
+  const S = useStore((s) => s.serie);
+  const real = useStore((s) => s.origen === 'vps');
+  const top = Math.max(1, ...S.det, ...S.opp, ...S.risk);
+  const paso = Math.ceil(top / 3 / 5) * 5 || 5;
+  const max = paso * 3;
+  const W = 640, H = 200, L = 30, R = 12, T = 12, B = 24;
   const x = (i: number) => L + ((W - L - R) * i) / (S.labels.length - 1);
   const y = (v: number) => T + (1 - v / max) * (H - T - B);
   const path = (a: number[]) => a.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
@@ -99,14 +103,14 @@ export function LineChart() {
         <span><i style={{ background: 'var(--opp)' }} />Oportunidades ({last(S.opp)})</span>
         <span><i style={{ background: 'var(--risk)' }} />Riesgos ({last(S.risk)})</span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Evolución de 14 días, datos de ejemplo">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={real ? 'Evolución por día, datos del VPS' : 'Evolución de 14 días, datos de ejemplo'}>
         <defs>
           <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="var(--accent)" stopOpacity=".22" />
             <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {[0, 15, 30, 45].map((v) => (
+        {[0, paso, paso * 2, max].map((v) => (
           <g key={v}>
             <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeDasharray="3 5" />
             <text x={L - 6} y={y(v) + 3} textAnchor="end">{v}</text>
@@ -120,7 +124,7 @@ export function LineChart() {
         {S.labels.map((l, i) => (i % 2 === 0 || i === S.labels.length - 1
           ? <text key={i} x={x(i)} y={H - 6} textAnchor="middle">{l}</text> : null))}
       </svg>
-      <div className="chart-note">Octubre–noviembre 2026 · serie inventada para la demostración.</div>
+      <div className="chart-note">{real ? 'Días del mes · datos publicados por AVIA en el VPS.' : 'Octubre–noviembre 2026 · serie inventada para la demostración.'}</div>
     </div>
   );
 }
@@ -145,9 +149,12 @@ export function EventsList({ list }: { list: Evento[] }) {
   );
 }
 
-export const Foot = () => (
-  <footer className="foot">
-    <span>ORBITA Vigilante · prueba de concepto</span>
-    <span>Datos de ejemplo inventados · no usar para decisiones reales</span>
-  </footer>
-);
+export function Foot() {
+  const real = useStore((s) => s.origen === 'vps');
+  return (
+    <footer className="foot">
+      <span>ORBITA Vigilante · {real ? 'datos del VPS' : 'prueba de concepto'}</span>
+      <span>{real ? 'Señales publicadas por AVIA · las decisiones aún no se guardan en el servidor' : 'Datos de ejemplo inventados · no usar para decisiones reales'}</span>
+    </footer>
+  );
+}

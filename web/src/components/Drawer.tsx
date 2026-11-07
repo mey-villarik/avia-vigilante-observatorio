@@ -1,9 +1,9 @@
 // Panel lateral de detalle: fuente, señal, catálogo de paneles, accesibilidad y formularios.
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { CategoriaId, Etapa, Fuente } from '../types';
-import { CATS, PANELS, STATE_TXT, STL } from '../data/demo';
+import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
-import { ago } from '../lib/util';
+import { ago, clock } from '../lib/util';
 import { Icon } from './Icon';
 import { Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
@@ -18,6 +18,8 @@ function Head({ icon, children }: { icon?: string; children: ReactNode }) {
     </div>
   );
 }
+
+const hostOf = (u: string) => { try { return new URL(u).hostname; } catch { return u; } };
 
 const Lock = ({ children }: { children: ReactNode }) => <div className="lock"><Icon name="shield" /> {children}</div>;
 
@@ -37,6 +39,7 @@ function checksFor(s: Fuente): [Fuente['estado'], string, string][] {
 function FuenteDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.fuentes.find((f) => f.id === id));
   const role = useStore((st) => st.role);
+  const real = useStore((st) => st.origen === 'vps');
   const { recheck, ackSource, toggleMant } = useStore.getState();
   if (!s) return null;
   return (
@@ -44,26 +47,36 @@ function FuenteDetalle({ id }: { id: string }) {
       <Head icon="fuentes">Fuente · {s.id}</Head>
       <div className="drawer-b">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <StPill s={s.estado} /><span className="tag">{CATS[s.canal] || s.canal}</span><span className="tag">{s.tipo}</span><span className="tag">URL {s.verif}</span>
+          <StPill s={s.estado} /><span className="tag">{catName(s.canal)}</span><span className="tag">{s.tipo}</span>{s.verif !== '—' && <span className="tag">URL {s.verif}</span>}
         </div>
         <h2>{s.nombre}</h2>
         <p className="lead mono" style={{ fontSize: 12, wordBreak: 'break-all' }}>{s.url}</p>
         <div className="dl">
           <div><small>Método</small><b>{s.metodo}</b></div>
-          <div><small>Frecuencia</small><b>cada {s.freq} min</b></div>
-          <div><small>Tiempo de respuesta</small><b className="mono">{s.lat ? (s.lat / 1000).toFixed(1) + ' s' : '—'}</b></div>
-          <div><small>Señales en 24 h</small><b className="mono">{s.items}</b></div>
+          {s.freq ? <div><small>Frecuencia</small><b>cada {s.freq} min</b></div> : null}
+          {s.lat ? <div><small>Tiempo de respuesta</small><b className="mono">{(s.lat / 1000).toFixed(1)} s</b></div> : null}
+          {s.last != null && real ? <div><small>Última comprobación</small><b className="mono">{clock(-s.last)}</b></div> : null}
+          <div><small>{real ? 'Elementos nuevos' : 'Señales en 24 h'}</small><b className="mono">{s.items}</b></div>
         </div>
-        <div className="sect">Comprobaciones</div>
-        <div className="checks">
-          {checksFor(s).map(([k, n, d]) => <div className="check" key={n}><StPill s={k} /><span>{n}<small>{d}</small></span></div>)}
-        </div>
-        <div className="sect">Historial (24 comprobaciones)</div>
+        {real ? (
+          <>
+            <div className="sect">Última comprobación de AVIA</div>
+            <p style={{ margin: 0 }}>{s.info || 'Sin información.'}</p>
+          </>
+        ) : (
+          <>
+            <div className="sect">Comprobaciones</div>
+            <div className="checks">
+              {checksFor(s).map(([k, n, d]) => <div className="check" key={n}><StPill s={k} /><span>{n}<small>{d}</small></span></div>)}
+            </div>
+          </>
+        )}
+        <div className="sect">Historial ({s.hist.length} comprobaciones)</div>
         <Histo hist={s.hist} height={22} titles />
         {s.flap && <p className="note" style={{ margin: 0 }}>⇅ Estado intermitente: cambió 4 veces en las últimas 24 comprobaciones. Conviene revisar la forma de acceso.</p>}
         <div className="sect">Acciones</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn primary" onClick={() => recheck(s.id)}><Icon name="refresh" /> Comprobar ahora</button>
+          <button className="btn primary" onClick={() => recheck(s.id)}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar ahora'}</button>
           {canDecide(role) && ['WARN', 'CRIT'].includes(s.estado) && !s.ack && (
             <button className="btn" onClick={() => ackSource(s.id)}><Icon name="check" /> Reconocer problema</button>
           )}
@@ -71,7 +84,7 @@ function FuenteDetalle({ id }: { id: string }) {
             <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento'}</button>
           )}
         </div>
-        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. En la demo solo cambia este navegador.</Lock>
+        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? 'Por ahora solo cambia este navegador: no se guarda en el VPS.' : 'En la demo solo cambia este navegador.'}</Lock>
       </div>
     </>
   );
@@ -81,6 +94,7 @@ function SenalDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.senales.find((x) => x.id === id));
   const fuentes = useStore((st) => st.fuentes);
   const role = useStore((st) => st.role);
+  const real = useStore((st) => st.origen === 'vps');
   const { moveSignal, closeDrawer } = useStore.getState();
   const { openChat } = useChat();
   const [sol, setSol] = useState<number | null>(null);
@@ -96,7 +110,7 @@ function SenalDetalle({ id }: { id: string }) {
 
   return (
     <>
-      <Head icon="senales">Señal {s.id} · ejemplo</Head>
+      <Head icon="senales">Señal {s.id}{real ? '' : ' · ejemplo'}</Head>
       <div className="drawer-b">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <NatPill n={s.naturaleza} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span>
@@ -108,13 +122,21 @@ function SenalDetalle({ id }: { id: string }) {
           <div><small>Destinos</small><b>{s.destinos.join(', ')}</b></div>
           <div><small>Relevancia · Novedad</small><b className="mono">{s.rel}/10 · {s.nov}/10</b></div>
           <div><small>Confianza</small><b className="mono">{Math.round(s.conf * 100)}%</b></div>
-          {s.plazo ? <div><small>Plazo</small><b>{s.plazo} días</b></div> : null}
+          {s.plazo != null ? <div><small>Plazo</small><b>{s.plazo} días</b></div> : null}
           <div><small>Detectada</small><b>{ago(s.min)}</b></div>
+          {s.revision ? <div><small>Próxima revisión</small><b className="mono">{s.revision}</b></div> : null}
         </div>
+        {s.actualizacion && <><div className="sect">Última actualización</div><p style={{ margin: 0 }}>{s.actualizacion}</p></>}
         <div className="sect">Por qué importa al turismo</div>
         <p style={{ margin: 0 }}>{s.importancia}</p>
         <div className="sect">Evidencia y corroboración</div>
         {evid.map((f) => <div className="evi" key={f.id}><Icon name="shield" /><span>{f.nombre}<small>{f.url}</small></span></div>)}
+        {(s.enlaces ?? []).map((e) => (
+          <div className="evi" key={e.url}>
+            <Icon name="link" />
+            <span><a href={e.url} target="_blank" rel="noopener noreferrer">{e.nombre || e.url}</a><small>{e.fecha ? e.fecha + ' · ' : ''}{hostOf(e.url)}</small></span>
+          </div>
+        ))}
         {s.corr < 2 && <div className="evi pend"><Icon name="riesgo" /><span>Falta una segunda fuente independiente<small>AVIA sigue buscando corroboración</small></span></div>}
         <div className="sect">Soluciones y acciones que propone AVIA</div>
         {s.soluciones.map((o, i) => (
@@ -146,7 +168,7 @@ function SenalDetalle({ id }: { id: string }) {
             ))}
           </>
         )}
-        <Lock>Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.</Lock>
+        <Lock>{real ? 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.' : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
       </div>
     </>
   );

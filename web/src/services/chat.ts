@@ -63,6 +63,20 @@ function localReply(q: string): { text: string; act?: string } {
     const l = act.filter((s) => s.naturaleza !== 'riesgo' && (!dep || s.deps.includes(dep))).sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999)).slice(0, 4);
     return { text: l.length ? 'Oportunidades por plazo:\n' + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Siguiente paso: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
   }
+  if (/resumen|sintesis|ministerio|informe/.test(t) && st.origen === 'vps') {
+    const r = act.filter((x) => x.naturaleza === 'riesgo').sort((a, b) => ({ alta: 0, media: 1, baja: 2 })[a.prioridad] - ({ alta: 0, media: 1, baja: 2 })[b.prioridad]).slice(0, 2);
+    const o = act.filter((x) => x.naturaleza !== 'riesgo').sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999)).slice(0, 3);
+    const ver = act.filter((x) => ['detectada', 'en_verificacion'].includes(x.estado)).slice(0, 3);
+    return {
+      text: [
+        `Resumen: ${act.length} señales activas.`,
+        st.sintesis?.frase ?? '',
+        r.length ? 'Lo urgente:\n' + r.map((x) => `• ${x.id} ${x.titulo}`).join('\n') : '',
+        o.length ? 'Mejores oportunidades:\n' + o.map((x) => `• ${x.id} ${x.titulo}${x.plazo != null ? ` — ${x.plazo} días` : ''}`).join('\n') : '',
+        ver.length ? 'Falta verificar:\n' + ver.map((x) => `• ${x.id} ${x.titulo}`).join('\n') : '',
+      ].filter(Boolean).join('\n\n'),
+    };
+  }
   if (/resumen|sintesis|ministerio|informe/.test(t)) {
     return { text: `Resumen (datos de ejemplo): ${act.length} señales activas. Lo más urgente es la alerta naranja en Yungas y Rurrenabaque (SEN-0418). Las mejores oportunidades son el fondo de CAF para turismo comunitario, que cierra en 12 días (SEN-0417), y la nueva frecuencia aérea a Santa Cruz (SEN-0413). Falta confirmar la señal de dengue con el Ministerio de Salud (SEN-0415).` };
   }

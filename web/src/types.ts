@@ -9,24 +9,25 @@ export type Rol = 'visor' | 'analista' | 'admin';
 export type VistaId = 'panorama' | 'fuentes' | 'senales' | 'oportunidades' | 'analisis' | 'bitacora';
 export type CategoriaId =
   | 'clima' | 'salud' | 'vial' | 'seguridad' | 'conectividad'
-  | 'eventos' | 'financiacion' | 'mercado' | 'normativa';
+  | 'eventos' | 'financiacion' | 'mercado' | 'normativa' | 'turismo';
 
 export interface Fuente {
   id: string;
   nombre: string;
-  canal: CategoriaId;
+  /** categoría normalizada; si no se reconoce, el texto original */
+  canal: CategoriaId | string;
   tipo: string;
   url: string;
   metodo: string;
-  /** minutos entre comprobaciones */
-  freq: number;
+  /** minutos entre comprobaciones (desconocido en los datos del VPS) */
+  freq?: number;
   estado: EstadoFuente;
   info: string;
   /** tiempo de respuesta en ms */
   lat: number | null;
   items: number;
-  /** minutos en el estado actual */
-  desde: number;
+  /** minutos en el estado actual (desconocido en los datos del VPS) */
+  desde?: number;
   /** últimas 24 comprobaciones, la más reciente al final */
   hist: EstadoFuente[];
   verif: string;
@@ -37,6 +38,8 @@ export interface Fuente {
 }
 
 export interface Solucion { t: string; d: string }
+
+export interface Enlace { nombre: string; url: string; fecha?: string }
 
 export interface CambioEtapa { de: Etapa; a: Etapa; quien: string; cuando: string; nota: string }
 
@@ -70,6 +73,12 @@ export interface Senal {
   importancia: string;
   soluciones: Solucion[];
   historial?: CambioEtapa[];
+  /** evidencia publicada por Hermes (datos del VPS) */
+  enlaces?: Enlace[];
+  /** próxima revisión prevista, AAAA-MM-DD */
+  revision?: string;
+  /** última actualización de la señal en texto */
+  actualizacion?: string;
 }
 
 export interface Tema { t: string; n: number; d: number; nat: Naturaleza }
