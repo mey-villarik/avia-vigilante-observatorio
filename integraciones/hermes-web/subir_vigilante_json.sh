@@ -20,6 +20,9 @@ ENV_FILE="${AVIA_SUPABASE_ENV:-/etc/avia/supabase.env}"
 : "${SUPABASE_URL:?Falta SUPABASE_URL}"
 : "${SUPABASE_SERVICE_ROLE_KEY:?Falta SUPABASE_SERVICE_ROLE_KEY}"
 CLIENTE="${VIGILANTE_CLIENTE:-orbita-bolivia}"
+# las claves nuevas (sb_secret_…) van solo en «apikey»; las antiguas (JWT service_role) también en Authorization
+AUTORIZACION=()
+case "$SUPABASE_SERVICE_ROLE_KEY" in sb_*) ;; *) AUTORIZACION=(-H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY") ;; esac
 
 # no subir un archivo a medio escribir o que no sea JSON válido
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("version")==1' "$ARCHIVO" \
@@ -32,7 +35,7 @@ if [ -f "$MARCA" ] && [ "$(cat "$MARCA")" = "$SUMA" ]; then exit 0; fi
 
 CODIGO="$(curl -sS -o /tmp/avia-subida.out -w '%{http_code}' -X POST \
   "$SUPABASE_URL/storage/v1/object/vigilante/$CLIENTE/vigilante.json" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  "${AUTORIZACION[@]}" \
   -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
   -H 'Content-Type: application/json' \
   -H 'Cache-Control: no-cache' \
@@ -50,7 +53,7 @@ python3 -c 'import json,sys; print(json.dumps({"p_cliente": sys.argv[2], "p_json
   "$ARCHIVO" "$CLIENTE" > /tmp/avia-sinc.json
 CODIGO="$(curl -sS -o /tmp/avia-sinc.out -w '%{http_code}' -X POST \
   "$SUPABASE_URL/rest/v1/rpc/sincronizar_vigilante" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  "${AUTORIZACION[@]}" \
   -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
   -H 'Content-Type: application/json' \
   -H 'Content-Profile: vigilante' \

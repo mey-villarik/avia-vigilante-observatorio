@@ -17,11 +17,14 @@ ENV_FILE="${AVIA_SUPABASE_ENV:-/etc/avia/supabase.env}"
 : "${SUPABASE_URL:?Falta SUPABASE_URL}"
 : "${SUPABASE_SERVICE_ROLE_KEY:?Falta SUPABASE_SERVICE_ROLE_KEY}"
 CLIENTE="${VIGILANTE_CLIENTE:-orbita-bolivia}"
+# las claves nuevas (sb_secret_…) van solo en «apikey»; las antiguas (JWT service_role) también en Authorization
+AUTORIZACION=()
+case "$SUPABASE_SERVICE_ROLE_KEY" in sb_*) ;; *) AUTORIZACION=(-H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY") ;; esac
 
 TMP="$(mktemp)"
 CODIGO="$(curl -sS -o "$TMP" -w '%{http_code}' -X POST \
   "$SUPABASE_URL/rest/v1/rpc/fuentes_para_hermes" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  "${AUTORIZACION[@]}" \
   -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
   -H 'Content-Type: application/json' \
   -H 'Content-Profile: vigilante' \
