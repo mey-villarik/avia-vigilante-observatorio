@@ -51,6 +51,8 @@ export interface Fuente {
   enBd?: boolean;
   /** lo que guarda la base de datos sobre la fuente (para verla y editarla) */
   bd?: FuenteBd;
+  /** dada de alta hace tiempo y AVIA todavía no la ha comprobado nunca */
+  sinLeer?: boolean;
   /** minutos desde la última comprobación */
   last?: number;
 }

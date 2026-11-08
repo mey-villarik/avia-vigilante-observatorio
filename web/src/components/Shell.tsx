@@ -34,7 +34,7 @@ export function Sidebar() {
 
   const c = countStates(fuentes);
   const cnt: Partial<Record<string, [number, boolean]>> = {
-    fuentes: [c.CRIT + c.WARN, c.CRIT > 0],
+    fuentes: [c.CRIT + c.WARN + fuentes.filter((f) => f.sinLeer).length, c.CRIT > 0],
     senales: [pendingDecision(senales).length, false],
     oportunidades: [activeSignals(senales).filter((s) => s.naturaleza !== 'riesgo' && s.plazo).length, false],
   };

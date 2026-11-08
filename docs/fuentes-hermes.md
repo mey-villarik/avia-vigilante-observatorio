@@ -57,3 +57,9 @@ Solo el administrador puede añadir, editar, pausar, reactivar y eliminar fuente
 - «Reconocer problema» (analista o administrador) se guarda en la base con nombre, hora y nota opcional. Todo el equipo lo ve en la tabla y en la ficha. Se quita solo cuando la fuente vuelve a OK.
 - `vigilante.source_events` guarda cada cambio que hace una persona en una fuente: alta, edición (con qué campos cambió), pausa, reactivación, aprobación de una propuesta de AVIA, eliminación, recuperación y reconocimiento. Lo rellena un disparador; los cambios de la sincronización con Hermes no se apuntan.
 - La Bitácora de la web muestra esos eventos junto a los movimientos de señales.
+
+## «AVIA no la está leyendo»
+
+- Una fuente activa de la base que AVIA nunca ha comprobado se marca «⚠ AVIA no la lee» cuando pasa más de 3 veces su frecuencia (mínimo 2 horas) desde el alta o la última edición. La ficha dice cuánto tiempo lleva y con qué código debe publicarla AVIA.
+- Mientras espera dentro de ese plazo aparece como «nueva · en espera» y no cuenta en «Con problemas».
+- Causas habituales: el cron de `fuentes_activas.sh` no corre, la skill de la ronda no lee `fuentes_activas.json`, o AVIA publica la fuente con otro código.

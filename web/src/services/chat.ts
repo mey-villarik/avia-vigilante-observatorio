@@ -1,7 +1,7 @@
 // Lógica del chat "Pregunta a AVIA": abrir, enviar y aplicar las órdenes que devuelve AVIA.
 import type { PanelId, VistaId } from '../types';
 import { DEPS, PANELS, STATE_TXT, STL } from '../data/demo';
-import { activeSignals, useStore } from '../store';
+import { activeSignals, conProblema, useStore } from '../store';
 import { ROLE_NAME, norm } from '../lib/util';
 import { aviaConectado, remoto, type Comando } from './avia';
 
@@ -46,7 +46,7 @@ function localReply(q: string): { text: string; act?: string } {
     return { text: `Quité «${panelHit[1].t}». Puedes volver a ponerlo cuando quieras.`, act: 'Tablero actualizado' };
   }
   if (/fuente|falla|caid|estado/.test(t)) {
-    const bad = st.fuentes.filter((s) => ['WARN', 'CRIT', 'UNKNOWN'].includes(s.estado));
+    const bad = st.fuentes.filter(conProblema);
     st.go('fuentes');
     return {
       text: bad.length ? `Hay ${bad.length} fuentes que revisar:\n` + bad.map((s) => `• ${s.nombre}: ${STATE_TXT[s.estado]} — ${s.info}`).join('\n') : 'Todas las fuentes están bien.',

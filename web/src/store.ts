@@ -522,4 +522,7 @@ export function countStates(fuentes: Fuente[]): Record<EstadoFuente, number> {
   return c;
 }
 export const canDecide = (r: Rol) => r !== 'visor';
+/** Con problemas: aviso, crítico, desconocido… salvo las fuentes nuevas que aún esperan su primera comprobación */
+export const conProblema = (f: Fuente) => f.estado === 'WARN' || f.estado === 'CRIT'
+  || (f.estado === 'UNKNOWN' && (f.sinLeer || !(f.bd && !f.bd.ultima_consulta_en && f.bd.activa)));
 export const isAdmin = (r: Rol) => r === 'admin';

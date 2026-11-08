@@ -29,7 +29,15 @@ export const METODO_TXT: Record<string, string> = {
  */
 const PROPUESTA = 'Propuesta de AVIA: pendiente de que un administrador la apruebe';
 
-export function mezclarFuentes(json: Fuente[], bdTodas: FuenteBd[]): Fuente[] {
+/**
+ * Minutos que se espera a la primera comprobación antes de avisar de que AVIA no la lee:
+ * tres veces su frecuencia, y nunca menos de 2 horas.
+ */
+export const esperaPrimeraComprobacion = (freq?: number) => Math.max(3 * (freq || 60), 120);
+
+const horas = (min: number) => (min < 120 ? `${Math.round(min)} min` : min < 2880 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} días`);
+
+export function mezclarFuentes(json: Fuente[], bdTodas: FuenteBd[], ahora = Date.now()): Fuente[] {
   // las eliminadas desaparecen aunque Hermes aún las tenga en su archivo
   const borradas = new Set(bdTodas.filter((f) => f.eliminada).map((f) => f.codigo));
   const bd = bdTodas.filter((f) => !f.eliminada);
@@ -51,11 +59,18 @@ export function mezclarFuentes(json: Fuente[], bdTodas: FuenteBd[]): Fuente[] {
   const enJson = new Set(json.map((f) => f.id));
   // (las borradas ya no están en bd)
   bd.filter((b) => !enJson.has(b.codigo)).forEach((b) => {
+    // si lleva demasiado sin primera comprobación, AVIA no la está leyendo (código distinto, skill sin actualizar…)
+    const desde = Date.parse(b.editada_en || b.creada_en || '');
+    const espera = Number.isNaN(desde) ? 0 : (ahora - desde) / 60000;
+    const sinLeer = b.activa && !b.ultima_consulta_en && espera > esperaPrimeraComprobacion(b.frecuencia_minutos);
     out.push({
+      sinLeer,
       id: b.codigo, nombre: b.nombre, canal: normCanal(b.categorias[0]), tipo: normTipo(b.tipo === 'organismo_internacional' ? 'internacional' : b.tipo),
       url: b.url, metodo: METODO_TXT[b.metodo] ?? b.metodo, freq: b.frecuencia_minutos,
       estado: b.activa ? 'UNKNOWN' : 'MANT',
-      info: b.activa
+      info: sinLeer
+        ? `AVIA no la está leyendo: lleva ${horas(espera)} sin su primera comprobación. Revisa en el VPS que AVIA reciba la lista de fuentes y publique esta con el código «${b.codigo}».`
+        : b.activa
         ? `Pendiente de la primera comprobación de AVIA${b.alta_por ? ` · alta de ${b.alta_por}` : ''}${b.que_buscar ? ` · Buscar: ${b.que_buscar}` : ''}`
         : b.propuesta ? PROPUESTA : 'En pausa: AVIA no la vigila hasta que se reactive',
       lat: null, items: 0, hist: [], verif: '—', enBd: true, bd: b,
