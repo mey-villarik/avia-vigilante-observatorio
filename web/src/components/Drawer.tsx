@@ -191,7 +191,7 @@ function SenalDetalle({ id }: { id: string }) {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn gold" onClick={() => decide('confirmada')}><Icon name="check" /> Confirmar</button>
-              <button className="btn" onClick={() => decide('publicada')}>Publicar</button>
+              <button className="btn" title="Sale en la web pública y se avisa por Telegram" onClick={() => decide('publicada')}>Publicar</button>
               <button className="btn" onClick={() => decide('en_verificacion')}>Pedir verificación</button>
               <button className="btn ghost" onClick={() => decide('descartada')}>Descartar</button>
             </div>
@@ -206,7 +206,7 @@ function SenalDetalle({ id }: { id: string }) {
             ))}
           </>
         )}
-        <Lock>{real ? (enBd ? 'Señal real publicada por AVIA. Al cambiar su etapa se guarda en la base de datos, con tu nombre y la nota, y queda en la Bitácora.' : 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.') : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
+        <Lock>{real ? (enBd ? 'Señal real publicada por AVIA. Al cambiar su etapa se guarda en la base de datos, con tu nombre y la nota, y queda en la Bitácora. Al pulsar «Publicar» sale en la web pública y el bot avisa por Telegram; si luego la mueves a otra columna, se retira de la web.' : 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.') : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
       </div>
     </>
   );

@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react';
 // En desarrollo (npm run dev) y en vista previa (npm run preview), Vite reenvía /data al VPS,
 // así que la web pide /data/vigilante.json como si estuviera en el mismo servidor.
 // Para usar otro servidor: VIGILANTE_VPS=https://otro-servidor npm run dev
+//
+// Dos páginas: index.html (panel con login) y publico.html (alertas publicadas, sin login).
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const vps = env.VIGILANTE_VPS || 'https://vigilante-bolivia.duckdns.org';
@@ -13,5 +15,10 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: { proxy },
     preview: { proxy },
+    build: {
+      rollupOptions: {
+        input: { main: 'index.html', publico: 'publico.html' },
+      },
+    },
   };
 });

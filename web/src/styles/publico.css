@@ -1,0 +1,32 @@
+/* Web pública de alertas (publico.html). Usa los colores de app.css. */
+.pub{max-width:880px;margin:0 auto;padding:28px 16px 40px}
+.pub-head{display:flex;flex-direction:column;gap:10px;align-items:flex-start;margin-bottom:18px}
+.pub-head h1{font-family:var(--f-display);font-weight:500;font-size:clamp(28px,5vw,40px);line-height:1.1;margin:0}
+.pub-head .sub{color:var(--muted);margin:0;max-width:62ch}
+.pub .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.pub .toolbar .inp{flex:1;min-width:200px}
+.pub-lista{display:flex;flex-direction:column;gap:14px}
+.pub-card{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line2);border-radius:14px;padding:16px 18px}
+.pub-card.nat-b-oportunidad{border-left-color:var(--opp)}
+.pub-card.nat-b-riesgo{border-left-color:var(--risk)}
+.pub-card.nat-b-mixta{border-left-color:var(--mix)}
+.pub-card h2{font-family:var(--f-display);font-weight:500;font-size:21px;line-height:1.25;margin:8px 0 6px}
+.pub-card h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 2px;font-weight:600}
+.pub-card p{margin:0}
+.pub-meta{display:flex;flex-wrap:wrap;gap:6px}
+.pub-ok{color:var(--ok);border-color:var(--ok-soft)}
+.pub-verif{color:var(--warn);border-color:var(--warn-soft)}
+.pub-alta{color:var(--risk);border-color:var(--risk-soft)}
+.pub-dl{display:flex;flex-wrap:wrap;gap:6px 22px;margin:12px 0 0}
+.pub-dl div{min-width:0}
+.pub-dl dt{font-size:11.5px;color:var(--faint)}
+.pub-dl dd{margin:0;font-weight:500}
+.pub-pie{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.pub-pie a{color:var(--accent)}
+.pub-voto{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.pub-voto small{color:var(--muted)}
+.pub-vacio,.pub-err{padding:28px 16px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line2);border-radius:14px}
+.pub-err{color:var(--crit)}
+.pub-foot{margin-top:26px;color:var(--faint);font-size:12.5px}
+@media (max-width:560px){.pub .seg{width:100%;overflow-x:auto}.pub-pie{flex-direction:column;align-items:flex-start}}
+.pub-head .btn{text-decoration:none}
