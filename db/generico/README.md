@@ -8,6 +8,9 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | --- | --- |
 | `01_vigilante_schema.sql` | Esquema `vigilante`: 24 tablas, reglas, funciones, vistas, RLS por cliente y parámetros por defecto. |
 | `02_cliente_orbita_bolivia.sql` | Ejemplo de alta: ORBITA turismo Bolivia (territorios, categorías, fuentes rápidas y el Vigilante por MCP). |
+| `03` a `13` | Acceso web, sincronización con `vigilante.json`, fuentes desde la web y publicación (ver `docs/`). |
+| `14_recolector_mcp.sql` | Recolector sin IA (noticias con filtro previo), búsquedas que pide AVIA, propuestas de método, señales por el MCP, métricas de oportunidad y alertas tempranas. Ver `docs/recolector-mcp.md`. |
+| `99_prueba_recolector.sql` | Prueba del 14. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

@@ -5,7 +5,8 @@ import { create } from 'zustand';
 import {
   CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
 } from './data/demo';
-import { cargarVps } from './services/datos';
+import { cargarVps, convertir, type DatosVps } from './services/datos';
+import { decidirPropuesta, leerPropuestas, leerVigilanteBd, mezclarBd, type Propuesta } from './services/recolector';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
@@ -70,6 +71,8 @@ interface State {
   senales: Senal[];
   pendientes: Senal[];
   eventos: Evento[];
+  /** propuestas de AVIA sobre cómo leer una fuente (14_recolector_mcp.sql) */
+  propuestas: Propuesta[];
   tick: number;
   // capas
   drawer: Drawer | null;
@@ -107,6 +110,8 @@ interface Actions {
   removeSource: (id: string) => Promise<void>;
   editSource: (id: string, f: AltaFuente) => Promise<boolean>;
   askReview: (id: string) => void;
+  /** el administrador aprueba o rechaza una propuesta de AVIA */
+  decideProposal: (id: number, aprobar: boolean) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
@@ -208,6 +213,7 @@ export const useStore = create<Store>()((set, get) => {
     senales: SENALES_DEMO.map((s) => ({ ...s })),
     pendientes: PENDIENTES_DEMO.map((s) => ({ ...s })),
     eventos: EVENTOS_DEMO.map((e) => ({ ...e })),
+    propuestas: [],
     tick: 0,
     drawer: null,
     searchOpen: false,
@@ -373,6 +379,20 @@ export const useStore = create<Store>()((set, get) => {
         .catch((e: unknown) => get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`));
     },
 
+    decideProposal: async (id, aprobar) => {
+      const p = get().propuestas.find((x) => x.id === id);
+      try {
+        await decidirPropuesta(id, aprobar);
+        get().toast(aprobar
+          ? `Aprobado: ${p?.nombre ?? 'la fuente'} se leerá de otra forma desde la próxima ronda.`
+          : `Rechazada la propuesta de AVIA para ${p?.nombre ?? 'la fuente'}.`);
+        set({ propuestas: get().propuestas.map((x) => (x.id === id ? { ...x, estado: aprobar ? 'aprobada' : 'rechazada' } : x)) });
+        await get().loadRemote(true);
+      } catch (e) {
+        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+
     editSource: async (id, a) => {
       try {
         await editarFuente(id, a);
@@ -472,7 +492,17 @@ export const useStore = create<Store>()((set, get) => {
       if (get().cargando) return;
       set({ cargando: true });
       try {
-        const d = await cargarVps(get().perfil);
+        // 1. el archivo del VPS (vigilante.json); 2. lo que el recolector y AVIA guardan en la base
+        let d: DatosVps | null = null;
+        let errArchivo: unknown = null;
+        try { d = await cargarVps(get().perfil); } catch (e) { errArchivo = e; }
+        if (get().perfil) {
+          const j = await leerVigilanteBd().catch(() => null);
+          const desdeBd = j && (j.fuentes?.length || j.senales?.length) ? convertir(j) : null;
+          if (desdeBd) d = d ? mezclarBd(d, desdeBd) : desdeBd;
+          leerPropuestas().then((propuestas) => set({ propuestas })).catch(() => undefined);
+        }
+        if (!d) throw errArchivo ?? new Error('Sin datos');
         // con sesión: el estado de cada señal y los movimientos de las personas salen de la base de datos
         let bd = false;
         if (get().perfil) {

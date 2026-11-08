@@ -286,6 +286,11 @@ h1 em{color:var(--opp);font-weight:400}
 
 /* ───────── Fuentes (estilo Nagios) ───────── */
 .nag-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.propuestas{border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin:0 0 14px;background:var(--surface)}
+.propuestas h2{font-size:15px;margin:0 0 4px}
+.propuestas ul{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:10px}
+.propuestas li{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px}
+.propuestas .acciones{display:flex;gap:8px}
 .nag-box.st-total{color:var(--ink)}
 .nag-box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);text-align:left;display:flex;flex-direction:column;gap:2px}
 .nag-box b{font-family:var(--f-display);font-size:calc(30px * var(--fs));font-weight:500;line-height:1.1}

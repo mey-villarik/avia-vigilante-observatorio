@@ -1,5 +1,6 @@
 import type { EstadoFuente } from '../types';
 import { STATE_TXT, catName } from '../data/demo';
+import { METODO_TXT } from '../services/fuentes';
 import { conProblema, countStates, isAdmin, useStore } from '../store';
 import { ago, clock, norm } from '../lib/util';
 import { Icon } from '../components/Icon';
@@ -13,7 +14,9 @@ export function Fuentes() {
   const srcFilter = useStore((s) => s.srcFilter);
   const srcQ = useStore((s) => s.srcQ);
   const real = useStore((s) => s.origen === 'vps');
-  const { setSrcFilter, setSrcQ, openDrawer, checkAll } = useStore.getState();
+  const todasPropuestas = useStore((s) => s.propuestas);
+  const propuestas = todasPropuestas.filter((p) => p.estado === 'pendiente');
+  const { setSrcFilter, setSrcQ, openDrawer, checkAll, decideProposal } = useStore.getState();
   const c = countStates(fuentes);
 
   const list = srcFilter === 'problemas'
@@ -34,6 +37,29 @@ export function Fuentes() {
           <button className="btn primary" onClick={checkAll}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar todas'}</button>
         </div>
       </section>
+      {propuestas.length > 0 && (
+        <section className="propuestas" aria-label="Propuestas de AVIA">
+          <h2>AVIA propone cambiar cómo se leen {propuestas.length === 1 ? '1 fuente' : `${propuestas.length} fuentes`}</h2>
+          <p className="note">{isAdmin(role) ? 'No cambia nada hasta que lo apruebes. Apify cuesta dinero y tiene un tope al mes.' : 'Las aprueba o rechaza un administrador.'}</p>
+          <ul>
+            {propuestas.map((p) => (
+              <li key={p.id}>
+                <div>
+                  <b>{p.nombre}</b>: de {METODO_TXT[p.metodo_actual] ?? p.metodo_actual} a <b>{METODO_TXT[p.metodo_propuesto] ?? p.metodo_propuesto}</b>
+                  {typeof p.config?.apify_actor === 'string' && <span className="note"> · actor {p.config.apify_actor}</span>}
+                  <div className="note">Motivo: {p.motivo} · {ago(Math.max(0, (Date.now() - Date.parse(p.propuesta_en)) / 60000))}</div>
+                </div>
+                {isAdmin(role) && (
+                  <div className="acciones">
+                    <button className="btn primary" onClick={() => decideProposal(p.id, true)}>Aprobar</button>
+                    <button className="btn ghost" onClick={() => decideProposal(p.id, false)}>Rechazar</button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="nag-summary">
         <button className={`nag-box st-total ${srcFilter === 'all' && !srcQ ? 'on' : ''}`} onClick={() => { setSrcFilter('all'); setSrcQ(''); }}>
           <b className="num">{fuentes.length}</b><small>Total</small>
@@ -79,7 +105,7 @@ export function Fuentes() {
         </table>
       </div>
       <p className="note">{real
-        ? 'Estados publicados por AVIA en el VPS. La web los vuelve a leer cada 5 minutos.'
+        ? 'Estados de la última lectura de cada fuente (recolector del VPS o ronda de AVIA). La web los vuelve a leer cada 5 minutos.'
         : 'Los estados son de ejemplo. Las URL vienen del catálogo de fuentes; las marcadas «no abierta» o «por confirmar» hay que revisarlas a mano antes de activarlas.'}</p>
     </>
   );
