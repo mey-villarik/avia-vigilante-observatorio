@@ -37,7 +37,16 @@ export const esperaPrimeraComprobacion = (freq?: number) => Math.max(3 * (freq |
 
 const horas = (min: number) => (min < 120 ? `${Math.round(min)} min` : min < 2880 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} días`);
 
-export function mezclarFuentes(json: Fuente[], bdTodas: FuenteBd[], ahora = Date.now()): Fuente[] {
+export function mezclarFuentes(jsonOriginal: Fuente[], bdTodas: FuenteBd[], ahora = Date.now()): Fuente[] {
+  // los códigos que se juntaron con otra fuente pasan a la que se quedó (la comprobación más reciente manda)
+  const redir = new Map(bdTodas.filter((f) => f.fusionada_en).map((f) => [f.codigo, f.fusionada_en as string]));
+  const porId = new Map<string, Fuente>();
+  jsonOriginal.forEach((f0) => {
+    const f = redir.has(f0.id) ? { ...f0, id: redir.get(f0.id)! } : f0;
+    const prev = porId.get(f.id);
+    if (!prev || (f.last ?? Infinity) < (prev.last ?? Infinity)) porId.set(f.id, f);
+  });
+  const json = [...porId.values()];
   // las eliminadas desaparecen aunque Hermes aún las tenga en su archivo
   const borradas = new Set(bdTodas.filter((f) => f.eliminada).map((f) => f.codigo));
   const bd = bdTodas.filter((f) => !f.eliminada);

@@ -25,6 +25,8 @@ export interface FuenteBd {
   reconocida_por?: string | null; reconocida_en?: string | null; reconocida_nota?: string | null;
   /** desde 11_fuentes_revision.sql */
   revision_pedida_en?: string | null; revision_pedida_por?: string | null;
+  /** desde 12_fuentes_repetidas.sql: código de la fuente con la que se juntó */
+  fusionada_en?: string | null;
 }
 
 export interface Fuente {
