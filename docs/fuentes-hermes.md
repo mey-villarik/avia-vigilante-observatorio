@@ -39,3 +39,7 @@ Web (Añadir / Pausar / Reactivar)  →  vigilante.sources (Supabase, lista ofic
 - La ficha muestra qué vigila AVIA en esa fuente, las palabras clave, quién la dio de alta y la última edición.
 - `sources.gestionada_web`: una fuente dada de alta o editada en la web ya no cambia de nombre, dirección, tipo ni canal cuando llega `vigilante.json`. Hermes solo informa del resultado de su comprobación.
 - «Cómo se lee» admite página web, RSS, Google News, API, Tavily, Apify, GDELT y manual. La frecuencia va de 15 minutos a 1 semana.
+
+## Permisos (decisión de Meysel, 2026-11-08)
+
+Solo el administrador puede añadir, editar, pausar, reactivar y eliminar fuentes. Analistas y visores ven la pestaña y las fichas, pero no los botones. La base lo comprueba con `es_admin()` en 06, 07 y 08.

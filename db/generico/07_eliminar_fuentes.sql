@@ -61,7 +61,7 @@ CREATE OR REPLACE FUNCTION vigilante.alta_fuente(p_nombre text, p_url text, p_ca
 RETURNS text LANGUAGE plpgsql SECURITY INVOKER SET search_path = vigilante, pg_temp AS $$
 DECLARE v_codigo text; v_base text; n int := 1; v_borrada text;
 BEGIN
-  IF NOT vigilante.es_staff() THEN RAISE EXCEPTION 'Solo un analista o un administrador puede añadir fuentes'; END IF;
+  IF NOT vigilante.es_admin() THEN RAISE EXCEPTION 'Solo un administrador puede añadir fuentes'; END IF;
   IF coalesce(trim(p_nombre), '') = '' OR p_url !~* '^https?://' THEN RAISE EXCEPTION 'Faltan el nombre o una dirección web válida'; END IF;
   IF EXISTS (SELECT 1 FROM vigilante.sources WHERE cliente_id = vigilante.cliente_actual()
               AND lower(url) = lower(trim(p_url)) AND eliminada_en IS NULL) THEN
@@ -109,7 +109,7 @@ GRANT EXECUTE ON FUNCTION vigilante.alta_fuente(text, text, text, text, text, in
 CREATE OR REPLACE FUNCTION vigilante.activar_fuente(p_codigo text, p_activa boolean)
 RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path = vigilante, pg_temp AS $$
 BEGIN
-  IF NOT vigilante.es_staff() THEN RAISE EXCEPTION 'Solo un analista o un administrador puede pausar fuentes'; END IF;
+  IF NOT vigilante.es_admin() THEN RAISE EXCEPTION 'Solo un administrador puede pausar fuentes'; END IF;
   UPDATE vigilante.sources SET activa = p_activa
    WHERE cliente_id = vigilante.cliente_actual() AND codigo = p_codigo AND eliminada_en IS NULL;
   IF NOT FOUND THEN RAISE EXCEPTION 'La fuente % aún no está en la base de datos', p_codigo; END IF;

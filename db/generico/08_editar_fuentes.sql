@@ -5,7 +5,7 @@
 --   * sources.gestionada_web = true cuando una persona dio de alta o editó la fuente en la web.
 --     Desde ese momento la sincronización con vigilante.json ya no le cambia el nombre,
 --     la dirección, el tipo ni el canal: Hermes solo informa del resultado de la comprobación.
---   * vigilante.editar_fuente(...) → analista o administrador.
+--   * vigilante.editar_fuente(...) → solo administrador.
 --   * vigilante.fuentes_web() devuelve también palabras clave, alta y última edición.
 -- =============================================================================
 
@@ -131,12 +131,12 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path = vigilante, pg_temp AS $$
 $$;
 GRANT EXECUTE ON FUNCTION vigilante.fuentes_web() TO authenticated;
 
--- Editar una fuente (analista o administrador)
+-- Editar una fuente (solo administrador)
 CREATE OR REPLACE FUNCTION vigilante.editar_fuente(p_codigo text, p_nombre text, p_url text, p_categoria text, p_tipo text,
                                                    p_metodo text, p_frecuencia int, p_que_buscar text, p_palabras text[])
 RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path = vigilante, pg_temp AS $$
 BEGIN
-  IF NOT vigilante.es_staff() THEN RAISE EXCEPTION 'Solo un analista o un administrador puede editar fuentes'; END IF;
+  IF NOT vigilante.es_admin() THEN RAISE EXCEPTION 'Solo un administrador puede editar fuentes'; END IF;
   IF coalesce(trim(p_nombre), '') = '' OR p_url !~* '^https?://' THEN RAISE EXCEPTION 'Faltan el nombre o una dirección web válida'; END IF;
   IF EXISTS (SELECT 1 FROM vigilante.sources WHERE cliente_id = vigilante.cliente_actual() AND codigo <> p_codigo
               AND lower(url) = lower(trim(p_url)) AND eliminada_en IS NULL) THEN

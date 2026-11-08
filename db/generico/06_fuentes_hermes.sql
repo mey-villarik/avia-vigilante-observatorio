@@ -3,7 +3,7 @@
 -- Requiere 01, 03 y 04. Se puede ejecutar más de una vez.
 --
 -- Circuito:
---   1. Un administrador o analista da de alta, pausa o reactiva una fuente en la web
+--   1. Un administrador da de alta, edita, pausa o reactiva una fuente en la web
 --      → vigilante.sources (activa, config con «qué buscar» y palabras clave).
 --   2. Antes de cada ronda, Hermes pide la lista con vigilante.fuentes_para_hermes(slug)
 --      (herramienta hermes/herramientas/fuentes_activas.sh) y vigila SOLO esas.
@@ -54,14 +54,14 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path = vigilante, pg_temp AS $$
 $$;
 GRANT EXECUTE ON FUNCTION vigilante.fuentes_web() TO authenticated;
 
--- Alta de una fuente desde la web (analista o administrador)
+-- Alta de una fuente desde la web (solo administrador)
 CREATE OR REPLACE FUNCTION vigilante.alta_fuente(p_nombre text, p_url text, p_categoria text, p_tipo text,
                                                  p_metodo text, p_frecuencia int, p_que_buscar text,
                                                  p_palabras text[])
 RETURNS text LANGUAGE plpgsql SECURITY INVOKER SET search_path = vigilante, pg_temp AS $$
 DECLARE v_codigo text; v_base text; n int := 1;
 BEGIN
-  IF NOT vigilante.es_staff() THEN RAISE EXCEPTION 'Solo un analista o un administrador puede añadir fuentes'; END IF;
+  IF NOT vigilante.es_admin() THEN RAISE EXCEPTION 'Solo un administrador puede añadir fuentes'; END IF;
   IF coalesce(trim(p_nombre), '') = '' OR p_url !~* '^https?://' THEN RAISE EXCEPTION 'Faltan el nombre o una dirección web válida'; END IF;
   IF EXISTS (SELECT 1 FROM vigilante.sources WHERE cliente_id = vigilante.cliente_actual() AND lower(url) = lower(trim(p_url))) THEN
     RAISE EXCEPTION 'Ya hay una fuente con esa dirección';
@@ -91,7 +91,7 @@ GRANT EXECUTE ON FUNCTION vigilante.alta_fuente(text, text, text, text, text, in
 CREATE OR REPLACE FUNCTION vigilante.activar_fuente(p_codigo text, p_activa boolean)
 RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path = vigilante, pg_temp AS $$
 BEGIN
-  IF NOT vigilante.es_staff() THEN RAISE EXCEPTION 'Solo un analista o un administrador puede pausar fuentes'; END IF;
+  IF NOT vigilante.es_admin() THEN RAISE EXCEPTION 'Solo un administrador puede pausar fuentes'; END IF;
   UPDATE vigilante.sources SET activa = p_activa WHERE cliente_id = vigilante.cliente_actual() AND codigo = p_codigo;
   IF NOT FOUND THEN RAISE EXCEPTION 'La fuente % aún no está en la base de datos', p_codigo; END IF;
 END $$;
