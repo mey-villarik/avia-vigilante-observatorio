@@ -32,3 +32,10 @@ Web (Añadir / Pausar / Reactivar)  →  vigilante.sources (Supabase, lista ofic
 - En la base la fila no se borra: queda marcada con `sources.eliminada_en`, porque las noticias y señales que salieron de ella siguen apuntándole. Así la sincronización con `vigilante.json` tampoco la vuelve a crear.
 - Si alguien da de alta otra vez la misma dirección, se recupera esa fuente con su historial.
 - La pestaña Fuentes muestra un recuadro «Total» que sube al añadir y baja al eliminar. Una fuente nueva entra como «Desconocido» hasta que AVIA la compruebe por primera vez; entonces pasa a OK, Aviso o Crítico.
+
+## Editar fuentes (08_editar_fuentes.sql)
+
+- Desde la ficha de una fuente, «Editar» permite cambiar el nombre, la dirección, el canal, el tipo, cómo se lee, la frecuencia, qué buscar y las palabras clave. AVIA recibe los cambios en `fuentes_activas.json` en su siguiente ronda.
+- La ficha muestra qué vigila AVIA en esa fuente, las palabras clave, quién la dio de alta y la última edición.
+- `sources.gestionada_web`: una fuente dada de alta o editada en la web ya no cambia de nombre, dirección, tipo ni canal cuando llega `vigilante.json`. Hermes solo informa del resultado de su comprobación.
+- «Cómo se lee» admite página web, RSS, Google News, API, Tavily, Apify, GDELT y manual. La frecuencia va de 15 minutos a 1 semana.

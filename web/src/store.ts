@@ -7,7 +7,7 @@ import {
 } from './data/demo';
 import { cargarVps } from './services/datos';
 import { accesoConfigurado, type Perfil } from './services/auth';
-import { activarFuente, altaFuente, eliminarFuente, leerFuentesBd, mezclarFuentes, type AltaFuente } from './services/fuentes';
+import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerFuentesBd, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
@@ -21,6 +21,7 @@ export type Drawer =
   | { kind: 'a11y' }
   | { kind: 'guardar' }
   | { kind: 'nueva-fuente' }
+  | { kind: 'editar-fuente'; id: string }
   | { kind: 'equipo' }
   | { kind: 'mi-clave' };
 
@@ -104,6 +105,7 @@ interface Actions {
   toggleMant: (id: string) => void;
   addSource: (f: AltaFuente) => Promise<boolean>;
   removeSource: (id: string) => Promise<void>;
+  editSource: (id: string, f: AltaFuente) => Promise<boolean>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
@@ -354,6 +356,19 @@ export const useStore = create<Store>()((set, get) => {
       logEvent({ t: 0, k: 'UNKNOWN', w: 'Fuente añadida', d: nombre });
       get().toast('Fuente añadida. Pulsa «Comprobar ahora» para probarla.');
       return true;
+    },
+
+    editSource: async (id, a) => {
+      try {
+        await editarFuente(id, a);
+        get().toast(`Cambios guardados en ${a.nombre}. AVIA los usa desde su próxima ronda.`);
+        set({ drawer: { kind: 'fuente', id } });
+        await get().loadRemote(true);
+        return true;
+      } catch (e) {
+        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+        return false;
+      }
     },
 
     removeSource: async (id) => {

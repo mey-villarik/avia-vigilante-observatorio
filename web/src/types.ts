@@ -11,6 +11,16 @@ export type CategoriaId =
   | 'clima' | 'salud' | 'vial' | 'seguridad' | 'conectividad'
   | 'eventos' | 'financiacion' | 'mercado' | 'normativa' | 'turismo';
 
+/** Fuente tal como la devuelve vigilante.fuentes_web() (db/generico/06, 07 y 08) */
+export interface FuenteBd {
+  codigo: string; nombre: string; url: string; tipo: string; metodo: string; categorias: string[];
+  frecuencia_minutos: number; activa: boolean; ultima_consulta_en: string | null; que_buscar: string | null; alta_por: string | null;
+  /** desde 07_eliminar_fuentes.sql */
+  eliminada?: boolean;
+  /** desde 08_editar_fuentes.sql */
+  palabras_clave?: string[]; creada_en?: string | null; editada_por?: string | null; editada_en?: string | null;
+}
+
 export interface Fuente {
   id: string;
   nombre: string;
@@ -35,6 +45,8 @@ export interface Fuente {
   ack?: boolean;
   /** la fuente está en la base de datos (se puede pausar desde la web) */
   enBd?: boolean;
+  /** lo que guarda la base de datos sobre la fuente (para verla y editarla) */
+  bd?: FuenteBd;
   /** minutos desde la última comprobación */
   last?: number;
 }

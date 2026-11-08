@@ -72,6 +72,19 @@ function FuenteDetalle({ id }: { id: string }) {
             </div>
           </>
         )}
+        {s.bd && (
+          <>
+            <div className="sect">Qué vigila AVIA aquí</div>
+            <p style={{ margin: 0 }}>{s.bd.que_buscar || <span className="note">Sin indicaciones: AVIA busca lo relevante para el turismo.</span>}</p>
+            {(s.bd.palabras_clave?.length ?? 0) > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{s.bd.palabras_clave!.map((p) => <span className="tag" key={p}>{p}</span>)}</div>
+            )}
+            <p className="note" style={{ margin: 0 }}>
+              {s.bd.alta_por ? `Alta de ${s.bd.alta_por}` : 'Alta por AVIA'}{s.bd.creada_en ? ` el ${new Date(s.bd.creada_en).toLocaleDateString('es-BO')}` : ''}
+              {s.bd.editada_por ? ` · Última edición: ${s.bd.editada_por}${s.bd.editada_en ? `, ${new Date(s.bd.editada_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}` : ''}
+            </p>
+          </>
+        )}
         <div className="sect">Historial ({s.hist.length} comprobaciones)</div>
         <Histo hist={s.hist} height={22} titles />
         {s.flap && <p className="note" style={{ margin: 0 }}>⇅ Estado intermitente: cambió 4 veces en las últimas 24 comprobaciones. Conviene revisar la forma de acceso.</p>}
@@ -80,6 +93,9 @@ function FuenteDetalle({ id }: { id: string }) {
           <button className="btn primary" onClick={() => recheck(s.id)}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar ahora'}</button>
           {canDecide(role) && ['WARN', 'CRIT'].includes(s.estado) && !s.ack && (
             <button className="btn" onClick={() => ackSource(s.id)}><Icon name="check" /> Reconocer problema</button>
+          )}
+          {isAdmin(role) && s.bd && real && (
+            <button className="btn" onClick={() => useStore.getState().openDrawer({ kind: 'editar-fuente', id: s.id })}><Icon name="edit" /> Editar</button>
           )}
           {isAdmin(role) && (
             <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.enBd ? (s.estado === 'MANT' ? 'Reactivar (AVIA vuelve a vigilarla)' : 'Pausar (AVIA deja de vigilarla)') : (s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento')}</button>
@@ -90,7 +106,7 @@ function FuenteDetalle({ id }: { id: string }) {
             }}><Icon name="papelera" /> Eliminar fuente</button>
           )}
         </div>
-        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? (s.enBd ? 'Reconocer todavía solo cambia este navegador; pausar, reactivar y eliminar sí se guardan y AVIA las respeta en su siguiente ronda.' : 'Por ahora solo cambia este navegador: no se guarda en el VPS.') : 'En la demo solo cambia este navegador.'}</Lock>
+        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? (s.enBd ? 'Reconocer todavía solo cambia este navegador; editar, pausar, reactivar y eliminar sí se guardan y AVIA las respeta en su siguiente ronda.' : 'Por ahora solo cambia este navegador: no se guarda en el VPS.') : 'En la demo solo cambia este navegador.'}</Lock>
       </div>
     </>
   );
@@ -270,20 +286,36 @@ function GuardarTablero() {
   );
 }
 
-function NuevaFuente() {
+const METODOS: [string, string][] = [
+  ['http_html', 'Página web'], ['rss', 'RSS'], ['google_news_rss', 'Búsqueda en Google News'], ['api', 'API (datos estructurados)'],
+  ['tavily', 'Buscador web (Tavily)'], ['apify', 'Rastreador (Apify)'], ['gdelt', 'Noticias mundiales (GDELT)'], ['manual', 'Manual (la revisa una persona)'],
+];
+const FRECUENCIAS: [number, string][] = [[15, '15 min'], [30, '30 min'], [60, '1 hora'], [120, '2 horas'], [360, '6 horas'], [720, '12 horas'], [1440, '1 día'], [10080, '1 semana']];
+
+function NuevaFuente({ editar }: { editar?: Fuente }) {
   const addSource = useStore((s) => s.addSource);
+  const editSource = useStore((s) => s.editSource);
   const conBd = useStore((s) => Boolean(s.perfil));
-  const [f, setF] = useState({ nombre: '', url: '', canal: 'clima', tipo: 'oficial', metodo: 'http_html', freq: 60, queBuscar: '', palabras: '' });
+  const b = editar?.bd;
+  const [f, setF] = useState(b
+    ? { nombre: b.nombre, url: b.url, canal: b.categorias[0] ?? 'clima', tipo: b.tipo, metodo: b.metodo, freq: b.frecuencia_minutos,
+        queBuscar: b.que_buscar ?? '', palabras: (b.palabras_clave ?? []).join(', ') }
+    : { nombre: '', url: '', canal: 'clima', tipo: 'oficial', metodo: 'http_html', freq: 60, queBuscar: '', palabras: '' });
   const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await addSource({ ...f, nombre: f.nombre.trim(), url: f.url.trim() });
+    const datos = { ...f, nombre: f.nombre.trim(), url: f.url.trim() };
+    await (b ? editSource(b.codigo, datos) : addSource(datos));
     setBusy(false);
   };
+  const canales = Object.entries(CATS) as [string, string][];
+  if (!canales.some(([k]) => k === f.canal)) canales.push([f.canal, f.canal]);
+  const metodos = METODOS.some(([k]) => k === f.metodo) ? METODOS : [...METODOS, [f.metodo, f.metodo] as [string, string]];
+  const freqs = FRECUENCIAS.some(([k]) => k === f.freq) ? FRECUENCIAS : [...FRECUENCIAS, [f.freq, `${f.freq} min`] as [number, string]].sort((x, y) => x[0] - y[0]);
   return (
     <>
-      <Head icon="plus">Añadir fuente</Head>
+      <Head icon={b ? 'edit' : 'plus'}>{b ? `Editar fuente · ${b.codigo}` : 'Añadir fuente'}</Head>
       <div className="drawer-b">
         <form style={{ display: 'flex', flexDirection: 'column', gap: 12 }} onSubmit={submit}>
           <div className="field"><label htmlFor="nsN">Nombre</label>
@@ -294,7 +326,7 @@ function NuevaFuente() {
           </div>
           <div className="field"><label htmlFor="nsC">Canal</label>
             <select id="nsC" value={f.canal} onChange={(e) => setF({ ...f, canal: e.target.value })}>
-              {Object.entries(CATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {canales.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div className="field"><label htmlFor="nsT">Tipo de fuente</label>
@@ -307,30 +339,39 @@ function NuevaFuente() {
           </div>
           <div className="field"><label htmlFor="nsM">Cómo se lee</label>
             <select id="nsM" value={f.metodo} onChange={(e) => setF({ ...f, metodo: e.target.value })}>
-              <option value="http_html">Página web</option>
-              <option value="rss">RSS</option>
-              <option value="google_news_rss">Búsqueda en Google News</option>
+              {metodos.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div className="field"><label htmlFor="nsF">Comprobar cada</label>
             <select id="nsF" value={f.freq} onChange={(e) => setF({ ...f, freq: +e.target.value })}>
-              <option value={30}>30 min</option><option value={60}>1 hora</option><option value={360}>6 horas</option><option value={1440}>1 día</option>
+              {freqs.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div className="field"><label htmlFor="nsQ">Qué debe buscar AVIA aquí</label>
-            <textarea className="inp" id="nsQ" rows={2} placeholder="Por ejemplo: declaratorias de emergencia que afecten a destinos turísticos" value={f.queBuscar} onChange={(e) => setF({ ...f, queBuscar: e.target.value })} />
+            <textarea className="inp" id="nsQ" rows={3} placeholder="Por ejemplo: declaratorias de emergencia que afecten a destinos turísticos" value={f.queBuscar} onChange={(e) => setF({ ...f, queBuscar: e.target.value })} />
           </div>
           <div className="field"><label htmlFor="nsP">Palabras clave (separadas por comas)</label>
             <input className="inp" id="nsP" placeholder="emergencia, desastre, inundación" value={f.palabras} onChange={(e) => setF({ ...f, palabras: e.target.value })} />
           </div>
-          <button className="btn gold" style={{ alignSelf: 'flex-start' }} disabled={busy}><Icon name="plus" /> {busy ? 'Guardando…' : 'Añadir'}</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn gold" disabled={busy}><Icon name={b ? 'save' : 'plus'} /> {busy ? 'Guardando…' : b ? 'Guardar cambios' : 'Añadir'}</button>
+            {b && <button type="button" className="btn ghost" onClick={() => useStore.getState().openDrawer({ kind: 'fuente', id: b.codigo })}>Cancelar</button>}
+          </div>
         </form>
-        <p className="note">{conBd
-          ? 'Se guarda en la base de datos. AVIA la incluye en su lista de fuentes en la siguiente ronda; hasta entonces aparece como pendiente de la primera comprobación.'
-          : `La fuente entra como ${STATE_TXT.UNKNOWN} hasta su primera comprobación. Sin inicio de sesión solo se añade en este navegador.`}</p>
+        <p className="note">{b
+          ? 'Los cambios se guardan en la base de datos y AVIA los usa desde su próxima ronda. Lo que escribas aquí manda sobre lo que publique AVIA.'
+          : conBd
+            ? 'Se guarda en la base de datos. AVIA la incluye en su lista de fuentes en la siguiente ronda; hasta entonces aparece como pendiente de la primera comprobación.'
+            : `La fuente entra como ${STATE_TXT.UNKNOWN} hasta su primera comprobación. Sin inicio de sesión solo se añade en este navegador.`}</p>
       </div>
     </>
   );
+}
+
+function EditarFuente({ id }: { id: string }) {
+  const s = useStore((st) => st.fuentes.find((f) => f.id === id));
+  if (!s?.bd) return null;
+  return <NuevaFuente key={id} editar={s} />;
 }
 
 export function Drawer() {
@@ -358,6 +399,7 @@ export function Drawer() {
     case 'a11y': body = <A11y />; break;
     case 'guardar': body = <GuardarTablero />; break;
     case 'nueva-fuente': body = <NuevaFuente />; break;
+    case 'editar-fuente': body = <EditarFuente id={drawer.id} />; break;
     case 'equipo': body = <Equipo />; break;
     case 'mi-clave': body = <MiClave />; break;
   }
