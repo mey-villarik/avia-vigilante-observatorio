@@ -1,7 +1,7 @@
 ---
 name: vigilancia-fuentes-bolivia
 description: Vigila fuentes oficiales de Bolivia (clima, salud, vías, turismo, normativa, conectividad) y convierte cada documento en una señal JSON para ORBITA. Usar al clasificar, verificar o resumir avisos para el sector turismo.
-version: 1.1.0
+version: 1.2.0
 metadata:
   proyecto: ORBITA beta (30 días)
   fuentes_activas: fuentes_activas.json   # lista viva, la escribe hermes/herramientas/fuentes_activas.sh desde Supabase
@@ -20,7 +20,7 @@ La lista de fuentes **no está en este texto**: la gestionan las personas desde 
 1. **Lee `fuentes_activas.json` al empezar cada ronda.** Vigila **solo** las fuentes que aparecen ahí. Si una fuente de `fuentes.yaml` no está en la lista, está en pausa: no la consultes.
 2. Para cada fuente usa sus campos: `url`, `metodo` (página web, RSS, Google News…), `frecuencia_minutos` (no la consultes antes de tiempo), `categorias`, `que_buscar` y `palabras_clave`. `que_buscar` lo escribió una persona: síguelo como instrucción de qué es relevante en esa fuente.
 3. **Fuentes nuevas** (`"nueva": true`): haz su primera comprobación en esta ronda, aunque no toque por frecuencia, y anota en la bitácora «Primera comprobación de <nombre>: <resultado>».
-4. **Usa siempre el `codigo` de la fuente** como `id` en la sección `fuentes` de `vigilante.json`, y para cada fuente devuelve `estado` (OK, WARN, CRIT o UNKNOWN), `ultima` (hora de la consulta), `items` (novedades encontradas) e `info` (una frase; si falló, el error). Así la web muestra si cada fuente funciona.
+4. **Usa siempre el `codigo` de la fuente** como `id` en la sección `fuentes` de `vigilante.json`, y para cada fuente devuelve `estado` (OK si la leíste bien; WARN si la leíste pero algo no cuadra; **CRIT si no pudiste acceder o leerla**; UNKNOWN solo si no la consultaste en esta ronda), `ultima` (hora de la consulta), `items` (novedades encontradas) e `info` (una frase; si falló, el error). Así la web muestra si cada fuente funciona.
 5. **No inventes ni añadas fuentes por tu cuenta.** Si crees que falta una, propónla en la bitácora con su URL y por qué; una persona decidirá si la da de alta.
 6. Si `fuentes_activas.json` no existe o está vacío, avisa en la bitácora y usa la última lista que tengas; no uses `fuentes.yaml` como lista.
 

@@ -41,7 +41,7 @@ function FuenteDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.fuentes.find((f) => f.id === id));
   const role = useStore((st) => st.role);
   const real = useStore((st) => st.origen === 'vps');
-  const { recheck, ackSource, toggleMant, removeSource } = useStore.getState();
+  const { recheck, ackSource, toggleMant, removeSource, askReview } = useStore.getState();
   if (!s) return null;
   return (
     <>
@@ -85,6 +85,9 @@ function FuenteDetalle({ id }: { id: string }) {
             </p>
           </>
         )}
+        {s.bd?.revision_pedida_en && (!s.bd.ultima_consulta_en || Date.parse(s.bd.ultima_consulta_en) < Date.parse(s.bd.revision_pedida_en)) && (
+          <p className="note" style={{ margin: 0 }}>↻ {s.bd.revision_pedida_por ?? 'Alguien'} pidió una revisión el {new Date(s.bd.revision_pedida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}: AVIA la revisa en su próxima ronda.</p>
+        )}
         {s.ack && s.bd?.reconocida_por && (
           <p className="note" style={{ margin: 0 }}>✓ {s.bd.reconocida_por} reconoció el problema{s.bd.reconocida_en ? ` el ${new Date(s.bd.reconocida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}{s.bd.reconocida_nota ? `: ${s.bd.reconocida_nota}` : ''}. Se quita solo cuando la fuente vuelve a OK.</p>
         )}
@@ -100,7 +103,9 @@ function FuenteDetalle({ id }: { id: string }) {
         {s.flap && <p className="note" style={{ margin: 0 }}>⇅ Estado intermitente: cambió 4 veces en las últimas 24 comprobaciones. Conviene revisar la forma de acceso.</p>}
         <div className="sect">Acciones</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn primary" onClick={() => recheck(s.id)}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar ahora'}</button>
+          {real && s.bd && s.bd.activa && canDecide(role)
+            ? <button className="btn primary" onClick={() => askReview(s.id)}><Icon name="refresh" /> Pedir a AVIA que la revise</button>
+            : <button className="btn primary" onClick={() => recheck(s.id)}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar ahora'}</button>}
           {canDecide(role) && ['WARN', 'CRIT'].includes(s.estado) && !s.ack && (
             <button className="btn" onClick={() => ackSource(s.id)}><Icon name="check" /> Reconocer problema</button>
           )}

@@ -63,3 +63,8 @@ Solo el administrador puede añadir, editar, pausar, reactivar y eliminar fuente
 - Una fuente activa de la base que AVIA nunca ha comprobado se marca «⚠ AVIA no la lee» cuando pasa más de 3 veces su frecuencia (mínimo 2 horas) desde el alta o la última edición. La ficha dice cuánto tiempo lleva y con qué código debe publicarla AVIA.
 - Mientras espera dentro de ese plazo aparece como «nueva · en espera» y no cuenta en «Con problemas».
 - Causas habituales: el cron de `fuentes_activas.sh` no corre, la skill de la ronda no lee `fuentes_activas.json`, o AVIA publica la fuente con otro código.
+
+## Fallos que cuentan y pedir revisión (11_fuentes_revision.sql)
+
+- En el `vigilante.json` real AVIA marca UNKNOWN cuando no puede leer una fuente. Desde el 11, una comprobación nueva en CRIT **o** UNKNOWN suma un fallo seguido. La skill 1.2.0 pide CRIT cuando no pudo acceder y deja UNKNOWN para «no consultada en esta ronda».
+- «Pedir a AVIA que la revise» (analista o administrador) marca `revisar_desde`: la fuente vuelve a llegar a Hermes como `"nueva": true` y la revisa en su siguiente ronda. Queda en la Bitácora y la ficha lo muestra hasta que llega la comprobación.

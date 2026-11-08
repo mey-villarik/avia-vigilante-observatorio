@@ -140,10 +140,10 @@ export async function reconocerFuente(codigo: string, nota?: string): Promise<vo
 const ACCION_TXT: Record<string, string> = {
   alta: 'dio de alta la fuente', editada: 'editó la fuente', pausada: 'pausó la fuente', reactivada: 'reactivó la fuente',
   aprobada: 'aprobó la fuente propuesta por AVIA', eliminada: 'eliminó la fuente', recuperada: 'recuperó la fuente',
-  reconocida: 'reconoció el problema en',
+  reconocida: 'reconoció el problema en', revision: 'pidió a AVIA que revise',
 };
 const ACCION_K: Record<string, Evento['k']> = {
-  alta: 'UNKNOWN', editada: 'check', pausada: 'MANT', reactivada: 'OK', aprobada: 'OK', eliminada: 'MANT', recuperada: 'OK', reconocida: 'check',
+  alta: 'UNKNOWN', editada: 'check', pausada: 'MANT', reactivada: 'OK', aprobada: 'OK', eliminada: 'MANT', recuperada: 'OK', reconocida: 'check', revision: 'check',
 };
 
 /** Cambios que hicieron las personas en las fuentes, como eventos de la Bitácora (vacío si falta el 10). */
@@ -156,4 +156,15 @@ export async function leerBitacoraFuentes(ahora = Date.now()): Promise<Evento[]>
     w: `${m.quien} ${ACCION_TXT[m.accion] ?? m.accion} ${m.nombre}`,
     d: m.accion === 'editada' && m.detalle ? `Cambió: ${m.detalle}` : m.accion === 'reconocida' && m.detalle ? `Nota: ${m.detalle}` : (m.detalle ?? m.codigo),
   }));
+}
+
+/** Pide a AVIA que revise la fuente en su siguiente ronda, sin esperar a su frecuencia. */
+export async function pedirRevision(codigo: string): Promise<void> {
+  const { error } = await rpc('pedir_revision', { p_codigo: codigo });
+  if (error) {
+    if (/pedir_revision/.test(error.message) && /(not find|no existe|does not exist|schema cache)/i.test(error.message)) {
+      throw new Error('falta ejecutar db/generico/11_fuentes_revision.sql en Supabase.');
+    }
+    throw new Error(traducir(error.message));
+  }
 }

@@ -7,7 +7,7 @@ import {
 } from './data/demo';
 import { cargarVps } from './services/datos';
 import { accesoConfigurado, type Perfil } from './services/auth';
-import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
+import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
@@ -106,6 +106,7 @@ interface Actions {
   addSource: (f: AltaFuente) => Promise<boolean>;
   removeSource: (id: string) => Promise<void>;
   editSource: (id: string, f: AltaFuente) => Promise<boolean>;
+  askReview: (id: string) => void;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
@@ -362,6 +363,14 @@ export const useStore = create<Store>()((set, get) => {
       logEvent({ t: 0, k: 'UNKNOWN', w: 'Fuente añadida', d: nombre });
       get().toast('Fuente añadida. Pulsa «Comprobar ahora» para probarla.');
       return true;
+    },
+
+    askReview: (id) => {
+      const f0 = get().fuentes.find((f) => f.id === id);
+      if (!f0) return;
+      pedirRevision(id)
+        .then(() => { get().toast(`Pedido: AVIA revisará ${f0.nombre} en su próxima ronda.`); return get().loadRemote(true); })
+        .catch((e: unknown) => get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`));
     },
 
     editSource: async (id, a) => {

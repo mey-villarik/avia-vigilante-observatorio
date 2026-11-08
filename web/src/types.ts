@@ -23,6 +23,8 @@ export interface FuenteBd {
   propuesta?: boolean; errores_seguidos?: number; ultimo_exito_en?: string | null; ultimo_error?: string | null;
   /** desde 10_fuentes_bitacora.sql */
   reconocida_por?: string | null; reconocida_en?: string | null; reconocida_nota?: string | null;
+  /** desde 11_fuentes_revision.sql */
+  revision_pedida_en?: string | null; revision_pedida_por?: string | null;
 }
 
 export interface Fuente {
