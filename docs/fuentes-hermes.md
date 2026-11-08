@@ -51,3 +51,9 @@ Solo el administrador puede añadir, editar, pausar, reactivar y eliminar fuente
 - La sincronización guarda `ultimo_exito_en`, `errores_seguidos` y `ultimo_error` (solo cuenta cuando llega una comprobación con hora nueva) y no borra la hora anterior si AVIA no la manda. La ficha muestra «Lleva N comprobaciones fallidas seguidas».
 - Al cambiar la dirección o el método, `config.revisar_desde` hace que la fuente vuelva a llegar a Hermes como `"nueva": true`.
 - `vigilante.url_normal()`: http/https, `www.`, mayúsculas y barra final cuentan como la misma dirección para detectar duplicados.
+
+## Reconocer problema y Bitácora (10_fuentes_bitacora.sql)
+
+- «Reconocer problema» (analista o administrador) se guarda en la base con nombre, hora y nota opcional. Todo el equipo lo ve en la tabla y en la ficha. Se quita solo cuando la fuente vuelve a OK.
+- `vigilante.source_events` guarda cada cambio que hace una persona en una fuente: alta, edición (con qué campos cambió), pausa, reactivación, aprobación de una propuesta de AVIA, eliminación, recuperación y reconocimiento. Lo rellena un disparador; los cambios de la sincronización con Hermes no se apuntan.
+- La Bitácora de la web muestra esos eventos junto a los movimientos de señales.

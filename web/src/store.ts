@@ -7,7 +7,7 @@ import {
 } from './data/demo';
 import { cargarVps } from './services/datos';
 import { accesoConfigurado, type Perfil } from './services/auth';
-import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerFuentesBd, mezclarFuentes, type AltaFuente } from './services/fuentes';
+import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
@@ -313,6 +313,12 @@ export const useStore = create<Store>()((set, get) => {
     ackSource: (id) => {
       const s = get().fuentes.find((f) => f.id === id);
       if (!s) return;
+      if (s.enBd && get().perfil) {
+        reconocerFuente(id)
+          .then(() => { get().toast('Problema reconocido: lo ve todo el equipo.'); return get().loadRemote(true); })
+          .catch((e: unknown) => get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`));
+        return;
+      }
       set({ fuentes: get().fuentes.map((f) => (f.id === id ? { ...f, ack: true } : f)) });
       logEvent({ t: 0, k: 'check', w: `${ROLE_NAME[get().role]} reconoció el problema en ${shortName(s)}`, d: s.info });
       get().toast('Problema reconocido.');
@@ -462,10 +468,10 @@ export const useStore = create<Store>()((set, get) => {
         let bd = false;
         if (get().perfil) {
           try {
-            const [estados, movs, fbd] = await Promise.all([leerEstados(), leerMovimientos(), leerFuentesBd().catch(() => [])]);
+            const [estados, movs, fbd, fev] = await Promise.all([leerEstados(), leerMovimientos(), leerFuentesBd().catch(() => []), leerBitacoraFuentes()]);
             d.fuentes = mezclarFuentes(d.fuentes, fbd);
             d.senales = d.senales.map((s) => (estados.has(s.id) ? { ...s, estado: estados.get(s.id)! } : s));
-            d.eventos = [...movs, ...d.eventos].sort((a, b) => b.t - a.t);
+            d.eventos = [...movs, ...fev, ...d.eventos].sort((a, b) => b.t - a.t);
             bd = estados.size > 0;
           } catch (e) {
             console.warn('Sin estados de la base de datos:', e);

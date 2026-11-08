@@ -1,6 +1,6 @@
 // Fuentes en la base de datos (db/generico/06_fuentes_hermes.sql).
 // La web da de alta, pausa y reactiva; Hermes lee la lista activa antes de cada ronda.
-import type { Fuente, FuenteBd } from '../types';
+import type { Evento, Fuente, FuenteBd } from '../types';
 import { supabase, traducir } from './auth';
 import { normCanal, normTipo } from './datos';
 
@@ -40,6 +40,8 @@ export function mezclarFuentes(json: Fuente[], bdTodas: FuenteBd[]): Fuente[] {
     // lo que se escribió en la web (nombre, dirección, canal…) manda sobre el archivo de Hermes
     const extra = {
       nombre: b.nombre, url: b.url, freq: b.frecuencia_minutos, enBd: true, bd: b,
+      // reconocido por una persona: lo ve todo el equipo (la base lo borra cuando vuelve a OK)
+      ack: Boolean(b.reconocida_por) && f.estado !== 'OK',
       metodo: METODO_TXT[b.metodo] ?? b.metodo,
       tipo: normTipo(b.tipo === 'organismo_internacional' ? 'internacional' : b.tipo),
       ...(b.categorias[0] ? { canal: normCanal(b.categorias[0]) } : {}),
@@ -107,4 +109,36 @@ export async function eliminarFuente(codigo: string): Promise<void> {
     }
     throw new Error(traducir(error.message));
   }
+}
+
+/** Una persona reconoce el problema de una fuente: lo ve todo el equipo. */
+export async function reconocerFuente(codigo: string, nota?: string): Promise<void> {
+  const { error } = await rpc('reconocer_fuente', { p_codigo: codigo, p_nota: nota || null });
+  if (error) {
+    if (/reconocer_fuente/.test(error.message) && /(not find|no existe|does not exist|schema cache)/i.test(error.message)) {
+      throw new Error('falta ejecutar db/generico/10_fuentes_bitacora.sql en Supabase.');
+    }
+    throw new Error(traducir(error.message));
+  }
+}
+
+const ACCION_TXT: Record<string, string> = {
+  alta: 'dio de alta la fuente', editada: 'editó la fuente', pausada: 'pausó la fuente', reactivada: 'reactivó la fuente',
+  aprobada: 'aprobó la fuente propuesta por AVIA', eliminada: 'eliminó la fuente', recuperada: 'recuperó la fuente',
+  reconocida: 'reconoció el problema en',
+};
+const ACCION_K: Record<string, Evento['k']> = {
+  alta: 'UNKNOWN', editada: 'check', pausada: 'MANT', reactivada: 'OK', aprobada: 'OK', eliminada: 'MANT', recuperada: 'OK', reconocida: 'check',
+};
+
+/** Cambios que hicieron las personas en las fuentes, como eventos de la Bitácora (vacío si falta el 10). */
+export async function leerBitacoraFuentes(ahora = Date.now()): Promise<Evento[]> {
+  const { data, error } = await rpc('bitacora_fuentes', { p_limite: 50 });
+  if (error) return [];
+  return (data as { cuando: string; codigo: string; nombre: string; accion: string; quien: string; detalle: string | null }[] ?? []).map((m) => ({
+    t: -Math.max(0, (ahora - Date.parse(m.cuando)) / 60000),
+    k: ACCION_K[m.accion] ?? 'check',
+    w: `${m.quien} ${ACCION_TXT[m.accion] ?? m.accion} ${m.nombre}`,
+    d: m.accion === 'editada' && m.detalle ? `Cambió: ${m.detalle}` : m.accion === 'reconocida' && m.detalle ? `Nota: ${m.detalle}` : (m.detalle ?? m.codigo),
+  }));
 }

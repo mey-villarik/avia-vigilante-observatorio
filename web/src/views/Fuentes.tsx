@@ -65,7 +65,7 @@ export function Fuentes() {
               <tr key={s.id} tabIndex={0}
                 onClick={() => openDrawer({ kind: 'fuente', id: s.id })}
                 onKeyDown={(e) => e.key === 'Enter' && openDrawer({ kind: 'fuente', id: s.id })}>
-                <td><StPill s={s.estado} />{s.ack && <div className="ack">✓ reconocido</div>}{s.flap && <div className="flap">⇅ intermitente</div>}</td>
+                <td><StPill s={s.estado} />{s.ack && <div className="ack">✓ reconocido{s.bd?.reconocida_por ? ` por ${s.bd.reconocida_por}` : ''}</div>}{s.flap && <div className="flap">⇅ intermitente</div>}</td>
                 <td><div className="srcname">{s.nombre}</div><div className="srcurl">{s.url}</div></td>
                 <td>{catName(s.canal)}<div className="note">{s.tipo}</div></td>
                 <td className="mono">{real && s.last == null ? <span className="note">Aún no</span> : clock(-(s.last ?? Math.floor((s.freq ?? 30) * 0.4)))}{s.freq ? <div className="note">cada {s.freq} min</div> : null}</td>

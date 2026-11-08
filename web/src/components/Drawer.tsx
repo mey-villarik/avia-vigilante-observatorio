@@ -85,6 +85,9 @@ function FuenteDetalle({ id }: { id: string }) {
             </p>
           </>
         )}
+        {s.ack && s.bd?.reconocida_por && (
+          <p className="note" style={{ margin: 0 }}>✓ {s.bd.reconocida_por} reconoció el problema{s.bd.reconocida_en ? ` el ${new Date(s.bd.reconocida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}{s.bd.reconocida_nota ? `: ${s.bd.reconocida_nota}` : ''}. Se quita solo cuando la fuente vuelve a OK.</p>
+        )}
         {s.bd && (s.bd.errores_seguidos ?? 0) > 0 && (
           <p className="note" style={{ margin: 0, color: 'var(--crit)' }}>
             Lleva {s.bd.errores_seguidos} {s.bd.errores_seguidos === 1 ? 'comprobación fallida' : 'comprobaciones fallidas seguidas'}
@@ -113,7 +116,7 @@ function FuenteDetalle({ id }: { id: string }) {
             }}><Icon name="papelera" /> Eliminar fuente</button>
           )}
         </div>
-        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? (s.enBd ? 'Reconocer todavía solo cambia este navegador; editar, pausar, reactivar y eliminar sí se guardan y AVIA las respeta en su siguiente ronda.' : 'Por ahora solo cambia este navegador: no se guarda en el VPS.') : 'En la demo solo cambia este navegador.'}</Lock>
+        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? (s.enBd ? 'Se guarda en la base de datos y lo ve todo el equipo, con tu nombre en la Bitácora. Editar, pausar, reactivar y eliminar también se guardan y AVIA los respeta en su siguiente ronda.' : 'Por ahora solo cambia este navegador: no se guarda en el VPS.') : 'En la demo solo cambia este navegador.'}</Lock>
       </div>
     </>
   );
