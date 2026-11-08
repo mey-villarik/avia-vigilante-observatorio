@@ -43,3 +43,11 @@ Web (Añadir / Pausar / Reactivar)  →  vigilante.sources (Supabase, lista ofic
 ## Permisos (decisión de Meysel, 2026-11-08)
 
 Solo el administrador puede añadir, editar, pausar, reactivar y eliminar fuentes. Analistas y visores ven la pestaña y las fichas, pero no los botones. La base lo comprueba con `es_admin()` en 06, 07 y 08.
+
+## Seguridad y coherencia (09_fuentes_seguridad.sql, auditoría 2026-11-08)
+
+- La tabla `vigilante.sources` ya no usa la regla general `staff_todo`. Todo el equipo del cliente la lee (también el visor) y solo el administrador escribe.
+- Una fuente que AVIA publica en `vigilante.json` y la base no conoce entra **en pausa** como «Propuesta de AVIA» (`config.propuesta_avia`). El administrador la aprueba con «Aprobar» (decisión de Meysel).
+- La sincronización guarda `ultimo_exito_en`, `errores_seguidos` y `ultimo_error` (solo cuenta cuando llega una comprobación con hora nueva) y no borra la hora anterior si AVIA no la manda. La ficha muestra «Lleva N comprobaciones fallidas seguidas».
+- Al cambiar la dirección o el método, `config.revisar_desde` hace que la fuente vuelva a llegar a Hermes como `"nueva": true`.
+- `vigilante.url_normal()`: http/https, `www.`, mayúsculas y barra final cuentan como la misma dirección para detectar duplicados.

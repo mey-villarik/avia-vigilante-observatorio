@@ -85,6 +85,13 @@ function FuenteDetalle({ id }: { id: string }) {
             </p>
           </>
         )}
+        {s.bd && (s.bd.errores_seguidos ?? 0) > 0 && (
+          <p className="note" style={{ margin: 0, color: 'var(--crit)' }}>
+            Lleva {s.bd.errores_seguidos} {s.bd.errores_seguidos === 1 ? 'comprobación fallida' : 'comprobaciones fallidas seguidas'}
+            {s.bd.ultimo_exito_en ? ` · Último acierto: ${new Date(s.bd.ultimo_exito_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+            {s.bd.ultimo_error ? ` · ${s.bd.ultimo_error}` : ''}
+          </p>
+        )}
         <div className="sect">Historial ({s.hist.length} comprobaciones)</div>
         <Histo hist={s.hist} height={22} titles />
         {s.flap && <p className="note" style={{ margin: 0 }}>⇅ Estado intermitente: cambió 4 veces en las últimas 24 comprobaciones. Conviene revisar la forma de acceso.</p>}
@@ -98,7 +105,7 @@ function FuenteDetalle({ id }: { id: string }) {
             <button className="btn" onClick={() => useStore.getState().openDrawer({ kind: 'editar-fuente', id: s.id })}><Icon name="edit" /> Editar</button>
           )}
           {isAdmin(role) && (
-            <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.enBd ? (s.estado === 'MANT' ? 'Reactivar (AVIA vuelve a vigilarla)' : 'Pausar (AVIA deja de vigilarla)') : (s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento')}</button>
+            <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.enBd ? (s.estado === 'MANT' ? (s.bd?.propuesta ? 'Aprobar (AVIA empieza a vigilarla)' : 'Reactivar (AVIA vuelve a vigilarla)') : 'Pausar (AVIA deja de vigilarla)') : (s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento')}</button>
           )}
           {isAdmin(role) && (
             <button className="btn ghost danger" onClick={() => {

@@ -322,7 +322,7 @@ export const useStore = create<Store>()((set, get) => {
       if (f0?.enBd && get().perfil) {
         const activa = f0.estado === 'MANT';
         activarFuente(id, activa)
-          .then(() => { get().toast(activa ? `${f0.nombre}: AVIA vuelve a vigilarla.` : `${f0.nombre} en pausa: AVIA deja de vigilarla.`); return get().loadRemote(true); })
+          .then(() => { get().toast(activa ? (f0.bd?.propuesta ? `${f0.nombre} aprobada: AVIA la vigilará desde su próxima ronda.` : `${f0.nombre}: AVIA vuelve a vigilarla.`) : `${f0.nombre} en pausa: AVIA deja de vigilarla.`); return get().loadRemote(true); })
           .catch((e: unknown) => get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`));
         return;
       }

@@ -27,6 +27,8 @@ export const METODO_TXT: Record<string, string> = {
  *  - las pausadas en la base se muestran «en mantenimiento»;
  *  - las que Hermes aún no ha mirado nunca se añaden como «pendiente de la primera comprobación».
  */
+const PROPUESTA = 'Propuesta de AVIA: pendiente de que un administrador la apruebe';
+
 export function mezclarFuentes(json: Fuente[], bdTodas: FuenteBd[]): Fuente[] {
   // las eliminadas desaparecen aunque Hermes aún las tenga en su archivo
   const borradas = new Set(bdTodas.filter((f) => f.eliminada).map((f) => f.codigo));
@@ -42,7 +44,7 @@ export function mezclarFuentes(json: Fuente[], bdTodas: FuenteBd[]): Fuente[] {
       tipo: normTipo(b.tipo === 'organismo_internacional' ? 'internacional' : b.tipo),
       ...(b.categorias[0] ? { canal: normCanal(b.categorias[0]) } : {}),
     };
-    return b.activa ? { ...f, ...extra } : { ...f, ...extra, estado: 'MANT' as const, info: 'En pausa: AVIA no la vigila hasta que se reactive' };
+    return b.activa ? { ...f, ...extra } : { ...f, ...extra, estado: 'MANT' as const, info: b.propuesta ? PROPUESTA : 'En pausa: AVIA no la vigila hasta que se reactive' };
   });
   const enJson = new Set(json.map((f) => f.id));
   // (las borradas ya no están en bd)
@@ -53,7 +55,7 @@ export function mezclarFuentes(json: Fuente[], bdTodas: FuenteBd[]): Fuente[] {
       estado: b.activa ? 'UNKNOWN' : 'MANT',
       info: b.activa
         ? `Pendiente de la primera comprobación de AVIA${b.alta_por ? ` · alta de ${b.alta_por}` : ''}${b.que_buscar ? ` · Buscar: ${b.que_buscar}` : ''}`
-        : 'En pausa: AVIA no la vigila hasta que se reactive',
+        : b.propuesta ? PROPUESTA : 'En pausa: AVIA no la vigila hasta que se reactive',
       lat: null, items: 0, hist: [], verif: '—', enBd: true, bd: b,
     });
   });

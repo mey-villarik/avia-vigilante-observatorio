@@ -19,6 +19,8 @@ export interface FuenteBd {
   eliminada?: boolean;
   /** desde 08_editar_fuentes.sql */
   palabras_clave?: string[]; creada_en?: string | null; editada_por?: string | null; editada_en?: string | null;
+  /** desde 09_fuentes_seguridad.sql */
+  propuesta?: boolean; errores_seguidos?: number; ultimo_exito_en?: string | null; ultimo_error?: string | null;
 }
 
 export interface Fuente {
