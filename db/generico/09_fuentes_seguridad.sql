@@ -14,6 +14,8 @@ BEGIN;
 
 -- 1. Permisos de la tabla (sustituye la regla general «staff_todo» de 01 solo para fuentes)
 DROP POLICY IF EXISTS staff_todo ON vigilante.sources;
+DROP POLICY IF EXISTS lectura_cliente ON vigilante.sources;  -- nombres de una versión provisional
+DROP POLICY IF EXISTS admin_escribe ON vigilante.sources;
 DROP POLICY IF EXISTS fuentes_equipo_lee ON vigilante.sources;
 DROP POLICY IF EXISTS fuentes_admin_escribe ON vigilante.sources;
 CREATE POLICY fuentes_equipo_lee ON vigilante.sources FOR SELECT TO authenticated
