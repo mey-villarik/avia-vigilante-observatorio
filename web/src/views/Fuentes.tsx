@@ -35,6 +35,9 @@ export function Fuentes() {
         </div>
       </section>
       <div className="nag-summary">
+        <button className={`nag-box st-total ${srcFilter === 'all' && !srcQ ? 'on' : ''}`} onClick={() => { setSrcFilter('all'); setSrcQ(''); }}>
+          <b className="num">{fuentes.length}</b><small>Total</small>
+        </button>
         {ESTADOS.map((k) => (
           <button key={k} className={`nag-box st-${k} ${srcFilter === k ? 'on' : ''}`} onClick={() => setSrcFilter(srcFilter === k ? 'all' : k)}>
             <b className="num">{c[k]}</b><small>{STATE_TXT[k]}</small>

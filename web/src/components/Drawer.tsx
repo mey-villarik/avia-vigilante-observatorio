@@ -41,7 +41,7 @@ function FuenteDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.fuentes.find((f) => f.id === id));
   const role = useStore((st) => st.role);
   const real = useStore((st) => st.origen === 'vps');
-  const { recheck, ackSource, toggleMant } = useStore.getState();
+  const { recheck, ackSource, toggleMant, removeSource } = useStore.getState();
   if (!s) return null;
   return (
     <>
@@ -84,8 +84,13 @@ function FuenteDetalle({ id }: { id: string }) {
           {isAdmin(role) && (
             <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.enBd ? (s.estado === 'MANT' ? 'Reactivar (AVIA vuelve a vigilarla)' : 'Pausar (AVIA deja de vigilarla)') : (s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento')}</button>
           )}
+          {isAdmin(role) && (
+            <button className="btn ghost danger" onClick={() => {
+              if (window.confirm(`¿Eliminar la fuente «${s.nombre}»?\n\nAVIA dejará de vigilarla y desaparecerá de la lista. Las señales que ya salieron de ella se conservan. Si la vuelves a añadir con la misma dirección, se recupera.`)) void removeSource(s.id);
+            }}><Icon name="papelera" /> Eliminar fuente</button>
+          )}
         </div>
-        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? (s.enBd ? 'Reconocer todavía solo cambia este navegador; pausar y reactivar sí se guardan y AVIA las respeta en su siguiente ronda.' : 'Por ahora solo cambia este navegador: no se guarda en el VPS.') : 'En la demo solo cambia este navegador.'}</Lock>
+        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? (s.enBd ? 'Reconocer todavía solo cambia este navegador; pausar, reactivar y eliminar sí se guardan y AVIA las respeta en su siguiente ronda.' : 'Por ahora solo cambia este navegador: no se guarda en el VPS.') : 'En la demo solo cambia este navegador.'}</Lock>
       </div>
     </>
   );

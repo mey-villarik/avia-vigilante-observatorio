@@ -127,6 +127,8 @@ textarea.inp{resize:vertical;min-height:90px;line-height:1.5}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn.gold{background:var(--opp);color:#1D1404;border-color:var(--opp)}
 .btn.ghost{background:none}
+.btn.danger{color:var(--crit);border-color:var(--crit-soft)}
+.btn.danger:hover{background:var(--crit-soft)}
 .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
 .btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
@@ -283,7 +285,8 @@ h1 em{color:var(--opp);font-weight:400}
 .dec-actions{display:flex;gap:6px;flex-wrap:wrap}
 
 /* ───────── Fuentes (estilo Nagios) ───────── */
-.nag-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.nag-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.nag-box.st-total{color:var(--ink)}
 .nag-box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);text-align:left;display:flex;flex-direction:column;gap:2px}
 .nag-box b{font-family:var(--f-display);font-size:calc(30px * var(--fs));font-weight:500;line-height:1.1}
 .nag-box small{font-size:12px;color:var(--muted)}

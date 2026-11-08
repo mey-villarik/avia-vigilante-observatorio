@@ -7,7 +7,7 @@ import {
 } from './data/demo';
 import { cargarVps } from './services/datos';
 import { accesoConfigurado, type Perfil } from './services/auth';
-import { activarFuente, altaFuente, leerFuentesBd, mezclarFuentes, type AltaFuente } from './services/fuentes';
+import { activarFuente, altaFuente, eliminarFuente, leerFuentesBd, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
@@ -103,6 +103,7 @@ interface Actions {
   ackSource: (id: string) => void;
   toggleMant: (id: string) => void;
   addSource: (f: AltaFuente) => Promise<boolean>;
+  removeSource: (id: string) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
@@ -353,6 +354,23 @@ export const useStore = create<Store>()((set, get) => {
       logEvent({ t: 0, k: 'UNKNOWN', w: 'Fuente añadida', d: nombre });
       get().toast('Fuente añadida. Pulsa «Comprobar ahora» para probarla.');
       return true;
+    },
+
+    removeSource: async (id) => {
+      const f0 = get().fuentes.find((f) => f.id === id);
+      if (!f0) return;
+      if (f0.enBd && get().perfil) {
+        try {
+          await eliminarFuente(id);
+        } catch (e) {
+          get().toast(`No se eliminó: ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
+      }
+      set({ fuentes: get().fuentes.filter((f) => f.id !== id), drawer: null });
+      logEvent({ t: 0, k: 'MANT', w: 'Fuente eliminada', d: f0.nombre });
+      get().toast(f0.enBd ? `${f0.nombre} eliminada: AVIA deja de vigilarla.` : `${f0.nombre} eliminada.`);
+      if (f0.enBd && get().perfil) void get().loadRemote(true);
     },
 
     moveSignal: (id, to, note = '') => {
