@@ -39,6 +39,15 @@
 
 BEGIN;
 
+-- Antes de nada: comprobar que el 14 ya está (si no, todo lo que sigue fallaría a medias)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'vigilante' AND table_name = 'raw_items' AND column_name = 'titulo_norm')
+     OR to_regprocedure('vigilante.fuentes_para_recolector(text)') IS NULL THEN
+    RAISE EXCEPTION 'Falta ejecutar antes db/generico/14_recolector_mcp.sql (y, si no lo hiciste, del 06 al 13). No se ha cambiado nada.';
+  END IF;
+END $$;
+
 -- -----------------------------------------------------------------------------
 -- 1. Utilidades
 -- -----------------------------------------------------------------------------
