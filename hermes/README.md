@@ -6,6 +6,8 @@ Preparado el 2026-11-01.
 | --- | --- |
 | `fuentes.yaml` | Catálogo de 7 fuentes en 6 canales: URL, acceso, frecuencia, qué buscar, palabras clave, severidad, aprobación, verificación y ejemplos. |
 | `skills/vigilancia-fuentes-bolivia/SKILL.md` | Skill para Hermes Agent: procedimiento, reglas de fidelidad y formato JSON de salida. |
+| `recolector/recolector.py` | Lee las fuentes sin IA y guarda lo nuevo en Supabase (cron del VPS). Ver `docs/recolector-mcp.md`. |
+| `mcp-vigilante/servidor.py` | MCP propio: las herramientas de AVIA sobre Supabase. |
 | `ejemplos_entrenamiento.jsonl` | 10 ejemplos ficticios en formato `messages` (system / user / assistant) para few-shot o ajuste fino. |
 
 ## Instalación en Hermes Agent
