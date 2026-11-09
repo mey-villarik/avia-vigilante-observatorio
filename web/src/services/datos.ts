@@ -10,6 +10,7 @@ import type {
 } from '../types';
 import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
+import type { Oportunidad } from './recolector';
 
 const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
 /** URL pública de respaldo; vacía = desactivada */
@@ -45,6 +46,8 @@ export interface VigilanteJson {
   temas?: Tema[];
   serie?: Serie;
   bitacora?: JBitacora[];
+  /** desde el 15: oportunidades guardadas en la base (hecho, interpretación, beneficiarios, acción, evidencias) */
+  oportunidades?: Oportunidad[];
 }
 
 export interface DatosVps {
@@ -57,6 +60,7 @@ export interface DatosVps {
   generado: string | null;
   ventanaHoras: number | null;
   noticiasRevisadas: number | null;
+  oportunidades?: Oportunidad[];
 }
 
 // ───────── Normalización ─────────
@@ -172,6 +176,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     sintesis: j.sintesis?.frase || j.sintesis?.texto ? { frase: j.sintesis.frase ?? '', texto: j.sintesis.texto ?? '' } : null,
     generado: j.generado ?? null,
     ventanaHoras: j.ventana_horas ?? null,
+    oportunidades: j.oportunidades ?? [],
     noticiasRevisadas: j.noticias_revisadas ?? null,
   };
 }

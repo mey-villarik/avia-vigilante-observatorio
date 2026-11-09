@@ -167,12 +167,15 @@ END $$;
 SELECT jsonb_array_length(vigilante.oportunidades_web()) AS oportunidades_web,
        jsonb_array_length(vigilante.vigilante_bd() -> 'senales') AS senales_web,
        jsonb_array_length(vigilante.vigilante_bd() -> 'oportunidades') AS oportunidades_json;
+SELECT vigilante.decidir_oportunidad((SELECT (o ->> 'id')::bigint FROM jsonb_array_elements(vigilante.oportunidades_web()) o
+                                      WHERE o ->> 'nivel' = 'inferida'), 'validada');
 SELECT set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-00000000000a', true);
 SELECT vigilante.decidir_candidata((SELECT id FROM vigilante.candidatas_web() WHERE nombre LIKE 'Gobernación%'), true, 'útil',
                                    'vial', 'oficial', 'http_html', 120) AS fuente_creada;
 RESET ROLE;
 DO $$ BEGIN
   ASSERT EXISTS (SELECT 1 FROM vigilante.sources WHERE url = 'https://potosi.gob.bo/noticias' AND activa), 'aprobada → entra en el catálogo';
+  ASSERT (SELECT estado FROM vigilante.oportunidades WHERE nivel = 'inferida') = 'validada', 'el analista valida la oportunidad';
   ASSERT jsonb_array_length(vigilante.vigilante_json('orbita-bolivia') -> 'oportunidades') = 2, 'vigilante.json generado desde la base';
 END $$;
 

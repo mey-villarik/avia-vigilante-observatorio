@@ -28,7 +28,7 @@
 --   lote_para_clasificar · guardar_clasificacion · proponer_fuente · guardar_oportunidad
 --   tomar_tareas · terminar_tarea · crear_tarea · vigilante_json
 -- Para la web (equipo con sesión):
---   candidatas_web · decidir_candidata (admin) · alias_fuente (admin) · oportunidades_web
+--   candidatas_web · decidir_candidata (admin) · alias_fuente (admin) · oportunidades_web · decidir_oportunidad (equipo)
 -- Cambian (misma firma salvo guardar_comprobacion, que gana 3 parámetros opcionales):
 --   insertar_noticias · fuentes_para_recolector · guardar_comprobacion · guardar_senal
 --   fuente_canonica · sincronizar_vigilante · vigilante_bd
@@ -1079,6 +1079,17 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
   SELECT vigilante._oportunidades_json(vigilante.cliente_actual())
 $$;
 
+-- Web (administrador o analista): validar o descartar una oportunidad propuesta
+CREATE OR REPLACE FUNCTION vigilante.decidir_oportunidad(p_id bigint, p_estado text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = vigilante, pg_temp AS $$
+BEGIN
+  IF NOT vigilante.es_staff() THEN RAISE EXCEPTION 'Solo un administrador o un analista puede validar oportunidades'; END IF;
+  IF p_estado NOT IN ('propuesta', 'validada', 'descartada') THEN RAISE EXCEPTION 'Estado no válido: %', p_estado; END IF;
+  UPDATE vigilante.oportunidades SET estado = p_estado, updated_at = now()
+   WHERE id = p_id AND cliente_id = vigilante.cliente_actual();
+  IF NOT FOUND THEN RAISE EXCEPTION 'La oportunidad no existe'; END IF;
+END $$;
+
 -- -----------------------------------------------------------------------------
 -- 13. Publicación: la web lee la base; vigilante.json se genera desde aquí
 -- -----------------------------------------------------------------------------
@@ -1167,6 +1178,7 @@ BEGIN
     'vigilante.decidir_candidata(bigint, boolean, text, text, text, text, int)',
     'vigilante.alias_fuente(text, text)',
     'vigilante.oportunidades_web()',
+    'vigilante.decidir_oportunidad(bigint, text)',
     'vigilante.vigilante_bd()'] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM public, anon', f);
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', f);

@@ -140,7 +140,7 @@ Con cron en lugar de n8n:
 
 - No he visto qué versión corre en el VPS ni cómo se lanza Hermes allí: el comando del workflow 3 queda por completar.
 - La huella del texto útil cambia de cálculo: la primera lectura de cada página tras instalar crea una versión nueva (una sola clasificación extra por página).
-- La web todavía no tiene pantallas para **candidatas** ni para **oportunidades**: los datos ya están (`candidatas_web`, `decidir_candidata`, `oportunidades_web` y `oportunidades` dentro de `vigilante_bd`). Es el siguiente paso.
+- Web (hecho): en **Fuentes**, un recuadro con las fuentes candidatas (dónde se vieron, quién las propuso); el administrador elige el canal y pulsa Aprobar (entra en el catálogo) o Rechazar. En **Oportunidades**, una ficha por oportunidad de la base: explícita o inferida, hecho, interpretación, a quién le sirve, plazo, siguiente paso y evidencias con enlace; el equipo (administrador o analista) la valida o la descarta con `decidir_oportunidad`. Debajo siguen las señales de oportunidad que aún no tienen ficha. Sin sesión se ven fichas de ejemplo.
 
 ## Probar la base
 
