@@ -362,7 +362,8 @@ def leer_fuente(f: dict, sb: Supabase | None, apify_saldo: float) -> dict:
         items = leer_feed(cuerpo)
         return {'estado': 'OK' if items else 'WARN', 'info': f'{len(items)} entradas' if items else 'El RSS no tiene entradas', 'items': items}
     if metodo == 'google_news_rss':
-        u = url if 'news.google.com/rss' in url else url_google_news(consulta_de(f), cfg)
+        # la dirección guardada solo sirve si ya trae la búsqueda (?q=); si no, se arma con la consulta de la fuente
+        u = url if 'news.google.com/rss' in url and 'q=' in url else url_google_news(consulta_de(f), cfg)
         _, cuerpo, _ = descargar(u)
         items = leer_feed(cuerpo)
         return {'estado': 'OK', 'info': f'{len(items)} noticias en Google News', 'items': items}
