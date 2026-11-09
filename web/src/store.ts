@@ -498,7 +498,7 @@ export const useStore = create<Store>()((set, get) => {
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'error desconocido';
         set({ errorDatos: msg });
-        if (!quiet) get().toast(get().origen === 'vps' ? `No se pudo actualizar: ${msg}` : 'Sin conexión con el VPS: se muestran datos de ejemplo.');
+        if (!quiet) get().toast(get().origen === 'vps' ? `No se pudo actualizar: ${msg}` : `Sin datos reales (${msg}): se muestran datos de ejemplo.`);
       } finally {
         set({ cargando: false });
       }

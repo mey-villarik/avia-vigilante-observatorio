@@ -136,9 +136,16 @@ export function Topbar() {
               <span className="d" /><span>{cargando ? 'Actualizando…' : `Datos del VPS${minGen != null && !Number.isNaN(minGen) ? ' · ' + clock(-minGen) : ''}`}</span>
             </button>
           ) : (
-            <button className={`pill hide-sm ${live ? 'st-OK live' : 'st-UNKNOWN'}`} title="Datos de ejemplo. Pausar o reanudar la simulación de comprobaciones" onClick={() => setLive(!live)}>
-              <span className="d" /><span>{cargando ? 'Conectando…' : live ? 'Ejemplo · simulación activa' : 'Ejemplo · simulación en pausa'}</span>
-            </button>
+            errorDatos ? (
+              <button className="pill hide-sm st-WARN" title={`No se pudieron leer los datos reales: ${errorDatos}. Se muestran datos de ejemplo. Pulsa para reintentar.`}
+                onClick={() => void loadRemote()}>
+                <span className="d" /><span>{cargando ? 'Conectando…' : 'Sin datos reales · ejemplo'}</span>
+              </button>
+            ) : (
+              <button className={`pill hide-sm ${live ? 'st-OK live' : 'st-UNKNOWN'}`} title="Datos de ejemplo. Pausar o reanudar la simulación de comprobaciones" onClick={() => setLive(!live)}>
+                <span className="d" /><span>{cargando ? 'Conectando…' : live ? 'Ejemplo · simulación activa' : 'Ejemplo · simulación en pausa'}</span>
+              </button>
+            )
           )}
           <button className="icon-btn" aria-label="Buscar (Ctrl+K)" title="Buscar (Ctrl+K)" onClick={() => setSearchOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
