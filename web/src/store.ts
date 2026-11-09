@@ -6,7 +6,7 @@ import {
   CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
 } from './data/demo';
 import { cargarVps, convertir, type DatosVps } from './services/datos';
-import { decidirPropuesta, leerPropuestas, leerVigilanteBd, mezclarBd, type Propuesta } from './services/recolector';
+import { decidirPropuesta, leerPropuestas, leerVigilanteBd, type Propuesta } from './services/recolector';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
@@ -492,15 +492,18 @@ export const useStore = create<Store>()((set, get) => {
       if (get().cargando) return;
       set({ cargando: true });
       try {
-        // 1. el archivo del VPS (vigilante.json); 2. lo que el recolector y AVIA guardan en la base
+        // Supabase es la referencia: con sesión, los datos salen de la base (vigilante_bd).
+        // El archivo vigilante.json del VPS solo se usa si la base aún no tiene datos (antes del 15)
+        // o no responde; ya no se mezclan los dos.
         let d: DatosVps | null = null;
         let errArchivo: unknown = null;
-        try { d = await cargarVps(get().perfil); } catch (e) { errArchivo = e; }
         if (get().perfil) {
           const j = await leerVigilanteBd().catch(() => null);
-          const desdeBd = j && (j.fuentes?.length || j.senales?.length) ? convertir(j) : null;
-          if (desdeBd) d = d ? mezclarBd(d, desdeBd) : desdeBd;
+          d = j && (j.fuentes?.length || j.senales?.length) ? convertir(j) : null;
           leerPropuestas().then((propuestas) => set({ propuestas })).catch(() => undefined);
+        }
+        if (!d) {
+          try { d = await cargarVps(get().perfil); } catch (e) { errArchivo = e; }
         }
         if (!d) throw errArchivo ?? new Error('Sin datos');
         // con sesión: el estado de cada señal y los movimientos de las personas salen de la base de datos

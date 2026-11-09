@@ -1,5 +1,7 @@
 # Recolector sin IA + MCP propio de AVIA
 
+> **Actualizado el 2026-11-09:** Hermes ya no clasifica noticias ni usa `noticias_pendientes`; eso lo hace un analizador breve y Hermes solo investiga tareas. Ver [reestructura-vigilante.md](reestructura-vigilante.md).
+
 Diseño acordado con Meysel el 2026-11-08. El documento con el porqué está en [Orquestación del Vigilante AVIA](https://claude.ai/artifact/K36QveWD93X2sZgmBk4Wfn).
 
 ```

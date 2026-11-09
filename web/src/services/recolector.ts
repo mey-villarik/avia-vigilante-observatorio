@@ -1,6 +1,6 @@
 // Lo que guardan el recolector y AVIA directamente en la base (db/generico/14_recolector_mcp.sql).
-// - vigilante_bd(): fuentes leídas por el recolector y señales con el mismo formato que vigilante.json.
-//   La web lo mezcla con el archivo del VPS; cuando el archivo deje de existir, lo usa solo.
+// - vigilante_bd(): fuentes del catálogo, señales (mismo formato que vigilante.json) y oportunidades.
+//   Desde el 15 es la fuente principal de la web; el archivo del VPS solo se usa si la base no tiene datos.
 // - Propuestas de AVIA sobre cómo leer una fuente: el administrador las aprueba o las rechaza.
 import type { DatosVps, VigilanteJson } from './datos';
 import { supabase, traducir } from './auth';
@@ -25,6 +25,7 @@ export async function leerVigilanteBd(): Promise<VigilanteJson | null> {
 }
 
 /**
+ * (Ya no se usa en la carga normal: se conserva por si hace falta comparar archivo y base.)
  * Junta lo del archivo con lo de la base:
  *  - señales: se añaden las que solo están en la base (las que guardó AVIA por el MCP);
  *  - fuentes: si el recolector la leyó después que el archivo, manda lo del recolector.

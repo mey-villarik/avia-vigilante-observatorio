@@ -11,6 +11,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `03` a `13` | Acceso web, sincronización con `vigilante.json`, fuentes desde la web y publicación (ver `docs/`). |
 | `14_recolector_mcp.sql` | Recolector sin IA (noticias con filtro previo), búsquedas que pide AVIA, propuestas de método, señales por el MCP, métricas de oportunidad y alertas tempranas. Ver `docs/recolector-mcp.md`. |
 | `99_prueba_recolector.sql` | Prueba del 14. Termina en `ROLLBACK`. |
+| `15_catalogo_versiones_analisis.sql` | Catálogo cerrado (candidatas y alias), documentos con versiones, análisis guardado por versión, oportunidades explícitas e inferidas, tareas para Hermes y `vigilante.json` generado desde la base. Ver `docs/reestructura-vigilante.md`. |
+| `99_prueba_catalogo_versiones.sql` | Prueba del 15. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash
