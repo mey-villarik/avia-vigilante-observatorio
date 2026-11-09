@@ -6,6 +6,9 @@ import {
   CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
 } from './data/demo';
 import { cargarVps } from './services/datos';
+import { accesoConfigurado, type Perfil } from './services/auth';
+import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
+import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
 } from './types';
@@ -17,7 +20,10 @@ export type Drawer =
   | { kind: 'catalogo' }
   | { kind: 'a11y' }
   | { kind: 'guardar' }
-  | { kind: 'nueva-fuente' };
+  | { kind: 'nueva-fuente' }
+  | { kind: 'editar-fuente'; id: string }
+  | { kind: 'equipo' }
+  | { kind: 'mi-clave' };
 
 export interface Toast { id: number; msg: string }
 export interface ChatMsg { id: number; role: 'a' | 'u'; text: string; act?: string }
@@ -29,6 +35,10 @@ interface State {
   // navegación y preferencias
   view: VistaId;
   role: Rol;
+  /** persona que ha iniciado sesión (null sin login) */
+  perfil: Perfil | null;
+  /** true si los estados de las señales se leen y guardan en la base de datos */
+  enBd: boolean;
   sideOpen: boolean;
   editing: boolean;
   preset: string;
@@ -74,6 +84,7 @@ interface State {
 interface Actions {
   go: (v: VistaId) => void;
   setRole: (r: Rol) => void;
+  setSesion: (p: Perfil | null) => void;
   setSideOpen: (o: boolean) => void;
   setEditing: (e: boolean) => void;
   applyPreset: (k: string) => void;
@@ -92,7 +103,10 @@ interface Actions {
   checkAll: () => void;
   ackSource: (id: string) => void;
   toggleMant: (id: string) => void;
-  addSource: (f: { nombre: string; url: string; canal: CategoriaId; freq: number }) => void;
+  addSource: (f: AltaFuente) => Promise<boolean>;
+  removeSource: (id: string) => Promise<void>;
+  editSource: (id: string, f: AltaFuente) => Promise<boolean>;
+  askReview: (id: string) => void;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
@@ -163,7 +177,9 @@ export const useStore = create<Store>()((set, get) => {
 
   return {
     view: initialView(),
-    role: storage.get<Rol>('role', 'analista'),
+    role: accesoConfigurado ? 'visor' : storage.get<Rol>('role', 'analista'),
+    perfil: null,
+    enBd: false,
     sideOpen: false,
     editing: false,
     preset: savedPreset,
@@ -207,7 +223,10 @@ export const useStore = create<Store>()((set, get) => {
       try { history.replaceState(null, '', '#' + v); } catch { /* iframe sin historial */ }
       window.scrollTo({ top: 0 });
     },
-    setRole: (r) => { storage.set('role', r); set({ role: r }); get().toast(`Ahora entras como ${ROLE_NAME[r]}.`); },
+    setSesion: (p) => set({ perfil: p, role: p?.rol ?? 'visor' }),
+    setRole: (r) => {
+      if (accesoConfigurado) return; // con login, el rol lo da el perfil
+      storage.set('role', r); set({ role: r }); get().toast(`Ahora entras como ${ROLE_NAME[r]}.`); },
     setSideOpen: (o) => set({ sideOpen: o }),
     setEditing: (e) => set({ editing: e }),
 
@@ -295,16 +314,46 @@ export const useStore = create<Store>()((set, get) => {
     ackSource: (id) => {
       const s = get().fuentes.find((f) => f.id === id);
       if (!s) return;
+      if (s.enBd && get().perfil) {
+        reconocerFuente(id)
+          .then(() => { get().toast('Problema reconocido: lo ve todo el equipo.'); return get().loadRemote(true); })
+          .catch((e: unknown) => get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`));
+        return;
+      }
       set({ fuentes: get().fuentes.map((f) => (f.id === id ? { ...f, ack: true } : f)) });
       logEvent({ t: 0, k: 'check', w: `${ROLE_NAME[get().role]} reconoció el problema en ${shortName(s)}`, d: s.info });
       get().toast('Problema reconocido.');
     },
-    toggleMant: (id) => set({
+    toggleMant: (id) => {
+      const f0 = get().fuentes.find((f) => f.id === id);
+      if (f0?.enBd && get().perfil) {
+        const activa = f0.estado === 'MANT';
+        activarFuente(id, activa)
+          .then(() => { get().toast(activa ? (f0.bd?.propuesta ? `${f0.nombre} aprobada: AVIA la vigilará desde su próxima ronda.` : `${f0.nombre}: AVIA vuelve a vigilarla.`) : `${f0.nombre} en pausa: AVIA deja de vigilarla.`); return get().loadRemote(true); })
+          .catch((e: unknown) => get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`));
+        return;
+      }
+      set({
       fuentes: get().fuentes.map((f) => (f.id !== id ? f : f.estado === 'MANT'
         ? { ...f, estado: 'UNKNOWN', info: 'Pendiente de la primera comprobación', desde: 0 }
         : { ...f, estado: 'MANT', info: 'Mantenimiento programado por el administrador', desde: 0 })),
-    }),
-    addSource: ({ nombre, url, canal, freq }) => {
+      });
+    },
+    addSource: async (a) => {
+      if (get().perfil) {
+        try {
+          const codigo = await altaFuente(a);
+          set({ drawer: null });
+          get().toast(`Fuente guardada (${codigo}). AVIA la vigilará desde su próxima ronda.`);
+          await get().loadRemote(true);
+          return true;
+        } catch (e) {
+          get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+          return false;
+        }
+      }
+      const { nombre, url, freq } = a;
+      const canal = a.canal as CategoriaId;
       const f: Fuente = {
         id: 'nueva_' + Date.now().toString(36), nombre, canal, tipo: 'nueva', url, metodo: 'Por definir', freq,
         estado: 'UNKNOWN', info: 'Pendiente de la primera comprobación', lat: null, items: 0, desde: 0,
@@ -313,13 +362,57 @@ export const useStore = create<Store>()((set, get) => {
       set({ fuentes: [...get().fuentes, f], drawer: null });
       logEvent({ t: 0, k: 'UNKNOWN', w: 'Fuente añadida', d: nombre });
       get().toast('Fuente añadida. Pulsa «Comprobar ahora» para probarla.');
+      return true;
+    },
+
+    askReview: (id) => {
+      const f0 = get().fuentes.find((f) => f.id === id);
+      if (!f0) return;
+      pedirRevision(id)
+        .then(() => { get().toast(`Pedido: AVIA revisará ${f0.nombre} en su próxima ronda.`); return get().loadRemote(true); })
+        .catch((e: unknown) => get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`));
+    },
+
+    editSource: async (id, a) => {
+      try {
+        await editarFuente(id, a);
+        get().toast(`Cambios guardados en ${a.nombre}. AVIA los usa desde su próxima ronda.`);
+        set({ drawer: { kind: 'fuente', id } });
+        await get().loadRemote(true);
+        return true;
+      } catch (e) {
+        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+        return false;
+      }
+    },
+
+    removeSource: async (id) => {
+      const f0 = get().fuentes.find((f) => f.id === id);
+      if (!f0) return;
+      if (f0.enBd && get().perfil) {
+        try {
+          await eliminarFuente(id);
+        } catch (e) {
+          get().toast(`No se eliminó: ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
+      }
+      set({ fuentes: get().fuentes.filter((f) => f.id !== id), drawer: null });
+      logEvent({ t: 0, k: 'MANT', w: 'Fuente eliminada', d: f0.nombre });
+      get().toast(f0.enBd ? `${f0.nombre} eliminada: AVIA deja de vigilarla.` : `${f0.nombre} eliminada.`);
+      if (f0.enBd && get().perfil) void get().loadRemote(true);
     },
 
     moveSignal: (id, to, note = '') => {
       const { role } = get();
       const s = get().senales.find((x) => x.id === id);
       if (!s || role === 'visor' || s.estado === to) return false;
-      const quien = ROLE_NAME[role];
+      const conBd = Boolean(get().perfil) && get().origen === 'vps';
+      if (conBd && !transicionValida(s.estado, to)) {
+        get().toast(`No se puede pasar de «${STL[s.estado]}» a «${STL[to]}». Desde aquí: ${siguientesPasos(s.estado)}, o descartar.`);
+        return false;
+      }
+      const quien = get().perfil?.nombre ?? ROLE_NAME[role];
       const updated: Senal = {
         ...s, estado: to,
         historial: [{ de: s.estado, a: to, quien, cuando: clock(0), nota: note }, ...(s.historial ?? [])],
@@ -328,6 +421,13 @@ export const useStore = create<Store>()((set, get) => {
       set({ senales: get().senales.map((x) => (x.id === id ? updated : x)) });
       logEvent({ t: 0, k: 'check', w: `${quien} movió ${id} a «${STL[to]}»`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
       get().toast(`${id} → ${STL[to]}`);
+      if (conBd) {
+        moverSenal(id, to, note).catch((e: unknown) => {
+          // no se guardó: se deshace en pantalla
+          set({ senales: get().senales.map((x) => (x.id === id ? s : x)) });
+          get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+        });
+      }
       return true;
     },
     addEvaluatedSignal: (r) => {
@@ -372,10 +472,23 @@ export const useStore = create<Store>()((set, get) => {
       if (get().cargando) return;
       set({ cargando: true });
       try {
-        const d = await cargarVps();
+        const d = await cargarVps(get().perfil);
+        // con sesión: el estado de cada señal y los movimientos de las personas salen de la base de datos
+        let bd = false;
+        if (get().perfil) {
+          try {
+            const [estados, movs, fbd, fev] = await Promise.all([leerEstados(), leerMovimientos(), leerFuentesBd().catch(() => []), leerBitacoraFuentes()]);
+            d.fuentes = mezclarFuentes(d.fuentes, fbd);
+            d.senales = d.senales.map((s) => (estados.has(s.id) ? { ...s, estado: estados.get(s.id)! } : s));
+            d.eventos = [...movs, ...fev, ...d.eventos].sort((a, b) => b.t - a.t);
+            bd = estados.size > 0;
+          } catch (e) {
+            console.warn('Sin estados de la base de datos:', e);
+          }
+        }
         const primera = get().origen !== 'vps';
         set({
-          origen: 'vps', live: false, pendientes: [], errorDatos: null,
+          origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
           temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
@@ -385,7 +498,7 @@ export const useStore = create<Store>()((set, get) => {
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'error desconocido';
         set({ errorDatos: msg });
-        if (!quiet) get().toast(get().origen === 'vps' ? `No se pudo actualizar: ${msg}` : 'Sin conexión con el VPS: se muestran datos de ejemplo.');
+        if (!quiet) get().toast(get().origen === 'vps' ? `No se pudo actualizar: ${msg}` : `Sin datos reales (${msg}): se muestran datos de ejemplo.`);
       } finally {
         set({ cargando: false });
       }
@@ -418,4 +531,7 @@ export function countStates(fuentes: Fuente[]): Record<EstadoFuente, number> {
   return c;
 }
 export const canDecide = (r: Rol) => r !== 'visor';
+/** Con problemas: aviso, crítico, desconocido… salvo las fuentes nuevas que aún esperan su primera comprobación */
+export const conProblema = (f: Fuente) => f.estado === 'WARN' || f.estado === 'CRIT'
+  || (f.estado === 'UNKNOWN' && (f.sinLeer || !(f.bd && !f.bd.ultima_consulta_en && f.bd.activa)));
 export const isAdmin = (r: Rol) => r === 'admin';

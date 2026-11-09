@@ -11,6 +11,24 @@ export type CategoriaId =
   | 'clima' | 'salud' | 'vial' | 'seguridad' | 'conectividad'
   | 'eventos' | 'financiacion' | 'mercado' | 'normativa' | 'turismo';
 
+/** Fuente tal como la devuelve vigilante.fuentes_web() (db/generico/06, 07 y 08) */
+export interface FuenteBd {
+  codigo: string; nombre: string; url: string; tipo: string; metodo: string; categorias: string[];
+  frecuencia_minutos: number; activa: boolean; ultima_consulta_en: string | null; que_buscar: string | null; alta_por: string | null;
+  /** desde 07_eliminar_fuentes.sql */
+  eliminada?: boolean;
+  /** desde 08_editar_fuentes.sql */
+  palabras_clave?: string[]; creada_en?: string | null; editada_por?: string | null; editada_en?: string | null;
+  /** desde 09_fuentes_seguridad.sql */
+  propuesta?: boolean; errores_seguidos?: number; ultimo_exito_en?: string | null; ultimo_error?: string | null;
+  /** desde 10_fuentes_bitacora.sql */
+  reconocida_por?: string | null; reconocida_en?: string | null; reconocida_nota?: string | null;
+  /** desde 11_fuentes_revision.sql */
+  revision_pedida_en?: string | null; revision_pedida_por?: string | null;
+  /** desde 12_fuentes_repetidas.sql: código de la fuente con la que se juntó */
+  fusionada_en?: string | null;
+}
+
 export interface Fuente {
   id: string;
   nombre: string;
@@ -33,6 +51,12 @@ export interface Fuente {
   verif: string;
   flap?: boolean;
   ack?: boolean;
+  /** la fuente está en la base de datos (se puede pausar desde la web) */
+  enBd?: boolean;
+  /** lo que guarda la base de datos sobre la fuente (para verla y editarla) */
+  bd?: FuenteBd;
+  /** dada de alta hace tiempo y AVIA todavía no la ha comprobado nunca */
+  sinLeer?: boolean;
   /** minutos desde la última comprobación */
   last?: number;
 }

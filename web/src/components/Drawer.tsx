@@ -1,6 +1,6 @@
 // Panel lateral de detalle: fuente, señal, catálogo de paneles, accesibilidad y formularios.
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import type { CategoriaId, Etapa, Fuente } from '../types';
+import type { Etapa, Fuente } from '../types';
 import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
 import { ago, clock } from '../lib/util';
@@ -8,6 +8,7 @@ import { Icon } from './Icon';
 import { Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
+import { Equipo, MiClave } from './Equipo';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -40,7 +41,7 @@ function FuenteDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.fuentes.find((f) => f.id === id));
   const role = useStore((st) => st.role);
   const real = useStore((st) => st.origen === 'vps');
-  const { recheck, ackSource, toggleMant } = useStore.getState();
+  const { recheck, ackSource, toggleMant, removeSource, askReview } = useStore.getState();
   if (!s) return null;
   return (
     <>
@@ -71,20 +72,56 @@ function FuenteDetalle({ id }: { id: string }) {
             </div>
           </>
         )}
+        {s.bd && (
+          <>
+            <div className="sect">Qué vigila AVIA aquí</div>
+            <p style={{ margin: 0 }}>{s.bd.que_buscar || <span className="note">Sin indicaciones: AVIA busca lo relevante para el turismo.</span>}</p>
+            {(s.bd.palabras_clave?.length ?? 0) > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{s.bd.palabras_clave!.map((p) => <span className="tag" key={p}>{p}</span>)}</div>
+            )}
+            <p className="note" style={{ margin: 0 }}>
+              {s.bd.alta_por ? `Alta de ${s.bd.alta_por}` : 'Alta por AVIA'}{s.bd.creada_en ? ` el ${new Date(s.bd.creada_en).toLocaleDateString('es-BO')}` : ''}
+              {s.bd.editada_por ? ` · Última edición: ${s.bd.editada_por}${s.bd.editada_en ? `, ${new Date(s.bd.editada_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}` : ''}
+            </p>
+          </>
+        )}
+        {s.bd?.revision_pedida_en && (!s.bd.ultima_consulta_en || Date.parse(s.bd.ultima_consulta_en) < Date.parse(s.bd.revision_pedida_en)) && (
+          <p className="note" style={{ margin: 0 }}>↻ {s.bd.revision_pedida_por ?? 'Alguien'} pidió una revisión el {new Date(s.bd.revision_pedida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}: AVIA la revisa en su próxima ronda.</p>
+        )}
+        {s.ack && s.bd?.reconocida_por && (
+          <p className="note" style={{ margin: 0 }}>✓ {s.bd.reconocida_por} reconoció el problema{s.bd.reconocida_en ? ` el ${new Date(s.bd.reconocida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}{s.bd.reconocida_nota ? `: ${s.bd.reconocida_nota}` : ''}. Se quita solo cuando la fuente vuelve a OK.</p>
+        )}
+        {s.bd && (s.bd.errores_seguidos ?? 0) > 0 && (
+          <p className="note" style={{ margin: 0, color: 'var(--crit)' }}>
+            Lleva {s.bd.errores_seguidos} {s.bd.errores_seguidos === 1 ? 'comprobación fallida' : 'comprobaciones fallidas seguidas'}
+            {s.bd.ultimo_exito_en ? ` · Último acierto: ${new Date(s.bd.ultimo_exito_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+            {s.bd.ultimo_error ? ` · ${s.bd.ultimo_error}` : ''}
+          </p>
+        )}
         <div className="sect">Historial ({s.hist.length} comprobaciones)</div>
         <Histo hist={s.hist} height={22} titles />
         {s.flap && <p className="note" style={{ margin: 0 }}>⇅ Estado intermitente: cambió 4 veces en las últimas 24 comprobaciones. Conviene revisar la forma de acceso.</p>}
         <div className="sect">Acciones</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn primary" onClick={() => recheck(s.id)}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar ahora'}</button>
+          {real && s.bd && s.bd.activa && canDecide(role)
+            ? <button className="btn primary" onClick={() => askReview(s.id)}><Icon name="refresh" /> Pedir a AVIA que la revise</button>
+            : <button className="btn primary" onClick={() => recheck(s.id)}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar ahora'}</button>}
           {canDecide(role) && ['WARN', 'CRIT'].includes(s.estado) && !s.ack && (
             <button className="btn" onClick={() => ackSource(s.id)}><Icon name="check" /> Reconocer problema</button>
           )}
+          {isAdmin(role) && s.bd && real && (
+            <button className="btn" onClick={() => useStore.getState().openDrawer({ kind: 'editar-fuente', id: s.id })}><Icon name="edit" /> Editar</button>
+          )}
           {isAdmin(role) && (
-            <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento'}</button>
+            <button className="btn ghost" onClick={() => toggleMant(s.id)}><Icon name="clock" /> {s.enBd ? (s.estado === 'MANT' ? (s.bd?.propuesta ? 'Aprobar (AVIA empieza a vigilarla)' : 'Reactivar (AVIA vuelve a vigilarla)') : 'Pausar (AVIA deja de vigilarla)') : (s.estado === 'MANT' ? 'Quitar mantenimiento' : 'Poner en mantenimiento')}</button>
+          )}
+          {isAdmin(role) && (
+            <button className="btn ghost danger" onClick={() => {
+              if (window.confirm(`¿Eliminar la fuente «${s.nombre}»?\n\nAVIA dejará de vigilarla y desaparecerá de la lista. Las señales que ya salieron de ella se conservan. Si la vuelves a añadir con la misma dirección, se recupera.`)) void removeSource(s.id);
+            }}><Icon name="papelera" /> Eliminar fuente</button>
           )}
         </div>
-        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? 'Por ahora solo cambia este navegador: no se guarda en el VPS.' : 'En la demo solo cambia este navegador.'}</Lock>
+        <Lock>Reconocer un problema avisa al resto del equipo de que alguien lo está atendiendo. {real ? (s.enBd ? 'Se guarda en la base de datos y lo ve todo el equipo, con tu nombre en la Bitácora. Editar, pausar, reactivar y eliminar también se guardan y AVIA los respeta en su siguiente ronda.' : 'Por ahora solo cambia este navegador: no se guarda en el VPS.') : 'En la demo solo cambia este navegador.'}</Lock>
       </div>
     </>
   );
@@ -94,6 +131,7 @@ function SenalDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.senales.find((x) => x.id === id));
   const fuentes = useStore((st) => st.fuentes);
   const role = useStore((st) => st.role);
+  const enBd = useStore((st) => st.enBd);
   const real = useStore((st) => st.origen === 'vps');
   const { moveSignal, closeDrawer } = useStore.getState();
   const { openChat } = useChat();
@@ -153,7 +191,7 @@ function SenalDetalle({ id }: { id: string }) {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn gold" onClick={() => decide('confirmada')}><Icon name="check" /> Confirmar</button>
-              <button className="btn" onClick={() => decide('publicada')}>Publicar</button>
+              <button className="btn" title="Sale en la web pública y se avisa por Telegram" onClick={() => decide('publicada')}>Publicar</button>
               <button className="btn" onClick={() => decide('en_verificacion')}>Pedir verificación</button>
               <button className="btn ghost" onClick={() => decide('descartada')}>Descartar</button>
             </div>
@@ -168,7 +206,7 @@ function SenalDetalle({ id }: { id: string }) {
             ))}
           </>
         )}
-        <Lock>{real ? 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.' : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
+        <Lock>{real ? (enBd ? 'Señal real publicada por AVIA. Al cambiar su etapa se guarda en la base de datos, con tu nombre y la nota, y queda en la Bitácora. Al pulsar «Publicar» sale en la web pública y el bot avisa por Telegram; si luego la mueves a otra columna, se retira de la web.' : 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.') : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
       </div>
     </>
   );
@@ -263,13 +301,36 @@ function GuardarTablero() {
   );
 }
 
-function NuevaFuente() {
+const METODOS: [string, string][] = [
+  ['http_html', 'Página web'], ['rss', 'RSS'], ['google_news_rss', 'Búsqueda en Google News'], ['api', 'API (datos estructurados)'],
+  ['tavily', 'Buscador web (Tavily)'], ['apify', 'Rastreador (Apify)'], ['gdelt', 'Noticias mundiales (GDELT)'], ['manual', 'Manual (la revisa una persona)'],
+];
+const FRECUENCIAS: [number, string][] = [[15, '15 min'], [30, '30 min'], [60, '1 hora'], [120, '2 horas'], [360, '6 horas'], [720, '12 horas'], [1440, '1 día'], [10080, '1 semana']];
+
+function NuevaFuente({ editar }: { editar?: Fuente }) {
   const addSource = useStore((s) => s.addSource);
-  const [f, setF] = useState({ nombre: '', url: '', canal: 'clima' as CategoriaId, freq: 60 });
-  const submit = (e: FormEvent) => { e.preventDefault(); addSource({ ...f, nombre: f.nombre.trim(), url: f.url.trim() }); };
+  const editSource = useStore((s) => s.editSource);
+  const conBd = useStore((s) => Boolean(s.perfil));
+  const b = editar?.bd;
+  const [f, setF] = useState(b
+    ? { nombre: b.nombre, url: b.url, canal: b.categorias[0] ?? 'clima', tipo: b.tipo, metodo: b.metodo, freq: b.frecuencia_minutos,
+        queBuscar: b.que_buscar ?? '', palabras: (b.palabras_clave ?? []).join(', ') }
+    : { nombre: '', url: '', canal: 'clima', tipo: 'oficial', metodo: 'http_html', freq: 60, queBuscar: '', palabras: '' });
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const datos = { ...f, nombre: f.nombre.trim(), url: f.url.trim() };
+    await (b ? editSource(b.codigo, datos) : addSource(datos));
+    setBusy(false);
+  };
+  const canales = Object.entries(CATS) as [string, string][];
+  if (!canales.some(([k]) => k === f.canal)) canales.push([f.canal, f.canal]);
+  const metodos = METODOS.some(([k]) => k === f.metodo) ? METODOS : [...METODOS, [f.metodo, f.metodo] as [string, string]];
+  const freqs = FRECUENCIAS.some(([k]) => k === f.freq) ? FRECUENCIAS : [...FRECUENCIAS, [f.freq, `${f.freq} min`] as [number, string]].sort((x, y) => x[0] - y[0]);
   return (
     <>
-      <Head icon="plus">Añadir fuente</Head>
+      <Head icon={b ? 'edit' : 'plus'}>{b ? `Editar fuente · ${b.codigo}` : 'Añadir fuente'}</Head>
       <div className="drawer-b">
         <form style={{ display: 'flex', flexDirection: 'column', gap: 12 }} onSubmit={submit}>
           <div className="field"><label htmlFor="nsN">Nombre</label>
@@ -279,21 +340,53 @@ function NuevaFuente() {
             <input className="inp" id="nsU" type="url" required placeholder="https://" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} />
           </div>
           <div className="field"><label htmlFor="nsC">Canal</label>
-            <select id="nsC" value={f.canal} onChange={(e) => setF({ ...f, canal: e.target.value as CategoriaId })}>
-              {Object.entries(CATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            <select id="nsC" value={f.canal} onChange={(e) => setF({ ...f, canal: e.target.value })}>
+              {canales.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div className="field"><label htmlFor="nsT">Tipo de fuente</label>
+            <select id="nsT" value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
+              <option value="oficial">Oficial (gobierno, ministerio)</option>
+              <option value="organismo_internacional">Organismo internacional</option>
+              <option value="medio">Medio de comunicación</option>
+              <option value="no_oficial">Otra (no oficial)</option>
+            </select>
+          </div>
+          <div className="field"><label htmlFor="nsM">Cómo se lee</label>
+            <select id="nsM" value={f.metodo} onChange={(e) => setF({ ...f, metodo: e.target.value })}>
+              {metodos.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div className="field"><label htmlFor="nsF">Comprobar cada</label>
             <select id="nsF" value={f.freq} onChange={(e) => setF({ ...f, freq: +e.target.value })}>
-              <option value={30}>30 min</option><option value={60}>1 hora</option><option value={360}>6 horas</option><option value={1440}>1 día</option>
+              {freqs.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
-          <button className="btn gold" style={{ alignSelf: 'flex-start' }}><Icon name="plus" /> Añadir</button>
+          <div className="field"><label htmlFor="nsQ">Qué debe buscar AVIA aquí</label>
+            <textarea className="inp" id="nsQ" rows={3} placeholder="Por ejemplo: declaratorias de emergencia que afecten a destinos turísticos" value={f.queBuscar} onChange={(e) => setF({ ...f, queBuscar: e.target.value })} />
+          </div>
+          <div className="field"><label htmlFor="nsP">Palabras clave (separadas por comas)</label>
+            <input className="inp" id="nsP" placeholder="emergencia, desastre, inundación" value={f.palabras} onChange={(e) => setF({ ...f, palabras: e.target.value })} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn gold" disabled={busy}><Icon name={b ? 'save' : 'plus'} /> {busy ? 'Guardando…' : b ? 'Guardar cambios' : 'Añadir'}</button>
+            {b && <button type="button" className="btn ghost" onClick={() => useStore.getState().openDrawer({ kind: 'fuente', id: b.codigo })}>Cancelar</button>}
+          </div>
         </form>
-        <p className="note">La fuente entra como {STATE_TXT.UNKNOWN} hasta su primera comprobación. En la versión real se añade al catálogo de AVIA y a la tabla de fuentes.</p>
+        <p className="note">{b
+          ? 'Los cambios se guardan en la base de datos y AVIA los usa desde su próxima ronda. Lo que escribas aquí manda sobre lo que publique AVIA.'
+          : conBd
+            ? 'Se guarda en la base de datos. AVIA la incluye en su lista de fuentes en la siguiente ronda; hasta entonces aparece como pendiente de la primera comprobación.'
+            : `La fuente entra como ${STATE_TXT.UNKNOWN} hasta su primera comprobación. Sin inicio de sesión solo se añade en este navegador.`}</p>
       </div>
     </>
   );
+}
+
+function EditarFuente({ id }: { id: string }) {
+  const s = useStore((st) => st.fuentes.find((f) => f.id === id));
+  if (!s?.bd) return null;
+  return <NuevaFuente key={id} editar={s} />;
 }
 
 export function Drawer() {
@@ -321,6 +414,9 @@ export function Drawer() {
     case 'a11y': body = <A11y />; break;
     case 'guardar': body = <GuardarTablero />; break;
     case 'nueva-fuente': body = <NuevaFuente />; break;
+    case 'editar-fuente': body = <EditarFuente id={drawer.id} />; break;
+    case 'equipo': body = <Equipo />; break;
+    case 'mi-clave': body = <MiClave />; break;
   }
   return (
     <>

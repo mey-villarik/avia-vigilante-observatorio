@@ -45,6 +45,7 @@ export function Senales() {
           <div className="eyebrow">Tratamiento del conocimiento</div>
           <h1>De noticia suelta a <em>señal verificada</em></h1>
           <p className="sub">Cada señal recorre etapas: AVIA la detecta y la evalúa, una persona la verifica y el observatorio la publica. {decide ? 'Arrastra una tarjeta a otra columna o ábrela para decidir.' : 'Estás en modo consulta.'}</p>
+          <p className="sub"><a href="publico.html" target="_blank" rel="noopener noreferrer">Ver la web pública</a>: ahí aparece lo que está en «Publicada».</p>
         </div>
       </section>
       <div className="toolbar">

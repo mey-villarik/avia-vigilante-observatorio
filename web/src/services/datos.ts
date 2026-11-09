@@ -1,13 +1,20 @@
 // Datos reales: el archivo vigilante.json que genera Hermes en el VPS.
-// La web lo pide en VITE_DATA_URL (por defecto /data/vigilante.json). En desarrollo, Vite
-// reenvía /data al VPS (ver vite.config.ts), porque el VPS no permite peticiones desde otros dominios.
-// Si no responde, la web sigue con los datos de ejemplo de src/data/demo.ts.
+// 1) Con login (Supabase): se lee del almacenamiento privado, bucket `vigilante`,
+//    archivo <slug-del-cliente>/vigilante.json. Solo lo pueden leer usuarios activos.
+// 2) Si no está ahí (o no hay login) y VITE_DATA_URL tiene valor, se pide esa URL
+//    (por defecto /data/vigilante.json; en desarrollo Vite reenvía /data al VPS, ver vite.config.ts).
+//    Deja VITE_DATA_URL vacío cuando Hermes ya suba al almacenamiento privado.
+// Si nada responde, la web sigue con los datos de ejemplo de src/data/demo.ts.
 import type {
   CategoriaId, Enlace, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
 } from '../types';
 import { CATS } from '../data/demo';
+import { supabase, type Perfil } from './auth';
 
-export const DATA_URL = (import.meta.env.VITE_DATA_URL as string | undefined) || '/data/vigilante.json';
+const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
+/** URL pública de respaldo; vacía = desactivada */
+export const DATA_URL = URL_ENV === undefined ? '/data/vigilante.json' : URL_ENV.trim();
+export const BUCKET = 'vigilante';
 /** cada cuánto se vuelve a pedir el archivo */
 export const REFRESCO_MS = 5 * 60 * 1000;
 
@@ -169,10 +176,29 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
   };
 }
 
-export async function cargarVps(signal?: AbortSignal): Promise<DatosVps> {
+async function desdeAlmacen(p: Perfil): Promise<VigilanteJson> {
+  if (!supabase) throw new Error('Sin acceso configurado');
+  const { data, error } = await supabase.storage.from(BUCKET).download(`${p.clienteSlug}/vigilante.json`);
+  if (error || !data) throw new Error('Aún no hay datos en el almacenamiento privado');
+  return JSON.parse(await data.text()) as VigilanteJson;
+}
+
+async function desdeUrl(signal?: AbortSignal): Promise<VigilanteJson> {
   const r = await fetch(DATA_URL, { headers: { Accept: 'application/json' }, cache: 'no-cache', signal });
   if (!r.ok) throw new Error(`El VPS respondió ${r.status}`);
   const tipo = r.headers.get('content-type') ?? '';
   if (!tipo.includes('json')) throw new Error('El VPS no devolvió JSON');
-  return convertir(await r.json() as VigilanteJson);
+  return await r.json() as VigilanteJson;
+}
+
+export async function cargarVps(perfil?: Perfil | null, signal?: AbortSignal): Promise<DatosVps> {
+  if (perfil && supabase) {
+    try {
+      return convertir(await desdeAlmacen(perfil));
+    } catch (e) {
+      if (!DATA_URL) throw e;
+    }
+  }
+  if (!DATA_URL) throw new Error('No hay origen de datos configurado');
+  return convertir(await desdeUrl(signal));
 }

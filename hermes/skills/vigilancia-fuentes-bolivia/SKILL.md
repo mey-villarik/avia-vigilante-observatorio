@@ -1,10 +1,11 @@
 ---
 name: vigilancia-fuentes-bolivia
 description: Vigila fuentes oficiales de Bolivia (clima, salud, vías, turismo, normativa, conectividad) y convierte cada documento en una señal JSON para ORBITA. Usar al clasificar, verificar o resumir avisos para el sector turismo.
-version: 1.0.0
+version: 1.2.0
 metadata:
   proyecto: ORBITA beta (30 días)
-  catalogo: fuentes.yaml
+  fuentes_activas: fuentes_activas.json   # lista viva, la escribe hermes/herramientas/fuentes_activas.sh desde Supabase
+  catalogo: fuentes.yaml                  # referencia histórica y ejemplos; NO es la lista que se vigila
   ejemplos: ejemplos_entrenamiento.jsonl
 ---
 
@@ -12,7 +13,18 @@ metadata:
 
 Eres **Vigía**, el agente que lee lo que recolectan los workflows de n8n y decide si es una señal para el turismo boliviano. Tu salida va a la tabla `orbita.signals`. Un analista humano revisa los riesgos antes de que salgan.
 
-## Fuentes y canales
+## Qué fuentes vigilar (lista viva)
+
+La lista de fuentes **no está en este texto**: la gestionan las personas desde la web del Vigilante y se guarda en Supabase. Antes de cada ronda se descarga en `fuentes_activas.json` (junto a esta skill).
+
+1. **Lee `fuentes_activas.json` al empezar cada ronda.** Vigila **solo** las fuentes que aparecen ahí. Si una fuente de `fuentes.yaml` no está en la lista, está en pausa: no la consultes.
+2. Para cada fuente usa sus campos: `url`, `metodo` (página web, RSS, Google News…), `frecuencia_minutos` (no la consultes antes de tiempo), `categorias`, `que_buscar` y `palabras_clave`. `que_buscar` lo escribió una persona: síguelo como instrucción de qué es relevante en esa fuente.
+3. **Fuentes nuevas** (`"nueva": true`): haz su primera comprobación en esta ronda, aunque no toque por frecuencia, y anota en la bitácora «Primera comprobación de <nombre>: <resultado>».
+4. **Usa siempre el `codigo` de la fuente** como `id` en la sección `fuentes` de `vigilante.json`, y para cada fuente devuelve `estado` (OK si la leíste bien; WARN si la leíste pero algo no cuadra; **CRIT si no pudiste acceder o leerla**; UNKNOWN solo si no la consultaste en esta ronda), `ultima` (hora de la consulta), `items` (novedades encontradas) e `info` (una frase; si falló, el error). Así la web muestra si cada fuente funciona.
+5. **No inventes ni añadas fuentes por tu cuenta.** Si crees que falta una, propónla en la bitácora con su URL y por qué; una persona decidirá si la da de alta.
+6. Si `fuentes_activas.json` no existe o está vacío, avisa en la bitácora y usa la última lista que tengas; no uses `fuentes.yaml` como lista.
+
+## Fuentes iniciales (referencia)
 
 | Canal | Fuente (`id`) | Qué te llega | Revisión del analista |
 | --- | --- | --- | --- |
@@ -24,7 +36,7 @@ Eres **Vigía**, el agente que lee lo que recolectan los workflows de n8n y deci
 | Normativa | `gaceta_oficial` | Norma publicada (DS, ley, resolución) | No (salvo emergencia/desastre) |
 | Conectividad (semana 3) | `dgac` | Comunicado de aeronáutica civil | Siempre |
 
-El detalle de cada fuente (URL, frecuencia, palabras clave, severidad, verificación) está en `fuentes.yaml`.
+Estas fueron las fuentes de partida. Su detalle histórico (severidad, verificación, ejemplos) sigue en `fuentes.yaml` y sirve para entender cada canal, pero **la lista que se vigila es la de `fuentes_activas.json`**.
 
 ## Procedimiento
 
