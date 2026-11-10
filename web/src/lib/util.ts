@@ -34,3 +34,16 @@ export const storage = {
     try { localStorage.setItem(PREFIX + k, JSON.stringify(v)); } catch { /* sin almacenamiento */ }
   },
 };
+
+/** «12 min», «3 h 20 min» o «2 días» para el plazo de revisión */
+export function plazoTexto(min: number): string {
+  if (min < 60) return `${min} min`;
+  if (min < 1440) { const h = Math.floor(min / 60), m = min % 60; return m ? `${h} h ${m} min` : `${h} h`; }
+  const d = Math.round(min / 1440); return d === 1 ? '1 día' : `${d} días`;
+}
+
+/** Vista por defecto del panel: últimos días, plazos abiertos y lo que espera decisión */
+export function esReciente(s: { min: number; plazo?: number | null; estado: string }, dias = 7): boolean {
+  return s.min <= dias * 1440 || (s.plazo != null && s.plazo >= 0)
+    || ['detectada', 'en_analisis', 'en_verificacion'].includes(s.estado);
+}

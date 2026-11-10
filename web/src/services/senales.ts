@@ -51,3 +51,12 @@ export async function leerMovimientos(ahora = Date.now()): Promise<Evento[]> {
     d: m.titulo + (m.nota ? ` · Nota: ${m.nota}` : ''),
   }));
 }
+
+export interface VotoPublicacion { codigo: string; publicada_en: string | null; retirada_en: string | null; util: number; no_util: number }
+
+/** Votos útil / no útil de cada señal publicada (vigilante.publicaciones, del 13) */
+export async function leerVotos(): Promise<VotoPublicacion[]> {
+  const { data, error } = await rpc('publicaciones');
+  if (error) throw new Error(traducir(error.message));
+  return ((data ?? []) as VotoPublicacion[]).map((v) => ({ ...v, util: Number(v.util) || 0, no_util: Number(v.no_util) || 0 }));
+}

@@ -1,6 +1,8 @@
 // Web pública: alertas que una persona del equipo publicó desde el panel.
 // Se lee sin iniciar sesión con la clave pública (anon / publishable) y la función
-// vigilante.alertas_publicas (ver db/generico/13_publicar_senales.sql).
+// vigilante.alertas_publicas (ver db/generico/13_publicar_senales.sql y 16_tareas_programadas.sql:
+// por defecto los riesgos y noticias de los últimos 7 días y las oportunidades con plazo abierto;
+// con «Ver anteriores» llega todo lo publicado en el periodo guardado).
 import { createClient } from '@supabase/supabase-js';
 import type { Naturaleza } from '../types';
 import { SENALES_DEMO, catName } from '../data/demo';
@@ -27,9 +29,21 @@ export interface AlertaPublica {
   deps: string[];
   destinos: string[];
   plazo_hasta: string | null;
+  /** inicio (o fin) del evento, si lo es */
+  fecha_evento?: string | null;
   publicada_en: string;
+  /** false = anterior (más de 7 días, plazo cerrado o ya pasó) */
+  actual: boolean;
   util: number;
   no_util: number;
+}
+
+export interface ResumenDia {
+  fecha: string;
+  /** texto cuando no hubo alertas */
+  texto: string | null;
+  /** ids de las alertas del resumen, en orden */
+  alertas: number[];
 }
 
 export interface Publicas {
@@ -37,36 +51,57 @@ export interface Publicas {
   telegramUrl: string | null;
   alertas: AlertaPublica[];
   ejemplo: boolean;
+  /** días que se ven riesgos y noticias por defecto */
+  dias: number;
+  /** cuántas alertas anteriores hay fuera de la vista por defecto */
+  nAnteriores: number;
+  /** la lista incluye las anteriores */
+  anteriores: boolean;
+  mensajeVacio: string;
+  resumen: ResumenDia | null;
 }
 
-function demo(): Publicas {
+export const MENSAJE_SIN_ALERTAS = 'No hay alertas confirmadas en este momento';
+
+function demo(anteriores: boolean): Publicas {
   const ahora = Date.now();
-  return {
-    nombre: 'Observatorio (ejemplo)',
-    telegramUrl: null,
-    ejemplo: true,
-    alertas: SENALES_DEMO.filter((s) => s.estado === 'publicada' || s.estado === 'confirmada').map((s, i) => ({
+  const alertas: AlertaPublica[] = SENALES_DEMO.filter((s) => s.estado === 'publicada' || s.estado === 'confirmada').map((s, i) => ({
       id: -(i + 1), codigo: s.id, titulo: s.titulo, texto: s.resumen, importancia: s.importancia || null,
       recomendacion: s.soluciones[0]?.t ?? null, enlace: null,
       verificacion: s.estado === 'publicada' ? 'confirmada' : 'en_verificacion',
       naturaleza: s.naturaleza, categoria: s.categoria, categoria_nombre: catName(s.categoria), prioridad: s.prioridad,
       deps: s.deps, destinos: s.destinos,
       plazo_hasta: s.plazo != null ? new Date(ahora + s.plazo * 864e5).toISOString() : null,
-      publicada_en: new Date(ahora - s.min * 6e4).toISOString(), util: 0, no_util: 0,
-    })),
+      publicada_en: new Date(ahora - s.min * 6e4).toISOString(), actual: true, util: 0, no_util: 0,
+    }));
+  return {
+    nombre: 'Observatorio (ejemplo)', telegramUrl: null, ejemplo: true, alertas, dias: 7, nAnteriores: 0, anteriores,
+    mensajeVacio: MENSAJE_SIN_ALERTAS,
+    resumen: { fecha: new Date().toISOString().slice(0, 10), texto: null, alertas: alertas.filter((a) => a.prioridad === 'alta').map((a) => a.id).slice(0, 7) },
   };
 }
 
-export async function leerPublicas(): Promise<Publicas> {
-  if (!sb) return demo();
-  const { data, error } = await sb.schema('vigilante').rpc('alertas_publicas', { p_cliente: CLIENTE });
+/** anteriores = true pide también lo publicado antes de la ventana (botón «Ver anteriores») */
+export async function leerPublicas(anteriores = false): Promise<Publicas> {
+  if (!sb) return demo(anteriores);
+  // Sin «anteriores» se llama como antes del 16 (la base aún sin actualizar sigue funcionando)
+  const { data, error } = await sb.schema('vigilante').rpc('alertas_publicas',
+    anteriores ? { p_cliente: CLIENTE, p_anteriores: true } : { p_cliente: CLIENTE });
   if (error) throw new Error(error.message);
-  const d = (data ?? {}) as { nombre?: string; telegram_url?: string | null; alertas?: AlertaPublica[] };
+  const d = (data ?? {}) as {
+    nombre?: string; telegram_url?: string | null; alertas?: AlertaPublica[]; dias_visibles?: number;
+    n_anteriores?: number; mensaje_sin_alertas?: string; resumen?: ResumenDia | null;
+  };
   return {
     nombre: d.nombre || 'Observatorio',
     telegramUrl: d.telegram_url || null,
     ejemplo: false,
-    alertas: (d.alertas ?? []).map((a) => ({ ...a, deps: a.deps ?? [], destinos: a.destinos ?? [] })),
+    alertas: (d.alertas ?? []).map((a) => ({ ...a, actual: a.actual ?? true, deps: a.deps ?? [], destinos: a.destinos ?? [] })),
+    dias: d.dias_visibles ?? 7,
+    nAnteriores: d.n_anteriores ?? 0,
+    anteriores,
+    mensajeVacio: d.mensaje_sin_alertas || MENSAJE_SIN_ALERTAS,
+    resumen: d.resumen ? { ...d.resumen, alertas: d.resumen.alertas ?? [] } : null,
   };
 }
 

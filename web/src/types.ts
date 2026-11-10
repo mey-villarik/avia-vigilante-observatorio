@@ -90,6 +90,10 @@ export interface Senal {
   min: number;
   /** minutos que quedan para revisar (SLA) */
   sla?: number | null;
+  /** el plazo de revisión ya venció y nadie decidió */
+  revisionVencida?: boolean;
+  /** predicción: se etiqueta como escenario y no se publica */
+  escenario?: boolean;
   /** días para actuar */
   plazo?: number | null;
   tipoOpp?: string;
@@ -120,7 +124,7 @@ export interface Evento {
 
 export type PanelId =
   | 'sintesis' | 'pulso' | 'fuentes' | 'cadena' | 'oportunidades' | 'riesgos'
-  | 'mapa' | 'evolucion' | 'decision' | 'actividad' | 'temas' | 'categorias';
+  | 'mapa' | 'evolucion' | 'decision' | 'actividad' | 'temas' | 'categorias' | 'valoracion';
 
 export interface PanelDef { t: string; i: string; d: string; w: number }
 export interface PanelEnTablero { id: PanelId; w: number }

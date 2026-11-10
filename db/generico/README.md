@@ -13,6 +13,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_recolector.sql` | Prueba del 14. Termina en `ROLLBACK`. |
 | `15_catalogo_versiones_analisis.sql` | Catálogo cerrado (candidatas y alias), documentos con versiones, análisis guardado por versión, oportunidades explícitas e inferidas, tareas para Hermes y `vigilante.json` generado desde la base. Ver `docs/reestructura-vigilante.md`. |
 | `99_prueba_catalogo_versiones.sql` | Prueba del 15. Termina en `ROLLBACK`. |
+| `16_tareas_programadas.sql` | Tareas automáticas con pg_cron (plazo de revisión, resumen diario, recordatorios, borrado a los 6 meses) y ventana de 7 días en la web. Ver `docs/tareas-programadas.md`. |
+| `99_prueba_tareas_programadas.sql` | Prueba del 16. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

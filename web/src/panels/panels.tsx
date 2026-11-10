@@ -1,9 +1,12 @@
 // Contenido de cada panel del tablero Panorama. Para añadir un panel:
 // 1) defínelo en PANELS (src/data/demo.ts), 2) añade su cuerpo en PANEL_BODY y su meta en PANEL_META.
+import { useEffect, useState } from 'react';
 import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
 import { activeSignals, canDecide, countStates, pendingDecision, useStore } from '../store';
-import { scoreOf } from '../lib/util';
+import { plazoTexto, scoreOf } from '../lib/util';
+import { leerVotos, type VotoPublicacion } from '../services/senales';
+import { supabase } from '../services/auth';
 import { Icon } from '../components/Icon';
 import { CatBars, Empty, EventsList, Histo, LineChart, NatPill, SigList, StPill } from '../components/common';
 
@@ -184,7 +187,10 @@ function Decision() {
         <div className="dec-item" key={s.id}>
           <div className="row">
             <NatPill n={s.naturaleza} /><span className="tag">{STL[s.estado]}</span>
-            {s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {s.sla} min</span> : <span className="tag">{CATS[s.categoria]}</span>}
+            {s.revisionVencida
+              ? <span className="tag vencida" title="Pasó el plazo de revisión sin decisión">Plazo vencido</span>
+              : s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : <span className="tag">{CATS[s.categoria]}</span>}
+            {s.escenario && <span className="tag escenario">Escenario</span>}
           </div>
           <button className="tt" style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left' }} onClick={() => openDrawer({ kind: 'senal', id: s.id })}>{s.titulo}</button>
           <div className="row">
@@ -231,9 +237,49 @@ function Categorias() {
   return <CatBars list={activeSignals(useStore((s) => s.senales))} />;
 }
 
+function Valoracion() {
+  const perfil = useStore((s) => s.perfil);
+  const senales = useStore((s) => s.senales);
+  const openDrawer = useStore((s) => s.openDrawer);
+  const [votos, setVotos] = useState<VotoPublicacion[] | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    if (!supabase || !perfil) return;
+    leerVotos().then(setVotos).catch((e: Error) => setErr(e.message));
+  }, [perfil]);
+  if (!supabase || !perfil) return <Empty title="Sin datos">Inicia sesión para ver los votos de la web pública.</Empty>;
+  if (err) return <Empty title="No se pudieron leer los votos">{err}</Empty>;
+  if (!votos) return <p className="note">Cargando…</p>;
+  const desde = Date.now() - 7 * 864e5;
+  const semana = votos.filter((v) => v.publicada_en && Date.parse(v.publicada_en) >= desde);
+  const util = semana.reduce((n, v) => n + v.util, 0), no = semana.reduce((n, v) => n + v.no_util, 0);
+  const top = [...votos].filter((v) => v.util + v.no_util > 0).sort((a, b) => (b.util + b.no_util) - (a.util + a.no_util)).slice(0, 6);
+  return (
+    <>
+      <div className="vot-sum">
+        <div><b>{semana.length}</b><span className="note">publicadas en 7 días</span></div>
+        <div><b style={{ color: 'var(--ok)' }}>{util}</b><span className="note">útiles</span></div>
+        <div><b style={{ color: 'var(--risk)' }}>{no}</b><span className="note">no útiles</span></div>
+      </div>
+      {top.length
+        ? <ul className="vot-list">{top.map((v) => {
+            const s = senales.find((x) => x.id === v.codigo);
+            return (
+              <li key={v.codigo}>
+                <button className="tt linklike" style={{ textAlign: 'left', textDecoration: 'none', color: 'var(--ink)' }} onClick={() => s && openDrawer({ kind: 'senal', id: s.id })}>{s?.titulo ?? v.codigo}</button>
+                <span className="mono">👍 {v.util} · 👎 {v.no_util}</span>
+              </li>
+            );
+          })}</ul>
+        : <p className="note" style={{ margin: 0 }}>Todavía nadie ha votado en la web pública.</p>}
+    </>
+  );
+}
+
 export const PANEL_BODY: Record<PanelId, () => JSX.Element> = {
   sintesis: Sintesis, pulso: Pulso, fuentes: FuentesMatrix, cadena: Cadena, oportunidades: Oportunidades,
   riesgos: Riesgos, mapa: Mapa, evolucion: LineChart, decision: Decision, actividad: Actividad, temas: Temas, categorias: Categorias,
+  valoracion: Valoracion,
 };
 
 export function usePanelMeta(id: PanelId): string {
@@ -243,7 +289,7 @@ export function usePanelMeta(id: PanelId): string {
   const meta: Record<PanelId, string> = {
     sintesis: 'Borrador de AVIA', fuentes: `${nFuentes} fuentes`, oportunidades: 'por puntuación', riesgos: 'vigentes',
     mapa: 'esquema', evolucion: real ? 'VPS' : 'demo', decision: `${nPend} pendientes`, actividad: real ? 'VPS' : 'en vivo', temas: real ? 'VPS' : '7 días',
-    cadena: 'hoy', pulso: 'índice', categorias: 'activas',
+    cadena: 'hoy', pulso: 'índice', categorias: 'activas', valoracion: 'web pública',
   };
   return meta[id];
 }

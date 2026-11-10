@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Etapa, Senal } from '../types';
 import { CATS, DEPS, STAGES } from '../data/demo';
 import { canDecide, useStore, type SigFilter } from '../store';
-import { ago, norm } from '../lib/util';
+import { ago, esReciente, norm, plazoTexto } from '../lib/util';
 import { NatPill } from '../components/common';
 
 function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: boolean; onDragStart: () => void; onDragEnd: () => void }) {
@@ -12,7 +12,12 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', s.id); } catch { /* */ } onDragStart(); }}
       onDragEnd={onDragEnd}
       onClick={() => openDrawer({ kind: 'senal', id: s.id })}>
-      <span className="cm"><NatPill n={s.naturaleza} /><span className="tag">{CATS[s.categoria]}</span></span>
+      <span className="cm">
+        <NatPill n={s.naturaleza} /><span className="tag">{CATS[s.categoria]}</span>
+        {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
+        {s.revisionVencida && <span className="tag vencida" title="Pasó el plazo de revisión sin decisión">Plazo vencido</span>}
+        {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}
+      </span>
       <span className="ct">{s.titulo}</span>
       <span className="cf">
         <span>{s.deps.slice(0, 2).join(', ')}{s.deps.length > 2 ? ' +' + (s.deps.length - 2) : ''}</span>
@@ -34,7 +39,9 @@ export function Senales() {
   const [over, setOver] = useState<Etapa | null>(null);
   const decide = canDecide(role);
 
-  const list = senales.filter((s) => (f.nat === 'all' || s.naturaleza === f.nat)
+  const visibles = f.periodo === 'todo' ? senales : senales.filter((s) => esReciente(s));
+  const ocultas = senales.length - visibles.length;
+  const list = visibles.filter((s) => (f.nat === 'all' || s.naturaleza === f.nat)
     && (f.dep === 'all' || s.deps.includes(f.dep))
     && (!f.q || norm(`${s.titulo} ${s.resumen} ${s.destinos.join(' ')} ${s.id}`).includes(norm(f.q))));
 
@@ -59,7 +66,17 @@ export function Senales() {
           <option value="all">Todos los departamentos</option>
           {DEPS.map((d) => <option key={d}>{d}</option>)}
         </select>
+        <label className="sr" htmlFor="sigPer">Periodo</label>
+        <select id="sigPer" style={{ width: 'auto' }} value={f.periodo} onChange={(e) => setSigFilter({ periodo: e.target.value as SigFilter['periodo'] })}>
+          <option value="recientes">Últimos 7 días y plazos abiertos</option>
+          <option value="todo">Todo lo guardado (6 meses)</option>
+        </select>
       </div>
+      {f.periodo === 'recientes' && ocultas > 0 && (
+        <p className="note" style={{ margin: '-6px 0 12px' }}>
+          Hay {ocultas} señal(es) más antiguas guardadas. <button className="linklike" onClick={() => setSigFilter({ periodo: 'todo' })}>Ver todo lo guardado</button>
+        </p>
+      )}
       <div className="pipe">
         {STAGES.map(([k, n]) => {
           const ss = list.filter((s) => s.estado === k);

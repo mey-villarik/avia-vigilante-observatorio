@@ -34,7 +34,11 @@ export interface Toast { id: number; msg: string }
 export interface ChatMsg { id: number; role: 'a' | 'u'; text: string; act?: string }
 
 export interface Analisis { type: TipoAnalisis; scope: 'all' | 'oportunidad' | 'riesgo'; dep: string; text: string; q: string }
-export interface SigFilter { nat: 'all' | 'oportunidad' | 'riesgo' | 'mixta'; dep: string; q: string }
+export interface SigFilter {
+  nat: 'all' | 'oportunidad' | 'riesgo' | 'mixta'; dep: string; q: string;
+  /** recientes = últimos 7 días, plazos abiertos y lo pendiente; todo = todo lo guardado */
+  periodo: 'recientes' | 'todo';
+}
 
 interface State {
   // navegación y preferencias
@@ -205,7 +209,7 @@ export const useStore = create<Store>()((set, get) => {
     flashPanel: null,
     srcFilter: 'all',
     srcQ: '',
-    sigFilter: { nat: 'all', dep: 'all', q: '' },
+    sigFilter: { nat: 'all', dep: 'all', q: '', periodo: 'recientes' },
     analysis: { type: 'panorama', scope: 'all', dep: 'all', text: '', q: '' },
     live: true,
     fs: storage.get('fs', 1),
@@ -484,7 +488,8 @@ export const useStore = create<Store>()((set, get) => {
       const updated: Senal = {
         ...s, estado: to,
         historial: [{ de: s.estado, a: to, quien, cuando: clock(0), nota: note }, ...(s.historial ?? [])],
-        sla: ['confirmada', 'publicada'].includes(to) ? null : s.sla,
+        sla: ['confirmada', 'publicada', 'descartada'].includes(to) ? null : s.sla,
+        revisionVencida: ['confirmada', 'publicada', 'descartada'].includes(to) ? false : s.revisionVencida,
       };
       set({ senales: get().senales.map((x) => (x.id === id ? updated : x)) });
       logEvent({ t: 0, k: 'check', w: `${quien} movió ${id} a «${STL[to]}»`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
