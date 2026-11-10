@@ -34,6 +34,8 @@ except ImportError:
 
 # ── Cargar secretos desde el archivo de entorno ───────────────────────────────
 def _load_env_file(path: str) -> None:
+    if not path:
+        return
     try:
         for line in Path(path).read_text().splitlines():
             line = line.strip()
