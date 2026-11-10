@@ -81,11 +81,12 @@ export const PANELS: Record<PanelId, PanelDef> = {
  decision:{t:'Pendiente de tu decisión',i:'decision',d:'Señales que esperan verificación humana.',w:6},
  actividad:{t:'Actividad reciente',i:'actividad',d:'Registro de comprobaciones y decisiones.',w:6},
  temas:{t:'Temas emergentes',i:'temas',d:'Macrotemas que agrupa AVIA y su tendencia.',w:5},
- categorias:{t:'Señales por categoría',i:'categorias',d:'Reparto entre oportunidades, riesgos y mixtas.',w:7}
+ categorias:{t:'Señales por categoría',i:'categorias',d:'Reparto entre oportunidades, riesgos y mixtas.',w:7},
+ valoracion:{t:'Valoración del público',i:'check',d:'Votos «¿Te fue útil?» de la web pública, para la revisión semanal.',w:6}
 };
 export const PRESETS: Record<string, Preset> = {
  ejecutivo:{n:'Ejecutivo',l:[['sintesis',8],['pulso',4],['oportunidades',6],['riesgos',6],['mapa',5],['evolucion',7]]},
- analista:{n:'Analista',l:[['decision',6],['fuentes',6],['cadena',4],['temas',4],['actividad',4],['categorias',12]]},
+ analista:{n:'Analista',l:[['decision',6],['fuentes',6],['valoracion',6],['actividad',6],['temas',4],['cadena',4],['categorias',4]]},
  operacion:{n:'Operación (fuentes)',l:[['fuentes',12],['actividad',6],['pulso',6],['evolucion',12]]},
  sencillo:{n:'Sencillo',l:[['sintesis',12],['oportunidades',6],['riesgos',6]]}
 };

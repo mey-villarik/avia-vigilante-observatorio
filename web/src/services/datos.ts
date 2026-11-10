@@ -32,6 +32,8 @@ interface JSenal {
   fecha_limite?: string | null; tipoOpp?: string | null; actores?: string[] | null; importancia?: string | null;
   soluciones?: { t: string; d?: string | null }[] | null; revision?: string | null; actualizacion?: string | null;
   detectada?: string | null;
+  /** desde el 16: plazo de revisión, si ya venció y si es una predicción */
+  revision_vence?: string | null; revision_vencida?: string | null; escenario?: boolean | null;
 }
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
@@ -89,6 +91,18 @@ export function normTipo(t?: string | null): string {
 
 const ESTADOS: EstadoFuente[] = ['OK', 'WARN', 'CRIT', 'UNKNOWN', 'MANT'];
 const estado = (e?: string | null): EstadoFuente => (ESTADOS.includes(e as EstadoFuente) ? (e as EstadoFuente) : 'UNKNOWN');
+/** códigos de la base que la web llama de otra forma */
+const CAT_ALIAS: Record<string, CategoriaId> = { financiamiento: 'financiacion', mercados: 'mercado' };
+const catWeb = (c?: string | null): CategoriaId =>
+  (c && c in CATS ? c : (c && CAT_ALIAS[c]) || 'mercado') as CategoriaId;
+
+/** minutos que quedan para revisar, o vencida (16_tareas_programadas.sql) */
+function plazoRevision(s: JSenal, ahora: number): { sla?: number | null; revisionVencida?: boolean } {
+  if (!s.revision_vence) return {};
+  const quedan = Math.ceil((Date.parse(s.revision_vence) - ahora) / 60000);
+  return quedan > 0 ? { sla: quedan } : { sla: null, revisionVencida: true };
+}
+
 const ETAPAS: Etapa[] = ['detectada', 'en_analisis', 'en_verificacion', 'confirmada', 'publicada', 'descartada'];
 const NATS: Naturaleza[] = ['oportunidad', 'riesgo', 'mixta'];
 const PRIOS: Prioridad[] = ['alta', 'media', 'baja'];
@@ -135,7 +149,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       titulo: s.titulo,
       resumen: s.resumen ?? '',
       naturaleza: NATS.includes(s.naturaleza as Naturaleza) ? (s.naturaleza as Naturaleza) : 'mixta',
-      categoria: (s.categoria && s.categoria in CATS ? s.categoria : 'mercado') as CategoriaId,
+      categoria: catWeb(s.categoria),
       deps: s.deps ?? [],
       destinos: s.destinos ?? [],
       estado: ETAPAS.includes(s.estado as Etapa) ? (s.estado as Etapa) : 'detectada',
@@ -147,6 +161,8 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       enlaces,
       corr: enlaces.length,
       min: minutosDesde(s.detectada, ahora) ?? 0,
+      ...plazoRevision(s, ahora),
+      escenario: s.escenario || undefined,
       plazo: diasHasta(s.fecha_limite, ahora),
       tipoOpp: s.tipoOpp ?? undefined,
       actores: s.actores?.length ? s.actores : undefined,

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import type { Etapa, Fuente } from '../types';
 import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
-import { ago, clock } from '../lib/util';
+import { ago, clock, plazoTexto } from '../lib/util';
 import { Icon } from './Icon';
 import { Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
@@ -152,7 +152,11 @@ function SenalDetalle({ id }: { id: string }) {
       <div className="drawer-b">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <NatPill n={s.naturaleza} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span>
+          {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
+          {s.revisionVencida && <span className="tag vencida">Plazo de revisión vencido</span>}
+          {!s.revisionVencida && s.sla ? <span className="sla">⏱ {plazoTexto(s.sla)} para revisar</span> : null}
         </div>
+        {s.escenario && <p className="note" style={{ margin: '8px 0 0' }}>Es una predicción de AVIA, no un hecho comprobado. Se queda en el panel del equipo y no sale en la web pública ni en Telegram.</p>}
         <h2>{s.titulo}</h2>
         <p className="lead">{s.resumen}</p>
         <div className="dl">

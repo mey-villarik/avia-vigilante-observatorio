@@ -31,7 +31,7 @@ function Voto({ a }: { a: AlertaPublica }) {
 function Tarjeta({ a }: { a: AlertaPublica }) {
   const plazo = a.plazo_hasta ? Math.ceil((new Date(a.plazo_hasta).getTime() - Date.now()) / 864e5) : null;
   return (
-    <article className={`pub-card nat-b-${a.naturaleza}`}>
+    <article className={`pub-card nat-b-${a.naturaleza}${a.actual ? '' : ' pub-anterior'}`} id={`alerta-${a.id}`}>
       <div className="pub-meta">
         <NatPill n={a.naturaleza} />
         {a.verificacion === 'en_verificacion'
@@ -39,6 +39,7 @@ function Tarjeta({ a }: { a: AlertaPublica }) {
           : <span className="tag pub-ok">Verificada</span>}
         {a.categoria_nombre && <span className="tag">{a.categoria_nombre}</span>}
         {a.prioridad === 'alta' && <span className="tag pub-alta">Prioridad alta</span>}
+        {!a.actual && <span className="tag">Anterior</span>}
       </div>
       <h2>{a.titulo}</h2>
       <p>{a.texto}</p>
@@ -48,6 +49,8 @@ function Tarjeta({ a }: { a: AlertaPublica }) {
         {a.deps.length > 0 && <div><dt>Dónde</dt><dd>{a.deps.join(', ')}</dd></div>}
         {a.destinos.length > 0 && <div><dt>Destinos</dt><dd>{a.destinos.join(', ')}</dd></div>}
         {plazo != null && plazo >= 0 && <div><dt>Plazo</dt><dd>{plazo === 0 ? 'Hoy' : `${plazo} días`} ({fecha(a.plazo_hasta!)})</dd></div>}
+        {plazo != null && plazo < 0 && <div><dt>Plazo</dt><dd>Cerrado el {fecha(a.plazo_hasta!)}</dd></div>}
+        {a.fecha_evento && <div><dt>Fecha del evento</dt><dd>{fecha(a.fecha_evento)}</dd></div>}
         <div><dt>Publicada</dt><dd>{ago(minutosDesde(a.publicada_en))}</dd></div>
       </dl>
       <div className="pub-pie">
@@ -60,26 +63,56 @@ function Tarjeta({ a }: { a: AlertaPublica }) {
   );
 }
 
+type Periodo = 'actuales' | '30' | 'todo';
+const PERIODOS: [Periodo, string][] = [['actuales', 'Actuales'], ['30', 'Últimos 30 días'], ['todo', 'Todo lo guardado']];
+const PRIOS: ['all' | 'alta' | 'media' | 'baja', string][] = [['all', 'Cualquier prioridad'], ['alta', 'Prioridad alta'], ['media', 'Prioridad media'], ['baja', 'Prioridad baja']];
+
+function Resumen({ d }: { d: Publicas }) {
+  const r = d.resumen;
+  if (!r) return null;
+  const items = r.alertas.map((id) => d.alertas.find((a) => a.id === id)).filter((a): a is AlertaPublica => Boolean(a));
+  return (
+    <section className="pub-resumen" aria-labelledby="pubResumenT">
+      <h2 id="pubResumenT">Resumen del día <small>{fecha(r.fecha + 'T12:00:00')}</small></h2>
+      {items.length
+        ? <ol>{items.map((a) => <li key={a.id}><a href={`#alerta-${a.id}`}>{a.titulo}</a>{a.deps.length > 0 && <small> · {a.deps.join(', ')}</small>}</li>)}</ol>
+        : <p>{r.texto || d.mensajeVacio}</p>}
+    </section>
+  );
+}
+
 export function Publico() {
   const [d, setD] = useState<Publicas | null>(null);
   const [err, setErr] = useState('');
   const [nat, setNat] = useState<Naturaleza | 'all'>('all');
   const [dep, setDep] = useState('all');
+  const [cat, setCat] = useState('all');
+  const [prio, setPrio] = useState<'all' | 'alta' | 'media' | 'baja'>('all');
+  const [periodo, setPeriodo] = useState<Periodo>('actuales');
   const [q, setQ] = useState('');
+  const anteriores = periodo !== 'actuales';
 
   useEffect(() => {
-    const cargar = () => leerPublicas().then((x) => { setD(x); setErr(''); }).catch((e: Error) => setErr(e.message));
+    const cargar = () => leerPublicas(anteriores).then((x) => { setD(x); setErr(''); }).catch((e: Error) => setErr(e.message));
     void cargar();
     const t = setInterval(() => void cargar(), REFRESCO_MS);
     return () => clearInterval(t);
-  }, []);
+  }, [anteriores]);
 
   useEffect(() => { if (d) document.title = `Alertas · ${d.nombre}`; }, [d]);
 
-  const deps = useMemo(() => [...new Set((d?.alertas ?? []).flatMap((a) => a.deps))].sort(), [d]);
-  const lista = (d?.alertas ?? []).filter((a) => (nat === 'all' || a.naturaleza === nat)
+  const todas = d?.alertas ?? [];
+  const deps = useMemo(() => [...new Set(todas.flatMap((a) => a.deps))].sort(), [todas]);
+  const cats = useMemo(() => [...new Map(todas.map((a) => [a.categoria, a.categoria_nombre || a.categoria])).entries()]
+    .sort((x, y) => x[1].localeCompare(y[1])), [todas]);
+  const desde = periodo === '30' ? Date.now() - 30 * 864e5 : 0;
+  const lista = todas.filter((a) => (nat === 'all' || a.naturaleza === nat)
     && (dep === 'all' || a.deps.includes(dep))
+    && (cat === 'all' || a.categoria === cat)
+    && (prio === 'all' || a.prioridad === prio)
+    && (!desde || a.actual || new Date(a.publicada_en).getTime() >= desde)
     && (!q || norm(`${a.titulo} ${a.texto} ${a.destinos.join(' ')} ${a.deps.join(' ')}`).includes(norm(q))));
+  const filtrando = nat !== 'all' || dep !== 'all' || cat !== 'all' || prio !== 'all' || q !== '';
 
   return (
     <div className="pub">
@@ -91,29 +124,50 @@ export function Publico() {
         {d?.ejemplo && <p className="note">Ejemplo: esta página aún no está conectada a la base de datos.</p>}
       </header>
 
+      {d && !anteriores && !filtrando && <Resumen d={d} />}
+
       <div className="toolbar">
         <label className="sr" htmlFor="pubQ">Buscar</label>
         <input className="inp" id="pubQ" placeholder="Buscar por tema, lugar o destino" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="seg">
           {NAT_OPTS.map(([k, n]) => <button key={k} className={nat === k ? 'on' : ''} aria-pressed={nat === k} onClick={() => setNat(k)}>{n}</button>)}
         </div>
-        {deps.length > 1 && (
-          <>
-            <label className="sr" htmlFor="pubDep">Departamento</label>
-            <select id="pubDep" style={{ width: 'auto' }} value={dep} onChange={(e) => setDep(e.target.value)}>
-              <option value="all">Todos los departamentos</option>
-              {deps.map((x) => <option key={x}>{x}</option>)}
-            </select>
-          </>
-        )}
       </div>
+      <div className="toolbar pub-filtros">
+        <label className="sr" htmlFor="pubDep">Departamento</label>
+        <select id="pubDep" value={dep} onChange={(e) => setDep(e.target.value)}>
+          <option value="all">Todos los departamentos</option>
+          {deps.map((x) => <option key={x}>{x}</option>)}
+        </select>
+        <label className="sr" htmlFor="pubCat">Categoría</label>
+        <select id="pubCat" value={cat} onChange={(e) => setCat(e.target.value)}>
+          <option value="all">Todas las categorías</option>
+          {cats.map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+        </select>
+        <label className="sr" htmlFor="pubPrio">Prioridad</label>
+        <select id="pubPrio" value={prio} onChange={(e) => setPrio(e.target.value as typeof prio)}>
+          {PRIOS.map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+        </select>
+        <label className="sr" htmlFor="pubPer">Fecha</label>
+        <select id="pubPer" value={periodo} onChange={(e) => setPeriodo(e.target.value as Periodo)}>
+          {PERIODOS.map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+        </select>
+      </div>
+      {d && !anteriores && <p className="note pub-ventana">Se ven los riesgos y avisos de los últimos {d.dias} días y las oportunidades con plazo abierto.</p>}
 
       {err && <p className="pub-err" role="alert">No se pudieron cargar las alertas: {err}</p>}
       {!d && !err && <p className="note">Cargando…</p>}
       {d && lista.length === 0 && (
-        <p className="pub-vacio">{d.alertas.length ? 'Ninguna alerta coincide con el filtro.' : 'No hay alertas publicadas ahora mismo.'}</p>
+        <p className="pub-vacio">{todas.length ? 'Ninguna alerta coincide con el filtro.' : d.mensajeVacio}</p>
       )}
       <div className="pub-lista">{lista.map((a) => <Tarjeta key={a.id} a={a} />)}</div>
+
+      {d && !anteriores && d.nAnteriores > 0 && (
+        <p className="pub-mas"><button className="btn" onClick={() => setPeriodo('todo')}>Ver anteriores ({d.nAnteriores})</button></p>
+      )}
+      {d && anteriores && (
+        <p className="pub-mas"><button className="btn ghost" onClick={() => setPeriodo('actuales')}>Volver a las actuales</button></p>
+      )}
 
       <footer className="pub-foot">
         Información revisada por personas antes de publicarse. Lo que dice «En verificación» tiene fuente, pero el equipo aún la está comprobando. Se actualiza cada 5 minutos.
