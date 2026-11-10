@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import type { EstadoFuente } from '../types';
-import { STATE_TXT, catName } from '../data/demo';
+import { CATS, STATE_TXT, catName } from '../data/demo';
 import { METODO_TXT } from '../services/fuentes';
 import { conProblema, countStates, isAdmin, useStore } from '../store';
 import { ago, clock, norm } from '../lib/util';
@@ -7,6 +8,78 @@ import { Icon } from '../components/Icon';
 import { Histo, StPill } from '../components/common';
 
 const ESTADOS: EstadoFuente[] = ['OK', 'WARN', 'CRIT', 'UNKNOWN', 'MANT'];
+
+const QUIEN: Record<string, string> = { avia: 'AVIA', sincronizacion: 'una búsqueda', 'migracion-15': 'una propuesta antigua' };
+
+/** Fuentes que AVIA vio y no están en el catálogo. No se vigilan hasta que un administrador las aprueba. */
+function Candidatas() {
+  const role = useStore((s) => s.role);
+  const todas = useStore((s) => s.candidatas);
+  const decideCandidate = useStore((s) => s.decideCandidate);
+  const [canal, setCanal] = useState<Record<number, string>>({});
+  const [ocupada, setOcupada] = useState<number | null>(null);
+  const pendientes = todas.filter((c) => c.estado === 'pendiente');
+  const decididas = todas.filter((c) => c.estado !== 'pendiente').slice(0, 5);
+  if (!todas.length) return null;
+  const admin = isAdmin(role);
+  const decidir = async (id: number, aprobar: boolean) => {
+    setOcupada(id);
+    await decideCandidate(id, aprobar, { categoria: canal[id] ?? 'turismo' });
+    setOcupada(null);
+  };
+
+  return (
+    <section className="propuestas candidatas" aria-label="Fuentes candidatas">
+      <h2>{pendientes.length
+        ? `${pendientes.length === 1 ? '1 fuente nueva espera' : `${pendientes.length} fuentes nuevas esperan`} tu decisión`
+        : 'Fuentes candidatas'}</h2>
+      <p className="note">{admin
+        ? 'AVIA solo vigila las fuentes del catálogo. Estas las vio en una noticia o una búsqueda: si apruebas una, entra en el catálogo y se lee desde la próxima ronda.'
+        : 'AVIA las vio en una noticia o una búsqueda. No se vigilan hasta que un administrador las aprueba.'}</p>
+      {pendientes.length > 0 && (
+        <ul>
+          {pendientes.map((c) => (
+            <li key={c.id}>
+              <div className="cand-txt">
+                <b>{c.nombre}</b>
+                <div className="srcurl">{/^https?:\/\//.test(c.url) ? <a href={c.url} target="_blank" rel="noopener noreferrer">{c.url}</a> : c.url}</div>
+                {c.motivo && <div className="note">Motivo: {c.motivo}</div>}
+                <div className="note">
+                  La propuso {QUIEN[c.propuesta_por] ?? c.propuesta_por} {ago(Math.max(0, (Date.now() - Date.parse(c.propuesta_en)) / 60000))}
+                  {c.veces > 1 && <> · vista {c.veces} veces</>}
+                </div>
+                {c.evidencia.length > 0
+                  ? (
+                    <div className="note">Visto en: {c.evidencia.map((e, i) => (
+                      <span key={e.id}>{i > 0 && ' · '}{/^https?:\/\//.test(e.url)
+                        ? <a href={e.url} target="_blank" rel="noopener noreferrer">{e.titulo || e.url}</a>
+                        : (e.titulo || 'noticia sin título')}</span>
+                    ))}</div>
+                  )
+                  : <div className="note">Sin noticia de respaldo: revisa la dirección antes de aprobarla.</div>}
+              </div>
+              {admin && (
+                <div className="acciones">
+                  <label className="sr" htmlFor={`cand-c-${c.id}`}>Canal de {c.nombre}</label>
+                  <select id={`cand-c-${c.id}`} value={canal[c.id] ?? 'turismo'} onChange={(e) => setCanal({ ...canal, [c.id]: e.target.value })}>
+                    {Object.entries(CATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                  <button className="btn primary" disabled={ocupada === c.id} onClick={() => void decidir(c.id, true)}>Aprobar</button>
+                  <button className="btn ghost" disabled={ocupada === c.id} onClick={() => void decidir(c.id, false)}>Rechazar</button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {decididas.length > 0 && (
+        <p className="note">Últimas decisiones: {decididas.map((c, i) => (
+          <span key={c.id}>{i > 0 && ' · '}{c.nombre} ({c.estado === 'aprobada' ? `aprobada${c.codigo ? `, ${c.codigo}` : ''}` : 'rechazada'})</span>
+        ))}</p>
+      )}
+    </section>
+  );
+}
 
 export function Fuentes() {
   const fuentes = useStore((s) => s.fuentes);
@@ -37,6 +110,7 @@ export function Fuentes() {
           <button className="btn primary" onClick={checkAll}><Icon name="refresh" /> {real ? 'Recargar datos' : 'Comprobar todas'}</button>
         </div>
       </section>
+      <Candidatas />
       {propuestas.length > 0 && (
         <section className="propuestas" aria-label="Propuestas de AVIA">
           <h2>AVIA propone cambiar cómo se leen {propuestas.length === 1 ? '1 fuente' : `${propuestas.length} fuentes`}</h2>

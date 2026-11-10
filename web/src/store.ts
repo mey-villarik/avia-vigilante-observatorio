@@ -6,7 +6,11 @@ import {
   CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
 } from './data/demo';
 import { cargarVps, convertir, type DatosVps } from './services/datos';
-import { decidirPropuesta, leerPropuestas, leerVigilanteBd, mezclarBd, type Propuesta } from './services/recolector';
+import {
+  decidirCandidata, decidirOportunidad, decidirPropuesta, leerCandidatas, leerPropuestas, leerVigilanteBd,
+  type AltaCandidata, type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
+} from './services/recolector';
+import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
@@ -73,6 +77,10 @@ interface State {
   eventos: Evento[];
   /** propuestas de AVIA sobre cómo leer una fuente (14_recolector_mcp.sql) */
   propuestas: Propuesta[];
+  /** fuentes que AVIA vio y no están en el catálogo: no se vigilan hasta que un administrador las aprueba (15) */
+  candidatas: Candidata[];
+  /** oportunidades guardadas en la base: hecho, interpretación, beneficiarios, acción y evidencias (15) */
+  oportunidades: Oportunidad[];
   tick: number;
   // capas
   drawer: Drawer | null;
@@ -112,6 +120,10 @@ interface Actions {
   askReview: (id: string) => void;
   /** el administrador aprueba o rechaza una propuesta de AVIA */
   decideProposal: (id: number, aprobar: boolean) => Promise<void>;
+  /** el administrador aprueba (entra en el catálogo) o rechaza una fuente candidata */
+  decideCandidate: (id: number, aprobar: boolean, alta?: AltaCandidata) => Promise<void>;
+  /** el equipo valida o descarta una oportunidad propuesta */
+  decideOpportunity: (id: number, estado: EstadoOportunidad) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
@@ -214,6 +226,8 @@ export const useStore = create<Store>()((set, get) => {
     pendientes: PENDIENTES_DEMO.map((s) => ({ ...s })),
     eventos: EVENTOS_DEMO.map((e) => ({ ...e })),
     propuestas: [],
+    candidatas: CANDIDATAS_DEMO.map((c) => ({ ...c })),
+    oportunidades: OPORTUNIDADES_DEMO.map((o) => ({ ...o })),
     tick: 0,
     drawer: null,
     searchOpen: false,
@@ -393,6 +407,40 @@ export const useStore = create<Store>()((set, get) => {
       }
     },
 
+    decideCandidate: async (id, aprobar, alta) => {
+      const c = get().candidatas.find((x) => x.id === id);
+      const marcar = () => set({ candidatas: get().candidatas.map((x) => (x.id === id
+        ? { ...x, estado: aprobar ? 'aprobada' : 'rechazada', decidida_en: new Date().toISOString() } : x)) });
+      if (get().origen === 'demo') {
+        marcar();
+        get().toast(aprobar ? `Ejemplo: ${c?.nombre ?? 'la fuente'} entraría en el catálogo.` : `Ejemplo: ${c?.nombre ?? 'la fuente'} quedaría rechazada.`);
+        return;
+      }
+      try {
+        await decidirCandidata(id, aprobar, undefined, alta);
+        marcar();
+        get().toast(aprobar
+          ? `${c?.nombre ?? 'La fuente'} entra en el catálogo: el recolector la lee desde su próxima ronda.`
+          : `Rechazada: ${c?.nombre ?? 'la fuente'} no se vigilará.`);
+        await get().loadRemote(true);
+      } catch (e) {
+        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+
+    decideOpportunity: async (id, estado) => {
+      const marcar = () => set({ oportunidades: get().oportunidades.map((x) => (x.id === id ? { ...x, estado } : x)) });
+      const txt = estado === 'validada' ? 'validada' : estado === 'descartada' ? 'descartada' : 'de nuevo como propuesta';
+      if (get().origen === 'demo') { marcar(); get().toast(`Ejemplo: oportunidad ${txt}.`); return; }
+      try {
+        await decidirOportunidad(id, estado);
+        marcar();
+        get().toast(`Oportunidad ${txt}.`);
+      } catch (e) {
+        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+
     editSource: async (id, a) => {
       try {
         await editarFuente(id, a);
@@ -492,15 +540,20 @@ export const useStore = create<Store>()((set, get) => {
       if (get().cargando) return;
       set({ cargando: true });
       try {
-        // 1. el archivo del VPS (vigilante.json); 2. lo que el recolector y AVIA guardan en la base
+        // Supabase es la referencia: con sesión, los datos salen de la base (vigilante_bd).
+        // El archivo vigilante.json del VPS solo se usa si la base aún no tiene datos (antes del 15)
+        // o no responde; ya no se mezclan los dos.
         let d: DatosVps | null = null;
         let errArchivo: unknown = null;
-        try { d = await cargarVps(get().perfil); } catch (e) { errArchivo = e; }
+        let candidatas: Candidata[] = [];  // sin sesión no hay candidatas (y no se muestran las de ejemplo)
         if (get().perfil) {
           const j = await leerVigilanteBd().catch(() => null);
-          const desdeBd = j && (j.fuentes?.length || j.senales?.length) ? convertir(j) : null;
-          if (desdeBd) d = d ? mezclarBd(d, desdeBd) : desdeBd;
+          d = j && (j.fuentes?.length || j.senales?.length) ? convertir(j) : null;
           leerPropuestas().then((propuestas) => set({ propuestas })).catch(() => undefined);
+          candidatas = await leerCandidatas().catch(() => []);
+        }
+        if (!d) {
+          try { d = await cargarVps(get().perfil); } catch (e) { errArchivo = e; }
         }
         if (!d) throw errArchivo ?? new Error('Sin datos');
         // con sesión: el estado de cada señal y los movimientos de las personas salen de la base de datos
@@ -522,6 +575,7 @@ export const useStore = create<Store>()((set, get) => {
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
           temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
+          oportunidades: d.oportunidades ?? [], candidatas,
         });
         if (primera) get().toast(`Datos reales del Vigilante: ${d.senales.length} señales, ${d.fuentes.length} fuentes.`);
         else if (!quiet) get().toast('Datos actualizados.');

@@ -1,0 +1,17 @@
+[Unit]
+Description=AVIA Chat API
+Documentation=https://github.com/mey-villarik/avia-vigilante-observatorio
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/avia
+ExecStart=/usr/bin/python3 /root/avia/avia_api.py
+EnvironmentFile=/root/avia/supabase.env
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

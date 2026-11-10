@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """MCP propio del Vigilante: las herramientas con las que AVIA (motor Hermes) trabaja sobre nuestra Supabase.
 
-AVIA no abre las fuentes: eso lo hace el recolector (sin IA). AVIA usa estas herramientas para:
-  - tomar las noticias que pasaron el filtro y convertir las importantes en señales,
-  - no repetir señales que ya existen,
-  - ver métricas de oportunidad y alertas tempranas calculadas en SQL,
-  - pedir búsquedas extra (script o Apify) y PROPONER cómo leer una fuente (lo aprueba el administrador).
+Desde la versión 2.0 (migración 15) Hermes es el AGENTE INVESTIGADOR, no el clasificador:
+  - el recolector (sin IA) lee las fuentes del catálogo y detecta cambios;
+  - el analizador (modelo breve, sin Hermes) clasifica las noticias nuevas y crea las señales;
+  - Hermes solo atiende las TAREAS que necesitan investigar: corroborar, resolver una contradicción,
+    relacionar señales u oportunidades inferidas, y escribe el radar diario.
+Hermes no puede crear fuentes (solo proponer candidatas con evidencia) ni señales sin noticias recogidas.
 
 Servidor MCP por stdio (JSON-RPC 2.0, un mensaje por línea). Solo biblioteca estándar de Python 3.9+.
 Variables: las mismas que el recolector (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VIGILANTE_CLIENTE),
@@ -22,13 +23,14 @@ import sys
 import urllib.error
 import urllib.request
 
-VERSION = '1.0.0'
+VERSION = '2.0.0'
 
 INSTRUCCIONES = (
-    'Herramientas del Vigilante AVIA sobre la base de datos del observatorio. '
-    'Flujo de una ronda: alertas_tempranas → noticias_pendientes → para cada grupo: buscar_senales (¿ya existe?), '
-    'y guardar_senal o descartar_noticias. Nunca inventes datos: copia cifras, fechas y nombres de la noticia. '
-    'Las señales quedan en «Detectada»; una persona decide si se publican.'
+    'Herramientas del Vigilante AVIA sobre la base de datos del observatorio. Eres el agente investigador: '
+    'tomar_tareas → investiga cada una (buscar_senales, pedir_busqueda, el MCP de AVIA) → guardar_senal (solo para '
+    'ACTUALIZAR con codigo, o nueva con noticias que existen), guardar_oportunidad (con evidencias) → terminar_tarea. '
+    'La procedencia (fuente, enlace) la pone la base desde las noticias: no la escribas. Si ves una fuente que convendría '
+    'vigilar, proponer_fuente (queda como candidata). Nunca inventes datos. Una persona decide qué se publica.'
 )
 
 
@@ -85,9 +87,8 @@ SENAL = {
         'fecha_evento_inicio': {'type': 'string', 'description': 'AAAA-MM-DD o ISO 8601 con -04:00'},
         'fecha_evento_fin': {'type': 'string'},
         'plazo_hasta': {'type': 'string', 'description': 'AAAA-MM-DD: cierre de una convocatoria o plazo'},
-        'fuente_id': {'type': 'string', 'description': 'Código de la fuente de la noticia principal'},
-        'fuente_oficial': {'type': 'boolean'},
-        'enlace_oficial': {'type': 'string'},
+        'enlace_oficial': {'type': 'string', 'description': 'Solo una dirección que aparece en las noticias de la señal. '
+                                                            'Si no hay enlace oficial comprobado, NO lo mandes: la base pide verificación.'},
         'requiere_revision': {'type': 'boolean'},
         'es_escenario': {'type': 'boolean', 'description': 'Proyección o predicción: true y la palabra «escenario» en el título'},
         'confianza': {'type': 'number', 'minimum': 0, 'maximum': 1},
@@ -98,27 +99,55 @@ SENAL = {
         'importancia': {'type': 'string', 'description': 'Por qué importa al turismo, 2 frases'},
         'soluciones': {'type': 'array', 'items': {'type': 'object', 'properties': {'t': {'type': 'string'}, 'd': {'type': 'string'}}},
                        'description': 'Acciones concretas: t = acción, d = detalle'},
-        'noticias': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'ids de noticias_pendientes de las que sale'},
+        'noticias': {'type': 'array', 'items': {'type': 'integer'},
+                     'description': 'ids de noticias recogidas que sostienen la señal (obligatorio para una nueva)'},
         'contexto_vigilante': {'type': 'object', 'description': 'Lo que devolvió el MCP de AVIA (antecedentes), si lo consultaste'},
     },
     'required': ['titulo', 'resumen'],
 }
 
 HERRAMIENTAS = [
-    {'name': 'noticias_pendientes',
-     'description': 'Noticias nuevas que pasaron el filtro sin IA, agrupadas (la misma en varias fuentes sale una vez, '
-                    'con fuentes_que_coinciden). Las de más puntaje primero. Quedan reservadas 2 horas: ciérralas con '
-                    'guardar_senal o descartar_noticias.',
-     'inputSchema': {'type': 'object', 'properties': {'limite': {'type': 'integer', 'minimum': 1, 'maximum': 40, 'default': 15}}},
-     'fn': 'noticias_pendientes', 'args': lambda a: {'p_limite': a.get('limite', 15)}},
-    {'name': 'descartar_noticias',
-     'description': 'Cierra noticias que no interesan al turismo (todas las ids del grupo).',
-     'inputSchema': {'type': 'object', 'properties': {'ids': {'type': 'array', 'items': {'type': 'integer'}},
-                                                      'motivo': {'type': 'string'}}, 'required': ['ids', 'motivo']},
-     'fn': 'marcar_noticias', 'args': lambda a: {'p_ids': a['ids'], 'p_estado': 'descartado', 'p_motivo': a.get('motivo')}},
+    {'name': 'tomar_tareas',
+     'description': 'Tareas que el clasificador o una regla dejaron para ti: corroborar, contradiccion, relacionar, '
+                    'oportunidad_inferida o radar. Cada una trae su señal y sus noticias. Quedan reservadas 2 horas: '
+                    'ciérralas con terminar_tarea.',
+     'inputSchema': {'type': 'object', 'properties': {'limite': {'type': 'integer', 'minimum': 1, 'maximum': 20, 'default': 5}}},
+     'fn': 'tomar_tareas', 'args': lambda a: {'p_limite': a.get('limite', 5)}},
+    {'name': 'terminar_tarea',
+     'description': 'Cierra una tarea: «hecha» con lo que encontraste (resultado) o «descartada» con el motivo.',
+     'inputSchema': {'type': 'object', 'properties': {
+         'id': {'type': 'integer'}, 'estado': {'type': 'string', 'enum': ['hecha', 'descartada']},
+         'resultado': {'type': 'object', 'description': 'p. ej. {"corroborada": true, "noticias": [ids], "nota": "..."}'}},
+         'required': ['id', 'estado']},
+     'fn': 'terminar_tarea', 'args': lambda a: {'p_id': a['id'], 'p_estado': a['estado'], 'p_resultado': a.get('resultado') or {}}},
+    {'name': 'guardar_oportunidad',
+     'description': 'Guarda una oportunidad apoyada en noticias de la base. Separa HECHO (lo que dice la fuente) de '
+                    'INTERPRETACIÓN (qué podría aprovechar el sector). Inferida = necesita interpretación y la palabra '
+                    '«podría»; no afirmes efectos sin datos. Queda como «propuesta» hasta que una persona la valide.',
+     'inputSchema': {'type': 'object', 'properties': {'oportunidad': {'type': 'object', 'properties': {
+         'senal': {'type': 'string', 'description': 'Código SEN-xxxx si sale de una señal'},
+         'nivel': {'type': 'string', 'enum': ['explicita', 'inferida'], 'default': 'inferida'},
+         'tipo': {'type': 'string', 'description': 'convocatoria, licitacion, evento, conectividad, financiamiento, formacion, normativa, demanda'},
+         'hecho': {'type': 'string'}, 'interpretacion': {'type': 'string'},
+         'beneficiarios': {'type': 'array', 'items': {'type': 'string'}}, 'accion': {'type': 'string'},
+         'plazo_hasta': {'type': 'string', 'description': 'AAAA-MM-DD si la fuente lo da'},
+         'importancia': {'type': 'integer', 'minimum': 1, 'maximum': 5},
+         'evidencias': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'ids de noticias de la base (obligatorio)'}},
+         'required': ['tipo', 'hecho', 'evidencias']}}, 'required': ['oportunidad']},
+     'fn': 'guardar_oportunidad', 'args': lambda a: {'p_op': a['oportunidad']}},
+    {'name': 'proponer_fuente',
+     'description': 'Propone vigilar una fuente que NO está en el catálogo. No la crea: queda como candidata y un '
+                    'administrador decide. Necesita una dirección real vista en noticias de la base (evidencia = sus ids).',
+     'inputSchema': {'type': 'object', 'properties': {
+         'nombre': {'type': 'string'}, 'url': {'type': 'string'}, 'motivo': {'type': 'string'},
+         'tipo': {'type': 'string', 'enum': ['oficial', 'organismo_internacional', 'medio', 'no_oficial']},
+         'evidencia': {'type': 'array', 'items': {'type': 'integer'}}}, 'required': ['nombre', 'url', 'motivo', 'evidencia']},
+     'fn': 'proponer_fuente', 'args': lambda a: {'p_nombre': a['nombre'], 'p_url': a['url'], 'p_motivo': a['motivo'],
+                                                  'p_evidencia': a.get('evidencia') or [], 'p_tipo': a.get('tipo')}},
     {'name': 'guardar_senal',
-     'description': 'Guarda una señal nueva (devuelve su código SEN-xxxx) o actualiza una existente si mandas codigo. '
-                    'Incluye en noticias las ids de las que sale. Queda en «Detectada» hasta que una persona la revise.',
+     'description': 'Actualiza una señal existente (con codigo) tras investigar, o guarda una nueva si hay noticias '
+                    'recogidas que la sostienen (noticias = sus ids; sin ellas la base la rechaza). La fuente, si es '
+                    'oficial y el enlace los pone la base. Queda en «Detectada» hasta que una persona la revise.',
      'inputSchema': {'type': 'object', 'properties': {'senal': SENAL}, 'required': ['senal']},
      'fn': 'guardar_senal', 'args': lambda a: {'p_senal': a['senal']}},
     {'name': 'buscar_senales',

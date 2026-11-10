@@ -4,10 +4,14 @@
 Cada vez que se ejecuta (cron cada 5 minutos):
   1. Pide a Supabase las fuentes activas y cuáles toca leer ya (según su frecuencia).
   2. Lee cada una según su método: RSS, Google News, GDELT, página web o Apify.
-     - Página web: si no cambió desde la última vez (misma huella), no hace nada.
+     - RSS y páginas: manda ETag / Last-Modified; si el servidor responde 304, no descarga nada.
+     - Página web: la huella se calcula sobre el texto ÚTIL (sin menús, cabecera, pie ni horas);
+       si no cambió desde la última vez, no hace nada.
      - Apify: solo si queda saldo del tope mensual (parámetro apify_tope_usd_mes).
-  3. Manda lo leído a vigilante.guardar_comprobacion(): la base descarta lo repetido, puntúa
-     cada noticia y deja para AVIA solo las que pasan el filtro.
+  3. Manda lo leído a vigilante.guardar_comprobacion(): la base reconoce cada documento (id del
+     proveedor o dirección normalizada), guarda una VERSIÓN nueva solo si su texto cambió,
+     descarta el ruido evidente, puntúa y deja para el clasificador solo lo que pasa el filtro.
+     La base también decide cuándo toca la próxima lectura (sources.proxima_revision_en).
   4. Hace las búsquedas extra que AVIA dejó en la cola (vigilante.busquedas).
 
 No usa IA y no gasta tokens. Solo usa la biblioteca estándar de Python 3.9+.
@@ -49,7 +53,7 @@ UA = 'Mozilla/5.0 (compatible; AVIA-Vigilante/1.0; recolector)'
 TIMEOUT = 25
 MAX_ITEMS = 50
 HILOS = 6
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 
 
 # ───────────────────────── configuración ─────────────────────────
@@ -95,15 +99,33 @@ class Supabase:
 
 
 # ───────────────────────── lectura de la red ─────────────────────────
+class NoModificado(Exception):
+    """El servidor respondió 304: el contenido no cambió desde la última lectura."""
+
+
+ULTIMAS_CABECERAS: dict[str, dict] = {}
+
+
 def descargar(url: str, *, datos: bytes | None = None, cabeceras: dict | None = None, timeout: int = TIMEOUT) -> tuple[int, bytes, str]:
     cab = {'User-Agent': UA, 'Accept': '*/*', 'Accept-Encoding': 'gzip', 'Accept-Language': 'es-BO,es;q=0.9'}
-    cab.update(cabeceras or {})
+    cab.update({k: v for k, v in (cabeceras or {}).items() if v})
     req = urllib.request.Request(url, data=datos, headers=cab, method='POST' if datos is not None else 'GET')
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        cuerpo = r.read()
-        if r.headers.get('Content-Encoding') == 'gzip':
-            cuerpo = gzip.decompress(cuerpo)
-        return r.status, cuerpo, r.headers.get('Content-Type', '')
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            cuerpo = r.read()
+            if r.headers.get('Content-Encoding') == 'gzip':
+                cuerpo = gzip.decompress(cuerpo)
+            ULTIMAS_CABECERAS[url] = {'etag': r.headers.get('ETag'), 'last_modified': r.headers.get('Last-Modified')}
+            return r.status, cuerpo, r.headers.get('Content-Type', '')
+    except urllib.error.HTTPError as e:
+        if e.code == 304:
+            raise NoModificado() from None
+        raise
+
+
+def condicional(f: dict) -> dict:
+    """Cabeceras para pedir solo si cambió (RFC 9110): el servidor responde 304 si no hay nada nuevo."""
+    return {'If-None-Match': f.get('etag'), 'If-Modified-Since': f.get('last_modified')}
 
 
 def sin_html(t: str | None) -> str:
@@ -152,27 +174,47 @@ def leer_feed(cuerpo: bytes) -> list[dict]:
             if k in campos and campos[k].text:
                 fecha = fecha_iso(campos[k].text)
                 break
+        guid = None
+        for k in ('guid', 'id'):
+            if k in campos and (campos[k].text or '').strip():
+                guid = campos[k].text.strip()[:300]
+                break
         if titulo and enlace:
-            items.append({'titulo': titulo, 'url': enlace, 'resumen': resumen[:1500], 'publicado_en': fecha})
+            it = {'titulo': titulo, 'url': enlace, 'resumen': resumen[:1500], 'publicado_en': fecha}
+            if guid:
+                it['id'] = guid
+            items.append(it)
     return items[:MAX_ITEMS]
 
 
+OMITIR = ('script', 'style', 'noscript', 'nav', 'header', 'footer', 'aside', 'form', 'svg', 'iframe')
+PRINCIPAL = ('main', 'article')
+
+
 class Enlaces(HTMLParser):
-    """Saca los enlaces con texto de una página (titulares) y su texto visible."""
+    """Saca los enlaces con texto de una página (titulares) y su texto ÚTIL.
+
+    Se ignora lo que cambia sin que haya noticias: menús, cabecera, pie, barras laterales,
+    formularios y scripts. Si la página tiene <main> o <article>, el texto útil es solo ese.
+    """
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.enlaces: list[tuple[str, str]] = []
         self.texto: list[str] = []
+        self.texto_principal: list[str] = []
         self._href: str | None = None
         self._buf: list[str] = []
         self._omitir = 0
+        self._principal = 0
         self.titulo = ''
         self._en_title = False
 
     def handle_starttag(self, tag, attrs):
-        if tag in ('script', 'style', 'noscript'):
+        if tag in OMITIR:
             self._omitir += 1
+        elif tag in PRINCIPAL:
+            self._principal += 1
         elif tag == 'a':
             self._href = dict(attrs).get('href')
             self._buf = []
@@ -180,8 +222,10 @@ class Enlaces(HTMLParser):
             self._en_title = True
 
     def handle_endtag(self, tag):
-        if tag in ('script', 'style', 'noscript') and self._omitir:
+        if tag in OMITIR and self._omitir:
             self._omitir -= 1
+        elif tag in PRINCIPAL and self._principal:
+            self._principal -= 1
         elif tag == 'a' and self._href:
             self.enlaces.append((self._href, re.sub(r'\s+', ' ', ''.join(self._buf)).strip()))
             self._href = None
@@ -189,18 +233,32 @@ class Enlaces(HTMLParser):
             self._en_title = False
 
     def handle_data(self, data):
-        if self._omitir:
-            return
         if self._en_title:
             self.titulo += data
+            return
+        if self._omitir:
+            return
         self.texto.append(data)
+        if self._principal:
+            self.texto_principal.append(data)
         if self._href is not None:
             self._buf.append(data)
 
 
-def leer_pagina(url: str, huella_anterior: str | None) -> tuple[list[dict], str, str]:
-    """Devuelve (items, huella, info). Si la página no cambió, items = []."""
-    _, cuerpo, tipo = descargar(url)
+HORAS = re.compile(r'\b\d{1,2}:\d{2}(:\d{2})?\s*(a\.?\s?m\.?|p\.?\s?m\.?|hrs?\.?)?', re.I)
+HACE = re.compile(r'\bhace \d+ (segundos?|minutos?|horas?)\b', re.I)
+
+
+def texto_util(p: 'Enlaces') -> str:
+    """Texto para comparar versiones: el principal si existe, sin horas ni «hace 5 minutos»."""
+    base = p.texto_principal if len(' '.join(p.texto_principal).split()) >= 30 else p.texto
+    t = re.sub(r'\s+', ' ', ' '.join(base)).strip()
+    return re.sub(r'\s+', ' ', HACE.sub(' ', HORAS.sub(' ', t))).strip()
+
+
+def leer_pagina(url: str, huella_anterior: str | None, cabeceras: dict | None = None) -> tuple[list[dict], str, str]:
+    """Devuelve (items, huella, info). Si la página no cambió, items = []. Lanza NoModificado si hay 304."""
+    _, cuerpo, tipo = descargar(url, cabeceras=cabeceras)
     cod = 'utf-8'
     m = re.search(r'charset=([\w-]+)', tipo or '')
     if m:
@@ -208,7 +266,7 @@ def leer_pagina(url: str, huella_anterior: str | None) -> tuple[list[dict], str,
     texto_html = cuerpo.decode(cod, errors='replace')
     p = Enlaces()
     p.feed(texto_html)
-    visible = re.sub(r'\s+', ' ', ' '.join(p.texto)).strip()
+    visible = texto_util(p)
     huella = hashlib.sha256(visible.encode()).hexdigest()[:32]
     if huella_anterior and huella == huella_anterior:
         return [], huella, 'Sin cambios desde la última lectura'
@@ -223,9 +281,10 @@ def leer_pagina(url: str, huella_anterior: str | None) -> tuple[list[dict], str,
             continue
         vistos.add(absoluto)
         items.append({'titulo': txt[:300], 'url': absoluto})
-    # una página sin titulares enlazados (p. ej. una tabla de avisos): la página entera es la novedad
+    # una página sin titulares enlazados (p. ej. una tabla de avisos): la página entera es UN documento;
+    # cuando su texto útil cambia, la base guarda una versión nueva (misma dirección)
     if not items:
-        items = [{'titulo': (sin_html(p.titulo) or url)[:300], 'url': f'{url}#h{huella[:12]}', 'resumen': visible[:1500]}]
+        items = [{'titulo': (sin_html(p.titulo) or url)[:300], 'url': url, 'resumen': visible[:3000]}]
     return items[:MAX_ITEMS], huella, f'Página cambiada: {len(items)} enlaces'
 
 
@@ -299,11 +358,12 @@ def leer_fuente(f: dict, sb: Supabase | None, apify_saldo: float) -> dict:
     """Devuelve {estado, info, items, huella, costo}. No escribe en la base."""
     metodo, url, cfg = f['metodo'], f['url'], f.get('config') or {}
     if metodo == 'rss':
-        _, cuerpo, _ = descargar(url)
+        _, cuerpo, _ = descargar(url, cabeceras=condicional(f))
         items = leer_feed(cuerpo)
         return {'estado': 'OK' if items else 'WARN', 'info': f'{len(items)} entradas' if items else 'El RSS no tiene entradas', 'items': items}
     if metodo == 'google_news_rss':
-        u = url if 'news.google.com/rss' in url else url_google_news(consulta_de(f), cfg)
+        # la dirección guardada solo sirve si ya trae la búsqueda (?q=); si no, se arma con la consulta de la fuente
+        u = url if 'news.google.com/rss' in url and 'q=' in url else url_google_news(consulta_de(f), cfg)
         _, cuerpo, _ = descargar(u)
         items = leer_feed(cuerpo)
         return {'estado': 'OK', 'info': f'{len(items)} noticias en Google News', 'items': items}
@@ -312,7 +372,7 @@ def leer_fuente(f: dict, sb: Supabase | None, apify_saldo: float) -> dict:
         items = leer_gdelt(u)
         return {'estado': 'OK', 'info': f'{len(items)} artículos en GDELT', 'items': items}
     if metodo == 'http_html':
-        items, huella, info = leer_pagina(url, f.get('huella'))
+        items, huella, info = leer_pagina(url, f.get('huella'), condicional(f))
         return {'estado': 'OK', 'info': info, 'items': items, 'huella': huella}
     if metodo == 'apify':
         actor = f.get('apify_actor')
@@ -330,6 +390,9 @@ def procesar_fuente(f: dict, sb: Supabase, prueba: bool, apify_saldo: float, eje
     t0 = time.time()
     try:
         r = leer_fuente(f, sb, apify_saldo)
+        r.update({k: v for k, v in (ULTIMAS_CABECERAS.get(f['url']) or {}).items() if v})
+    except NoModificado:
+        r = {'estado': 'OK', 'info': 'Sin cambios (304)', 'items': [], 'no_modificado': True}
     except urllib.error.HTTPError as e:
         r = {'estado': 'CRIT', 'info': f'HTTP {e.code} al leer {f["url"]}', 'items': []}
     except Exception as e:  # noqa: BLE001 — cualquier fallo de lectura es un CRIT de la fuente
@@ -340,9 +403,18 @@ def procesar_fuente(f: dict, sb: Supabase, prueba: bool, apify_saldo: float, eje
     if prueba:
         muestra = '; '.join(i['titulo'][:60] for i in r['items'][:3])
         return f'{f["codigo"]} [{r["estado"]}] {r["info"]} ({seg:.1f}s) · {muestra}'
-    res = sb.rpc('guardar_comprobacion', {'p_cliente': sb.cliente, 'p_codigo': f['codigo'], 'p_estado': r['estado'],
-                                          'p_info': r['info'], 'p_items': r['items'], 'p_huella': r.get('huella'),
-                                          'p_ejecucion': ejecucion})
+    args = {'p_cliente': sb.cliente, 'p_codigo': f['codigo'], 'p_estado': r['estado'], 'p_info': r['info'],
+            'p_items': r['items'], 'p_huella': r.get('huella'), 'p_ejecucion': ejecucion}
+    nuevos = {'p_etag': r.get('etag'), 'p_last_modified': r.get('last_modified'), 'p_no_modificado': bool(r.get('no_modificado'))}
+    try:
+        res = sb.rpc('guardar_comprobacion', {**args, **nuevos})
+    except RuntimeError as e:
+        # base sin el 15: la función aún no tiene los parámetros nuevos
+        if 'PGRST202' not in str(e) and 'Could not find the function' not in str(e):
+            raise
+        if r.get('no_modificado'):
+            args['p_items'] = []
+        res = sb.rpc('guardar_comprobacion', args)
     if r.get('costo'):
         sb.rpc('registrar_log', {'p_cliente': sb.cliente, 'p_proceso': 'apify', 'p_nivel': 'info',
                                  'p_mensaje': f'Apify en {f["codigo"]}', 'p_detalle': {'actor': f.get('apify_actor')},
