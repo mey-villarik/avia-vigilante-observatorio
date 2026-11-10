@@ -21,7 +21,7 @@ Instalación (VPS):
 Nunca pongas LLM_API_KEY ni SUPABASE_SERVICE_ROLE_KEY en Git ni en variables VITE_.
 """
 
-import json, os, re, sys, urllib.parse
+import json, os, re, sys, time, urllib.parse
 from pathlib import Path
 
 # ── aiohttp es la única dependencia externa ───────────────────────────────────
@@ -60,6 +60,9 @@ LLM_MODEL = os.environ.get('LLM_MODEL', 'deepseek-chat')
 CLIENTE   = os.environ.get('VIGILANTE_CLIENTE', 'orbita-bolivia')
 API_KEY   = os.environ.get('AVIA_API_KEY', '')   # nginx inyecta este valor en el header
 PORT      = int(os.environ.get('AVIA_PORT', '8099'))
+
+_CTX_TTL  = 120   # segundos que se cachea el contexto de Supabase
+_ctx_cache: dict = {}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -109,10 +112,15 @@ async def _deepseek(session: aiohttp.ClientSession,
 
 
 async def _get_context(session: aiohttp.ClientSession, jwt: str | None) -> dict:
-    """Llama a vigilante_bd() en Supabase y devuelve el contexto actual."""
+    """Llama a vigilante_bd() en Supabase y devuelve el contexto actual (cacheado 2 min)."""
+    key = jwt or '__anon__'
+    cached = _ctx_cache.get(key)
+    if cached and time.time() - cached[0] < _CTX_TTL:
+        return cached[1]
     try:
         ctx = await _supabase_post(session, '/rest/v1/rpc/vigilante_bd', {}, jwt)
         if isinstance(ctx, dict) and 'senales' in ctx:
+            _ctx_cache[key] = (time.time(), ctx)
             return ctx
     except Exception:
         pass
@@ -125,14 +133,17 @@ async def handle_chat(request: web.Request) -> web.Response:
     if not _check_auth(request):
         return web.json_response({'error': 'unauthorized'}, status=401)
 
+    jwt = _extract_jwt(request.headers.get('Cookie', ''))
+    if not jwt:
+        return web.json_response({'error': 'Se requiere sesión iniciada'}, status=401)
+
     body    = await request.json()
     mensajes: list = body.get('mensajes', [])
     rol: str       = body.get('rol', 'visor')
-    jwt = _extract_jwt(request.headers.get('Cookie', ''))
 
     async with aiohttp.ClientSession() as session:
         ctx     = await _get_context(session, jwt)
-        senales = ctx.get('senales', [])[:20]
+        senales = ctx.get('senales', [])[:10]
         fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', None)][:5]
 
         system = f"""Eres AVIA, el asistente inteligente del Observatorio Turístico de Bolivia (ORBITA).
@@ -149,7 +160,7 @@ Puedes devolver comandos para mover la interfaz. En ese caso responde con un JSO
 Si no hay comandos, responde solo con texto plano."""
 
         try:
-            resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes)
+            resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=400)
             resp = resp.strip()
             # El modelo a veces devuelve JSON con comandos
             if resp.startswith('{'):
@@ -170,6 +181,8 @@ Si no hay comandos, responde solo con texto plano."""
 async def handle_analisis(request: web.Request) -> web.Response:
     if not _check_auth(request):
         return web.json_response({'error': 'unauthorized'}, status=401)
+    if not _extract_jwt(request.headers.get('Cookie', '')):
+        return web.json_response({'error': 'Se requiere sesión iniciada'}, status=401)
 
     body      = await request.json()
     tipo      = body.get('tipo', 'panorama')
@@ -197,6 +210,8 @@ Responde en markdown conciso para un funcionario de turismo. Máximo 400 palabra
 async def handle_evaluar(request: web.Request) -> web.Response:
     if not _check_auth(request):
         return web.json_response({'error': 'unauthorized'}, status=401)
+    if not _extract_jwt(request.headers.get('Cookie', '')):
+        return web.json_response({'error': 'Se requiere sesión iniciada'}, status=401)
 
     body          = await request.json()
     texto_noticia = body.get('texto', '')
