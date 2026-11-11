@@ -87,8 +87,7 @@ function Ventana({ a, cerrar }: { a: AlertaPublica; cerrar: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dlg = ref.current;
-    if (dlg && !dlg.open) dlg.showModal();
-    return () => dlg?.close();
+    if (dlg && !dlg.open) dlg.showModal(); // al desmontarse, el <dialog> sale de la página y se cierra solo
   }, []);
   return (
     <dialog ref={ref} className="pub-ventana-flot" aria-labelledby="pubDetT" onClose={cerrar}
