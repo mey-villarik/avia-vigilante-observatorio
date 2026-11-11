@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Etapa, Senal } from '../types';
 import { CATS, DEPS, STAGES } from '../data/demo';
 import { canDecide, useStore, type SigFilter } from '../store';
-import { ago, esReciente, norm, plazoTexto } from '../lib/util';
+import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
 import { NatPill } from '../components/common';
 
 function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: boolean; onDragStart: () => void; onDragEnd: () => void }) {
@@ -41,7 +41,10 @@ export function Senales() {
 
   const visibles = f.periodo === 'todo' ? senales : senales.filter((s) => esReciente(s));
   const ocultas = senales.length - visibles.length;
-  const list = visibles.filter((s) => (f.nat === 'all' || s.naturaleza === f.nat)
+  const pendientes = senales.filter(porRevisar);
+  const vencidas = pendientes.filter((s) => s.revisionVencida).length;
+  const list = visibles.filter((s) => (!f.revisar || porRevisar(s))
+    && (f.nat === 'all' || s.naturaleza === f.nat)
     && (f.dep === 'all' || s.deps.includes(f.dep))
     && (!f.q || norm(`${s.titulo} ${s.resumen} ${s.destinos.join(' ')} ${s.id}`).includes(norm(f.q))));
 
@@ -55,6 +58,17 @@ export function Senales() {
           <p className="sub"><a href="publico.html" target="_blank" rel="noopener noreferrer">Ver la web pública</a>: ahí aparece lo que está en «Publicada».</p>
         </div>
       </section>
+      {pendientes.length > 0 && (
+        <div className={`revisar-aviso ${vencidas ? 'vencida' : ''}`}>
+          <span>
+            <b>{pendientes.length} señal(es) esperan aprobación</b>
+            {vencidas ? ` · ${vencidas} con el plazo vencido. No se publican hasta que alguien las apruebe.` : ' · Tienes 1 hora para cada una; nada se publica sin aprobación.'}
+          </span>
+          <button className={`btn ${f.revisar ? '' : 'gold'}`} onClick={() => setSigFilter({ revisar: !f.revisar })}>
+            {f.revisar ? 'Ver todas' : 'Ver solo por revisar'}
+          </button>
+        </div>
+      )}
       <div className="toolbar">
         <label className="sr" htmlFor="sigQ">Buscar señales</label>
         <input className="inp" id="sigQ" placeholder="Buscar por título, destino o código" value={f.q} onChange={(e) => setSigFilter({ q: e.target.value })} />
@@ -80,6 +94,7 @@ export function Senales() {
       <div className="pipe">
         {STAGES.map(([k, n]) => {
           const ss = list.filter((s) => s.estado === k);
+          if (f.revisar) ss.sort((a, b) => (a.revisionVencida ? -1 : a.sla ?? 1e9) - (b.revisionVencida ? -1 : b.sla ?? 1e9));
           return (
             <div key={k} className={`stage ${over === k ? 'drop' : ''}`}
               onDragOver={(e) => { if (!dragId) return; e.preventDefault(); setOver(k); }}

@@ -48,6 +48,19 @@ export function Equipo() {
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
 
+  // id de Telegram (número): lo da el bot @userinfobot. Sirve para aprobar señales desde el grupo de analistas.
+  const ponerTelegram = async (p: Persona) => {
+    const v = window.prompt(`Id de Telegram de ${p.nombre} (un número; @userinfobot lo dice). Vacío para quitarlo.`, p.telegram ? String(p.telegram) : '');
+    if (v === null) return;
+    const t = v.trim();
+    if (t && !/^\d{4,15}$/.test(t)) { setError('El id de Telegram es un número (por ejemplo 123456789).'); return; }
+    try {
+      await actualizarPersona(p.id, { telegram: t ? Number(t) : null });
+      toast(t ? `${p.nombre} ya puede aprobar desde Telegram si es analista.` : `Se quitó el Telegram de ${p.nombre}.`);
+      await cargar();
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  };
+
   const alta = async (e: FormEvent) => {
     e.preventDefault();
     if (nueva.clave && nueva.clave.length < 8) { setError('La clave inicial necesita al menos 8 caracteres.'); return; }
@@ -76,7 +89,7 @@ export function Equipo() {
                 <li key={p.id} className={p.activo ? '' : 'off'}>
                   <div className="eq-n">
                     <b>{p.nombre}{yo && ' (tú)'}</b>
-                    <small>{p.email ?? 'sin correo'}{!p.conCuenta && ' · sin cuenta de acceso'}{!p.activo && ' · desactivada'}</small>
+                    <small>{p.email ?? 'sin correo'}{!p.conCuenta && ' · sin cuenta de acceso'}{!p.activo && ' · desactivada'}{p.telegram ? ' · Telegram ' + p.telegram : ''}</small>
                   </div>
                   <select aria-label={`Rol de ${p.nombre}`} value={p.rol} disabled={yo} onChange={(e) => void cambiar(p, { rol: e.target.value as Rol })}>
                     {ROLES.map(([k]) => <option key={k} value={k}>{ROLE_NAME[k]}</option>)}
@@ -84,6 +97,7 @@ export function Equipo() {
                   <div className="eq-a">
                     {!yo && <button className="btn sm" onClick={() => void cambiar(p, { activo: !p.activo })}>{p.activo ? 'Quitar acceso' : 'Devolver acceso'}</button>}
                     {!yo && p.email && p.conCuenta && <button className="btn sm ghost" onClick={() => setClaveDe({ p, modo: 'clave' })}>Poner clave</button>}
+                    <button className="btn sm ghost" title="Para aprobar señales con los botones del grupo de analistas" onClick={() => void ponerTelegram(p)}>Telegram</button>
                     {p.email && !p.conCuenta && p.activo && <button className="btn sm primary" onClick={() => setClaveDe({ p, modo: 'crear' })}>Crear cuenta</button>}
                   </div>
                 </li>

@@ -40,6 +40,22 @@ export async function moverSenal(codigo: string, estado: Etapa, nota?: string): 
   }
 }
 
+export interface Decision { ok: boolean; estado: Etapa | 'confirmada_publicada'; mensaje: string }
+
+/** Aprobar (y publicar) o rechazar una señal que espera revisión (db/generico/18_aprobacion_analista.sql) */
+export async function decidirSenal(codigo: string, aprobar: boolean, nota?: string): Promise<Decision> {
+  const { data, error } = await rpc(aprobar ? 'aprobar_senal' : 'rechazar_senal', { p_codigo: codigo, p_nota: nota || null });
+  if (error) {
+    const m = error.message;
+    if (/(aprobar|rechazar)_senal/.test(m) && /(not find|no existe|does not exist|schema cache)/i.test(m)) {
+      throw new Error('falta ejecutar db/generico/18_aprobacion_analista.sql en Supabase.');
+    }
+    if (/aún no está en la base/.test(m)) throw new Error(`${codigo} aún no está en la base de datos.`);
+    throw new Error(traducir(m.replace(/_/g, ' ')));
+  }
+  return data as Decision;
+}
+
 /** Movimientos hechos por personas, como eventos para la Bitácora */
 export async function leerMovimientos(ahora = Date.now()): Promise<Evento[]> {
   const { data, error } = await rpc('movimientos_senales', { p_limite: 50 });
