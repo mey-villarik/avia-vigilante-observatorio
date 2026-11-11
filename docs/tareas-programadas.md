@@ -11,7 +11,8 @@ Las tareas las hace **Supabase sola** con su programador interno (pg_cron): no u
 | Publicar al vencer (apagado) | cada minuto | Solo si se enciende `publicar_al_vencer`: lo que reproduce un aviso oficial con enlace se publica solo con la etiqueta «En verificación». |
 | Resumen diario | 08:00 hora de Bolivia | Las 7 alertas más importantes de las últimas 24 h, en un mensaje al canal de Telegram y arriba de la web pública. Sin alertas: «No hay alertas confirmadas en este momento». |
 | Recordatorios | cada 5 minutos | Convocatorias a 30, 15 y 5 días del cierre; eventos a 90, 60 y 30 días. Al canal de Telegram. |
-| Borrado | 03:00 hora de Bolivia | Lo que tenga más de 6 meses (señales cerradas o descartadas, noticias sueltas, resúmenes, registros). |
+| Borrado | 03:00 hora de Bolivia | Lo que tenga más de 6 meses: señales (salvo convocatorias o eventos aún por delante) con sus alertas y votos, noticias que ninguna señal usa, resúmenes, registros y el historial de pg_cron de más de 14 días. |
+| Envío a Telegram | cada minuto | Saca de la cola alertas, resúmenes y recordatorios (tarea del 13). |
 
 En la **web pública**, por defecto se ven los riesgos y avisos de los últimos 7 días y las oportunidades mientras su plazo siga abierto. El botón «Ver anteriores» y el filtro de fecha muestran el resto de lo guardado. También hay filtros de categoría y prioridad.
 
@@ -23,7 +24,19 @@ En el **panel**, la vista Señales muestra por defecto lo mismo (más lo que esp
 2. Supabase → **SQL Editor** → pega `db/generico/16_tareas_programadas.sql` → **Run**. Al final dice «Tareas programadas: …».
 3. Compila la web en tu PC (`npm run build` dentro de `web/`) y copia el contenido de `web/dist` al VPS en `/var/www/avia-vigilante-bolivia/web/dist`.
 
-Para ver las tareas: Supabase → **Integrations → Cron** (o `SELECT * FROM cron.job;`). Para lanzarlas a mano: `SELECT vigilante.tareas_programadas();`.
+4. Supabase → **SQL Editor** → pega `db/generico/17_tareas_control.sql` → **Run**. Termina con una tabla del estado de cada tarea.
+
+## Comprobar que corren
+
+```sql
+SELECT * FROM vigilante.estado_tareas();
+```
+
+Una fila por tarea (`vigilante-revision`, `vigilante-telegram`, `vigilante-tareas`, `vigilante-retencion`) con la última vez que corrió, cuántas veces en 24 h, cuántas fallaron y el último error. La última fila, «(envíos Telegram)», dice si falta el token del bot o si Telegram rechazó mensajes. La columna `estado` resume: `OK`, `FALLA`, `FALTA` o `Aún no ha corrido`.
+
+Si una parte de la tarea de cada 5 minutos falla (resumen o recordatorios), la otra sigue y el error queda en `vigilante.system_logs` con `proceso = 'tareas'`. El borrado nocturno también deja ahí cuánto borró.
+
+Para lanzarlas a mano: `SELECT vigilante.tareas_programadas();` · `SELECT vigilante.tarea_retencion();`. También se ven en Supabase → **Integrations → Cron**.
 
 ## Ajustes (tabla `vigilante.parametros`)
 
