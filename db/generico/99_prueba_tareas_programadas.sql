@@ -1,6 +1,8 @@
 -- Prueba de 16_tareas_programadas.sql: plazo de revisión, ventana de 7 días en la web pública,
 -- resumen diario, recordatorios y datos del panel.
 -- Requiere 01 a 16 (y 02 con el cliente orbita-bolivia). Termina en ROLLBACK: no deja nada.
+-- Prueba el comportamiento del 16 tal cual: ejecutarla ANTES del 18. Desde el 18 nada se publica
+-- sin aprobación al vencer el plazo (lo prueba 99_prueba_aprobacion.sql).
 BEGIN;
 \set ON_ERROR_STOP 1
 SET client_min_messages = warning;

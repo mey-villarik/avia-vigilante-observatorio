@@ -13,7 +13,7 @@ import {
 import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
-import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
+import { decidirSenal, leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
 } from './types';
@@ -35,6 +35,8 @@ export interface ChatMsg { id: number; role: 'a' | 'u'; text: string; act?: stri
 
 export interface Analisis { type: TipoAnalisis; scope: 'all' | 'oportunidad' | 'riesgo'; dep: string; text: string; q: string }
 export interface SigFilter {
+  /** solo las que esperan aprobación, primero las que vencen antes */
+  revisar?: boolean;
   nat: 'all' | 'oportunidad' | 'riesgo' | 'mixta'; dep: string; q: string;
   /** recientes = últimos 7 días, plazos abiertos y lo pendiente; todo = todo lo guardado */
   periodo: 'recientes' | 'todo';
@@ -129,6 +131,8 @@ interface Actions {
   /** el equipo valida o descarta una oportunidad propuesta */
   decideOpportunity: (id: number, estado: EstadoOportunidad) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
+  /** el analista aprueba (y se publica) o rechaza una señal que espera revisión */
+  decideReview: (id: string, aprobar: boolean, note?: string) => Promise<void>;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
   /** carga vigilante.json del VPS; si falla, deja los datos que hubiera */
@@ -502,6 +506,37 @@ export const useStore = create<Store>()((set, get) => {
         });
       }
       return true;
+    },
+    decideReview: async (id, aprobar, note = '') => {
+      const { role } = get();
+      const s = get().senales.find((x) => x.id === id);
+      if (!s || role === 'visor') return;
+      const quien = get().perfil?.nombre ?? ROLE_NAME[role];
+      const fin: Etapa = !aprobar ? 'descartada' : s.escenario ? 'confirmada' : 'publicada';
+      const poner = (to: Etapa, nota: string) => set({
+        senales: get().senales.map((x) => (x.id === id ? {
+          ...x, estado: to, sla: null, revisionVencida: false,
+          historial: [{ de: x.estado, a: to, quien, cuando: clock(0), nota }, ...(x.historial ?? [])],
+        } : x)),
+      });
+      const conBd = Boolean(get().perfil) && get().origen === 'vps';
+      if (!conBd) {
+        poner(fin, note);
+        logEvent({ t: 0, k: 'check', w: `${quien} ${aprobar ? 'aprobó' : 'rechazó'} ${id}`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
+        get().toast(aprobar ? (s.escenario ? `${id} aprobada (es un escenario: no se publica).` : `${id} aprobada y publicada.`) : `${id} rechazada.`);
+        return;
+      }
+      try {
+        const r = await decidirSenal(id, aprobar, note);
+        if (r.ok) {
+          poner(r.estado === 'confirmada_publicada' ? 'publicada' : r.estado, note);
+          logEvent({ t: 0, k: 'check', w: `${quien} ${aprobar ? 'aprobó' : 'rechazó'} ${id}`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
+        }
+        get().toast(`${id}: ${r.mensaje}`);
+        if (!r.ok) void get().loadRemote(true);
+      } catch (e) {
+        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+      }
     },
     addEvaluatedSignal: (r) => {
       const id = 'SEN-' + String(422 + get().senales.length).padStart(4, '0');

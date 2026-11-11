@@ -13,6 +13,8 @@ export interface Persona {
   rol: Rol;
   activo: boolean;
   conCuenta: boolean;
+  /** id de Telegram: con él puede aprobar desde el grupo de analistas (18_aprobacion_analista.sql) */
+  telegram: number | null;
 }
 
 const ROL_WEB: Record<string, Rol> = { administrador: 'admin', analista: 'analista', visor: 'visor' };
@@ -23,16 +25,18 @@ const tabla = () => {
 };
 
 export async function listarEquipo(): Promise<Persona[]> {
-  const { data, error } = await tabla().select('id, nombre, email, rol, activo, auth_user_id').order('nombre');
+  const { data, error } = await tabla().select('id, nombre, email, rol, activo, auth_user_id, telegram_chat_id').order('nombre');
   if (error) throw new Error(traducir(error.message));
   return (data ?? []).map((u) => ({
     id: u.id as string, nombre: u.nombre as string, email: (u.email as string | null) ?? null,
     rol: ROL_WEB[u.rol as string] ?? 'visor', activo: Boolean(u.activo), conCuenta: Boolean(u.auth_user_id),
+    telegram: u.telegram_chat_id == null ? null : Number(u.telegram_chat_id),
   }));
 }
 
-export async function actualizarPersona(id: string, cambios: { rol?: Rol; activo?: boolean }): Promise<void> {
+export async function actualizarPersona(id: string, cambios: { rol?: Rol; activo?: boolean; telegram?: number | null }): Promise<void> {
   const fila: Record<string, unknown> = {};
+  if (cambios.telegram !== undefined) fila.telegram_chat_id = cambios.telegram;
   if (cambios.rol) fila.rol = ROL_DB[cambios.rol];
   if (cambios.activo !== undefined) fila.activo = cambios.activo;
   const { error } = await tabla().update(fila).eq('id', id);

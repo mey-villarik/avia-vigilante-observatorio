@@ -43,6 +43,11 @@ export function plazoTexto(min: number): string {
 }
 
 /** Vista por defecto del panel: últimos días, plazos abiertos y lo que espera decisión */
+/** la señal espera la aprobación de una persona (18_aprobacion_analista.sql) */
+export function porRevisar(s: { sla?: number | null; revisionVencida?: boolean; estado: string }): boolean {
+  return (Boolean(s.sla) || Boolean(s.revisionVencida)) && ['detectada', 'en_analisis', 'en_verificacion'].includes(s.estado);
+}
+
 export function esReciente(s: { min: number; plazo?: number | null; estado: string }, dias = 7): boolean {
   return s.min <= dias * 1440 || (s.plazo != null && s.plazo >= 0)
     || ['detectada', 'en_analisis', 'en_verificacion'].includes(s.estado);
