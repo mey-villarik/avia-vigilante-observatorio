@@ -10,14 +10,17 @@
 import type { Evaluacion, Senal, TipoAnalisis } from '../types';
 import { CATS, DEPS } from '../data/demo';
 import { norm, scoreOf } from '../lib/util';
+import { sesionActual } from './auth';
 
 const API = (import.meta.env.VITE_AVIA_API_URL as string | undefined)?.replace(/\/$/, '');
 export const aviaConectado = Boolean(API);
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  // El token se pide en cada llamada: supabase-js lo renueva solo, así nunca viaja uno caducado.
+  const token = (await sesionActual().catch(() => null))?.access_token;
   const r = await fetch(API + path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Sb-Token': token } : {}) },
     credentials: 'include', // la sesión (login de AVIA) viaja en cookie, nunca una clave en el navegador
     body: JSON.stringify(body),
     signal,
