@@ -1,5 +1,6 @@
 -- =============================================================================
 -- AVIA Vigilante · Sincronización automática hecha por el propio Supabase
+-- OBSOLETO desde el 15 (la web lee la base). El 17 borra esta tarea. No ejecutar.
 -- Opcional. Cada 5 minutos Supabase descarga vigilante.json del VPS y lo pasa a
 -- las tablas con vigilante.sincronizar_vigilante(). No hay que tocar el VPS.
 --

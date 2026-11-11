@@ -198,6 +198,9 @@ COMMIT;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    -- vigilante-sincronizar (del 05) ya no sirve: desde el 15 la web lee la base y el VPS ya no
+    -- publica /data/vigilante.json (devuelve una página HTML y la tarea fallaba cada 5 minutos)
+    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'vigilante-sincronizar';
     -- cron.schedule con el mismo nombre actualiza la tarea existente
     PERFORM cron.schedule('vigilante-revision',  '* * * * *',   'SELECT vigilante.vencer_plazos_revision()');
     PERFORM cron.schedule('vigilante-telegram',  '* * * * *',   'SELECT vigilante.enviar_telegram_pendientes()');
