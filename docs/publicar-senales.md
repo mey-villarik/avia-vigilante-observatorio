@@ -89,4 +89,23 @@ Si la señal venía de «En verificación», el mensaje y la web lo indican («e
 
 En la web, `publico.html` lee `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` y `VITE_CLIENTE_PUBLICO` (por defecto `orbita-bolivia`). Sin Supabase muestra ejemplos.
 
-Al subirla al VPS, nginx debe servir `publico.html` tal cual. No hace falta ninguna regla especial.
+## Publicar la web en el VPS
+
+La web pública sale en la misma compilación que el panel (`dist/publico.html`), así que se publica junto con él y nginx la sirve tal cual: https://vigilante-bolivia.duckdns.org/publico.html. No hace falta ninguna regla especial.
+
+En el VPS, con el repo en `/root/avia-repo`:
+
+```bash
+bash /root/avia-repo/web/desplegar.sh claude/project-thread-3p1koa   # o main, cuando estén unidos los PR
+```
+
+El script actualiza el código, crea `web/.env.production` la primera vez a partir de la web ya publicada (solo valores públicos), compila con Node 20 o, si no hay, con Docker, guarda una copia `dist.bak-FECHA` y copia la nueva versión encima. Para volver atrás, copia esa carpeta de nuevo sobre `dist`.
+
+Después, para que cada aviso de Telegram lleve el enlace a la web, en el SQL Editor:
+
+```sql
+insert into vigilante.parametros (cliente_id, clave, valor)
+select id, 'web_publica_url', to_jsonb('https://vigilante-bolivia.duckdns.org/publico.html'::text)
+from vigilante.clientes where slug = 'orbita-bolivia'
+on conflict (cliente_id, clave) do update set valor = excluded.valor;
+```

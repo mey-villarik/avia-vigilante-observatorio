@@ -1,5 +1,5 @@
 // Web pública: lo que el equipo publicó desde el panel (Señales → Publicar). Sin login.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Naturaleza } from '../types';
 import { NatPill } from '../components/common';
 import { ago, norm } from '../lib/util';
@@ -28,10 +28,10 @@ function Voto({ a }: { a: AlertaPublica }) {
   );
 }
 
-function Tarjeta({ a }: { a: AlertaPublica }) {
+function Detalle({ a }: { a: AlertaPublica }) {
   const plazo = a.plazo_hasta ? Math.ceil((new Date(a.plazo_hasta).getTime() - Date.now()) / 864e5) : null;
   return (
-    <article className={`pub-card nat-b-${a.naturaleza}${a.actual ? '' : ' pub-anterior'}`} id={`alerta-${a.id}`}>
+    <article className={`pub-card pub-detalle nat-b-${a.naturaleza}`}>
       <div className="pub-meta">
         <NatPill n={a.naturaleza} />
         {a.verificacion === 'en_verificacion'
@@ -41,7 +41,7 @@ function Tarjeta({ a }: { a: AlertaPublica }) {
         {a.prioridad === 'alta' && <span className="tag pub-alta">Prioridad alta</span>}
         {!a.actual && <span className="tag">Anterior</span>}
       </div>
-      <h2>{a.titulo}</h2>
+      <h2 id="pubDetT">{a.titulo}</h2>
       <p>{a.texto}</p>
       {a.importancia && <><h3>Por qué importa al turismo</h3><p>{a.importancia}</p></>}
       {a.recomendacion && <><h3>Qué se recomienda</h3><p>{a.recomendacion}</p></>}
@@ -60,6 +60,41 @@ function Tarjeta({ a }: { a: AlertaPublica }) {
         <Voto a={a} />
       </div>
     </article>
+  );
+}
+
+// Recuadro de la cuadrícula: solo lo necesario para decidir si abrirla.
+function Recuadro({ a, abrir }: { a: AlertaPublica; abrir: () => void }) {
+  const lugar = a.deps.length ? a.deps.join(', ') : a.destinos.join(', ');
+  return (
+    <button type="button" className={`pub-recuadro nat-b-${a.naturaleza}${a.actual ? '' : ' pub-anterior'}`} onClick={abrir}
+      aria-haspopup="dialog">
+      <span className="pub-meta">
+        <NatPill n={a.naturaleza} />
+        {a.verificacion === 'en_verificacion' && <span className="tag pub-verif">En verificación</span>}
+        {a.prioridad === 'alta' && <span className="tag pub-alta">Prioridad alta</span>}
+      </span>
+      <span className="pub-recuadro-t">{a.titulo}</span>
+      <span className="pub-recuadro-s">
+        {[a.categoria_nombre, lugar, ago(minutosDesde(a.publicada_en))].filter(Boolean).join(' · ')}
+      </span>
+    </button>
+  );
+}
+
+// Ventana flotante con la noticia entera. <dialog> nativo: Esc cierra y el foco se queda dentro.
+function Ventana({ a, cerrar }: { a: AlertaPublica; cerrar: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dlg = ref.current;
+    if (dlg && !dlg.open) dlg.showModal(); // al desmontarse, el <dialog> sale de la página y se cierra solo
+  }, []);
+  return (
+    <dialog ref={ref} className="pub-ventana-flot" aria-labelledby="pubDetT" onClose={cerrar}
+      onClick={(e) => { if (e.target === e.currentTarget) cerrar(); }}>
+      <button type="button" className="pub-cerrar" onClick={cerrar} aria-label="Cerrar">×</button>
+      <Detalle a={a} />
+    </dialog>
   );
 }
 
@@ -91,6 +126,18 @@ export function Publico() {
   const [periodo, setPeriodo] = useState<Periodo>('actuales');
   const [q, setQ] = useState('');
   const anteriores = periodo !== 'actuales';
+  const idDeHash = () => { const m = /^#alerta-(-?\d+)$/.exec(window.location.hash); return m ? Number(m[1]) : null; };
+  const [abierta, setAbierta] = useState<number | null>(idDeHash);
+  useEffect(() => {
+    const h = () => setAbierta(idDeHash());
+    window.addEventListener('hashchange', h);
+    return () => window.removeEventListener('hashchange', h);
+  }, []);
+  const abrir = (id: number) => { window.location.hash = `alerta-${id}`; };
+  const cerrar = () => {
+    setAbierta(null);
+    if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+  };
 
   useEffect(() => {
     const cargar = () => leerPublicas(anteriores).then((x) => { setD(x); setErr(''); }).catch((e: Error) => setErr(e.message));
@@ -112,6 +159,7 @@ export function Publico() {
     && (prio === 'all' || a.prioridad === prio)
     && (!desde || a.actual || new Date(a.publicada_en).getTime() >= desde)
     && (!q || norm(`${a.titulo} ${a.texto} ${a.destinos.join(' ')} ${a.deps.join(' ')}`).includes(norm(q))));
+  const alertaAbierta = abierta != null ? todas.find((a) => a.id === abierta) ?? null : null;
   const filtrando = nat !== 'all' || dep !== 'all' || cat !== 'all' || prio !== 'all' || q !== '';
 
   return (
@@ -160,7 +208,8 @@ export function Publico() {
       {d && lista.length === 0 && (
         <p className="pub-vacio">{todas.length ? 'Ninguna alerta coincide con el filtro.' : d.mensajeVacio}</p>
       )}
-      <div className="pub-lista">{lista.map((a) => <Tarjeta key={a.id} a={a} />)}</div>
+      <div className="pub-lista">{lista.map((a) => <Recuadro key={a.id} a={a} abrir={() => abrir(a.id)} />)}</div>
+      {alertaAbierta && <Ventana key={alertaAbierta.id} a={alertaAbierta} cerrar={cerrar} />}
 
       {d && !anteriores && d.nAnteriores > 0 && (
         <p className="pub-mas"><button className="btn" onClick={() => setPeriodo('todo')}>Ver anteriores ({d.nAnteriores})</button></p>
