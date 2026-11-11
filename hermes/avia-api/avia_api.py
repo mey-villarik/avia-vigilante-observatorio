@@ -143,7 +143,12 @@ async def handle_chat(request: web.Request) -> web.Response:
 
     async with aiohttp.ClientSession() as session:
         ctx     = await _get_context(session, jwt)
-        senales = ctx.get('senales', [])[:10]
+        # 10 señales recientes + las que el usuario nombre (SEN-xxxx), aunque sean antiguas
+        todas   = ctx.get('senales', []) or []
+        txt     = ' '.join(str(m.get('content', '')) for m in mensajes[-3:] if isinstance(m, dict))
+        ids     = set(re.findall(r'SEN-\d+', txt))
+        pedidas = [x for x in todas if isinstance(x, dict) and any(str(v) in ids for v in x.values())]
+        senales = pedidas + [x for x in todas[:10] if x not in pedidas]
         fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', None)][:5]
 
         system = f"""Eres AVIA, el asistente inteligente del Observatorio Turístico de Bolivia (ORBITA).
@@ -172,6 +177,7 @@ Si no hay comandos, responde solo con texto plano."""
                     pass
             return web.json_response({'texto': resp})
         except Exception as e:
+            print('CHAT ERROR', repr(e), flush=True)
             return web.json_response(
                 {'texto': 'No pude contactar a la IA. Intenta de nuevo en un momento.'},
                 status=500
@@ -253,8 +259,45 @@ async def handle_health(request: web.Request) -> web.Response:
     return web.json_response({'ok': True, 'service': 'avia-api', 'cliente': CLIENTE})
 
 
+# ── Sesión: cookie sb-…-auth-token o cabecera X-Sb-Token, validada en Supabase Auth ──
+_jwt_ok: dict = {}
+
+
+async def _jwt_valido(jwt: str) -> bool:
+    """Comprueba el JWT contra Supabase Auth (cache 60 s)."""
+    c = _jwt_ok.get(jwt)
+    if c and c[0] > time.time():
+        return c[1]
+    ok = False
+    try:
+        async with aiohttp.ClientSession() as ses:
+            async with ses.get(f'{SB_URL}/auth/v1/user',
+                               headers={'apikey': SB_KEY, 'Authorization': f'Bearer {jwt}'},
+                               timeout=aiohttp.ClientTimeout(total=8)) as r:
+                ok = (r.status == 200)
+    except Exception:
+        ok = False
+    _jwt_ok[jwt] = (time.time() + 60, ok)
+    return ok
+
+
+@web.middleware
+async def _auth_mw(request, handler):
+    if request.method == 'POST':
+        jwt = _extract_jwt(request.headers.get('Cookie', ''))
+        if not jwt:
+            tok = request.headers.get('X-Sb-Token', '').strip()
+            if tok:
+                jwt = tok
+                ck = 'sb-web-auth-token=' + urllib.parse.quote(json.dumps({'access_token': tok}))
+                request = request.clone(headers={**request.headers, 'Cookie': ck})
+        if not jwt or not await _jwt_valido(jwt):
+            return web.json_response({'error': 'Se requiere sesión válida'}, status=401)
+    return await handler(request)
+
+
 # ── App ───────────────────────────────────────────────────────────────────────
-app = web.Application()
+app = web.Application(middlewares=[_auth_mw])
 app.router.add_post('/chat',    handle_chat)
 app.router.add_post('/analisis', handle_analisis)
 app.router.add_post('/evaluar', handle_evaluar)
