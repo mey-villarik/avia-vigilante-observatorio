@@ -5,10 +5,12 @@
 -- nuevas de sources.config: timeout_s, reintentos, urls_alternativas, extractor, respaldo).
 --
 -- Qué hace (solo cliente orbita-bolivia; se puede ejecutar varias veces):
---   1. Gaceta Oficial  → espera 90 s con 1 reintento, lee el listado por fecha (solo http) y, si la
---                        web sigue sin responder, lee las noticias sobre la Gaceta en Google News (aviso, no fallo).
---   2. Conoce Bolivia  → el dominio conocebolivia.turismoyculturas.gob.bo ya no responde; el portal
---                        está ahora en conocebolivia.produccion.gob.bo. Se cambia la dirección.
+--   1. Gaceta Oficial  → diagnóstico del VPS (2026-11-12): DNS bien, pero el servidor no acepta la conexión
+--                        desde el VPS (TCP agotado en 80 y 443). Intenta 30 s el listado por fecha y el buscador;
+--                        si no responde, lee las noticias sobre la Gaceta en Google News (aviso, no fallo).
+--   2. Conoce Bolivia  → turismoyculturas.gob.bo ya no existe (DNS falla). El portal está ahora en
+--                        conocebolivia.produccion.gob.bo, pero tampoco acepta conexiones desde el VPS:
+--                        se cambia la dirección y, mientras no responda, entra por respaldo de noticias.
 --   3. SENAMHI         → deja Apify: lectura directa de la tabla de avisos (cada fila = un aviso con su PDF)
 --                        y respaldo de noticias «Senamhi alerta». Si ya había otra fuente SENAMHI directa,
 --                        la de Apify se desactiva para no duplicar.
@@ -35,13 +37,13 @@ BEGIN
       url = 'http://www.gacetaoficialdebolivia.gob.bo/normas/listadofec',
       metodo = 'http_html',
       config = config - 'apify_actor' - 'apify_input' || jsonb_build_object(
-        'timeout_s', 90,
-        'reintentos', 1,
+        'timeout_s', 30,
+        'reintentos', 0,
         'urls_alternativas', jsonb_build_array('http://www.gacetaoficialdebolivia.gob.bo/normas/buscar'),
         'respaldo', jsonb_build_object(
           'metodo', 'google_news_rss',
           'query', '"Gaceta Oficial" OR "decreto supremo" Bolivia (turismo OR feriado OR "área protegida" OR aeropuerto OR visa)'),
-        'reparada', '2026-11-12: timeout 90 s + reintento + respaldo Google News'),
+        'reparada', '2026-11-12: el servidor no acepta conexiones desde el VPS (TCP agotado en 80 y 443); respaldo Google News'),
       gestionada_web = true,
       errores_seguidos = 0,
       proxima_revision_en = now(),
@@ -56,19 +58,19 @@ BEGIN
       url = 'https://conocebolivia.produccion.gob.bo/',
       metodo = 'http_html',
       config = config - 'apify_actor' - 'apify_input' || jsonb_build_object(
-        'timeout_s', 45,
-        'reintentos', 1,
+        'timeout_s', 20,
+        'reintentos', 0,
         'respaldo', jsonb_build_object(
           'metodo', 'google_news_rss',
-          'query', '"Conoce Bolivia" OR "Bolivia te espera" turismo'),
-        'url_anterior', 'https://conocebolivia.turismoyculturas.gob.bo/',
+          'query', '"Conoce Bolivia" OR "Bolivia te espera" OR "Viceministerio de Turismo" Bolivia'),
+        'url_anterior', coalesce(config ->> 'url_anterior', url),
         'reparada', '2026-11-12: el dominio turismoyculturas no responde; el portal pasó a produccion.gob.bo'),
       gestionada_web = true,
       errores_seguidos = 0,
       proxima_revision_en = now(),
       updated_at = now()
    WHERE cliente_id = c AND eliminada_en IS NULL
-     AND (url ILIKE '%conocebolivia%' OR codigo ILIKE '%conoce%bolivia%');
+     AND (url ILIKE '%conocebolivia%' OR codigo ILIKE 'conoce%');
   GET DIAGNOSTICS n = ROW_COUNT;
   RAISE NOTICE 'Conoce Bolivia: % fuente(s) actualizada(s)', n;
 
@@ -123,7 +125,7 @@ BEGIN
       nota = 'Sin Apify: se reparó con lectura directa, timeout, reintentos y respaldo (2026-11-12)'
     FROM vigilante.sources s
    WHERE p.source_id = s.id AND s.cliente_id = c AND p.estado = 'pendiente' AND p.metodo_propuesto = 'apify'
-     AND (s.url ILIKE ANY (ARRAY['%senamhi%', '%gacetaoficial%', '%conocebolivia%']));
+     AND (s.url ILIKE ANY (ARRAY['%senamhi%', '%gacetaoficial%', '%conocebolivia%']) OR s.codigo ILIKE 'conoce%');
 END $$;
 
 COMMIT;
@@ -135,7 +137,7 @@ SELECT codigo, activa, metodo, url, frecuencia_minutos AS cada_min,
        errores_seguidos, proxima_revision_en
   FROM vigilante.sources
  WHERE cliente_id = (SELECT id FROM vigilante.clientes WHERE slug = 'orbita-bolivia')
-   AND (url ILIKE '%senamhi%' OR url ILIKE '%gacetaoficial%' OR url ILIKE '%conocebolivia%')
+   AND (url ILIKE '%senamhi%' OR url ILIKE '%gacetaoficial%' OR url ILIKE '%conocebolivia%' OR codigo ILIKE 'conoce%')
  ORDER BY codigo;
 
 -- -----------------------------------------------------------------------------

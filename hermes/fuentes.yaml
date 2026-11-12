@@ -383,8 +383,8 @@ fuentes:
         url_verificacion: encontrada_no_abierta
     acceso:
       metodo: http_html
-      timeout_s: 90               # recolector 1.2 (2026-11-12)
-      reintentos: 1
+      timeout_s: 30               # recolector 1.2 (2026-11-12): el servidor no acepta conexiones desde el VPS → respaldo
+      reintentos: 0
       urls_alternativas: [http://www.gacetaoficialdebolivia.gob.bo/normas/buscar]
       respaldo: {metodo: google_news_rss, query: '"Gaceta Oficial" OR "decreto supremo" Bolivia (turismo OR feriado OR "área protegida" OR aeropuerto OR visa)'}
       extraer: "tipo de norma, número, fecha, número de edición, resumen; enlace a la norma (verGratis)"

@@ -5,12 +5,22 @@ herramienta para saber, desde el VPS, si un fallo es pasajero o definitivo.
 
 | Fuente | Fallo | Diagnóstico | Arreglo |
 | --- | --- | --- | --- |
-| Gaceta Oficial | Tiempo de espera agotado | Servidor muy lento y solo por http. Es **pasajero/crónico**: la web existe, pero tarda más que los 25 s del recolector. | Espera 90 s, 1 reintento, lee el listado por fecha (`/normas/listadofec`) y, si no responde, el buscador (`/normas/buscar`). Si tampoco responde, lee las noticias sobre la Gaceta en Google News y queda en **aviso**, no en fallo. |
-| Conoce Bolivia | El dominio no responde | **Definitivo**: `conocebolivia.turismoyculturas.gob.bo` dejó de funcionar. El portal (WordPress) aparece ahora en `conocebolivia.produccion.gob.bo` (los buscadores indexan allí sus catálogos y guías de 2025). | Nueva dirección `https://conocebolivia.produccion.gob.bo/`, espera 45 s y respaldo de noticias «Conoce Bolivia». Si el diagnóstico dice que el dominio nuevo tampoco responde desde el VPS, el SQL trae al final el bloque para dejarla **inactiva**. |
+| Gaceta Oficial | Tiempo de espera agotado | El servidor no acepta conexiones desde el VPS (ver diagnóstico abajo). | Espera 30 s el listado por fecha (`/normas/listadofec`) y el buscador (`/normas/buscar`). Si no responden, lee las noticias sobre la Gaceta en Google News y queda en **aviso**, no en fallo. |
+| Conoce Bolivia | El dominio no responde | **Definitivo**: `turismoyculturas.gob.bo` ya no existe. El portal (WordPress) aparece ahora en `conocebolivia.produccion.gob.bo` (los buscadores indexan allí sus catálogos y guías de 2025), pero tampoco acepta al VPS. | Nueva dirección `https://conocebolivia.produccion.gob.bo/`, espera 20 s y respaldo de noticias «Conoce Bolivia». Si el diagnóstico dice que el dominio nuevo tampoco responde desde el VPS, el SQL trae al final el bloque para dejarla **inactiva**. |
 | SENAMHI (Apify) | Sin saldo en Apify | **Definitivo** mientras no haya Apify. Pero Apify no hace falta: la tabla de avisos de `senamhi.gob.bo/alertas3.php` llega ya escrita en el HTML (número, fecha, nivel, inicio, fin y enlace al PDF). | Lectura directa con el recolector: cada fila de la tabla es un aviso con su PDF como enlace. Si la página no responde: `alertasanteriores1.php` y, al final, noticias «Senamhi alerta» de Google News marcadas como no oficiales. La fuente de Apify se desactiva si ya existe la directa. |
 
-> Las direcciones no se pudieron abrir desde la nube de Claude (la red las bloquea), así que el
-> diagnóstico definitivo se hace en el VPS con `diagnosticar_fuentes.py` (paso 1).
+## Diagnóstico real desde el VPS (2026-11-12)
+
+| Dirección | Resultado | Conclusión |
+| --- | --- | --- |
+| gacetaoficialdebolivia.gob.bo (http y https) | DNS bien, **TCP agotado** en 80 y 443, dos veces | El servidor no acepta conexiones desde la IP del VPS (o está caído). Esperar más no sirve: queda en respaldo |
+| turismoyculturas.gob.bo y conocebolivia.turismoyculturas.gob.bo | **DNS falla** | Definitivo: el dominio ya no existe |
+| conocebolivia.produccion.gob.bo | DNS bien, **TCP agotado** en 443 | Mismo caso que la Gaceta: no acepta al VPS |
+| senamhi.gob.bo (alertas3, alertasanteriores1, noticias) | HTTP 200 en 1-2 s | Funciona directo, sin Apify |
+
+Por eso la Gaceta y Conoce Bolivia esperan solo 30 s y 20 s (sin reintentos) y luego leen las noticias
+de respaldo. Los dos servidores que rechazan al VPS están en redes bolivianas: si se quiere la web
+oficial, habría que leerlas desde una conexión en Bolivia (por ejemplo un PC local o un proxy).
 
 ## Pasos
 
