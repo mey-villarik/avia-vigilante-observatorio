@@ -17,6 +17,7 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_tareas_programadas.sql` | Prueba del 16. Termina en `ROLLBACK`. |
 | `17_tareas_control.sql` | Borrado a los 6 meses que sí alcanza lo publicado, tareas que no se paran entre sí y `vigilante.estado_tareas()` para ver si corren. |
 | `99_prueba_tareas_control.sql` | Prueba del 17. Termina en `ROLLBACK`. |
+| `19_vigilante_bd_items.sql` | Arreglo: `vigilante_bd()` ya no falla cuando una fuente trae `items` como lista (`[]`), que dejaba al chat AVIA sin señales. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash
