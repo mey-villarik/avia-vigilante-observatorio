@@ -201,7 +201,7 @@ function Decision() {
           <div className="row">
             <NatPill n={s.naturaleza} /><span className="tag">{STL[s.estado]}</span>
             {s.revisionVencida
-              ? <span className="tag vencida" title="Pasó el plazo de revisión sin decisión">Plazo vencido</span>
+              ? <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>
               : s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : <span className="tag">{CATS[s.categoria]}</span>}
             {s.escenario && <span className="tag escenario">Escenario</span>}
           </div>
