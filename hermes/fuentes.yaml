@@ -55,8 +55,12 @@ fuentes:
         uso: pronósticos hidrológicos
         url_verificacion: encontrada_no_abierta
     acceso:
-      metodo: http_html          # la tabla llegó renderizada; si en n8n sale vacía, pasar a apify (Puppeteer)
-      alternativa: apify
+      metodo: http_html          # la tabla llega renderizada en el HTML: se lee directamente, SIN Apify (2026-11-12)
+      extractor: tabla           # recolector 1.2: cada fila (aviso + PDF) es un documento; tabla_filtro "ALERTA|AVISO"
+      timeout_s: 45
+      reintentos: 2
+      urls_alternativas: [https://senamhi.gob.bo/alertasanteriores1.php]
+      respaldo: {metodo: google_news_rss, query: "Senamhi (alerta OR aviso) (naranja OR roja OR amarilla OR lluvias OR helada OR crecida)"}
       extraer: "fila de la tabla: n° de aviso, fecha de publicación, título, nivel (color), fecha comienzo, fecha final, enlace PDF"
       leer_pdf: true             # los departamentos y municipios afectados están en el PDF, no en la tabla
     frecuencia_minutos: 30
@@ -301,9 +305,9 @@ fuentes:
       - url: https://www.turismoyculturas.gob.bo/feed/
         uso: RSS (el sitio parece WordPress)
         url_verificacion: no_verificada   # ⚠️ deducida; probar en n8n
-      - url: https://conocebolivia.turismoyculturas.gob.bo/
+      - url: https://conocebolivia.produccion.gob.bo/
         uso: portal Conoce Bolivia (eventos y destinos, semana 3)
-        url_verificacion: encontrada_no_abierta
+        url_verificacion: encontrada_no_abierta   # 2026-11-12: el dominio anterior conocebolivia.turismoyculturas.gob.bo ya no responde; el portal (WordPress) está ahora en produccion.gob.bo
       - url: https://www.boltur.gob.bo/blog-de-noticias
         uso: BolTur, empresa estatal de turismo (paquetes, ferias)
         url_verificacion: encontrada_no_abierta
@@ -371,15 +375,18 @@ fuentes:
     nombre: Gaceta Oficial del Estado Plurinacional de Bolivia
     institucion: Gaceta Oficial de Bolivia
     tipo: oficial
-    url: http://www.gacetaoficialdebolivia.gob.bo/normas/buscar
-    url_verificacion: encontrada_no_abierta   # ⚠️ NO VERIFICADA: aparece en buscador; el sitio bloquea lectores automáticos (robots). Solo http.
+    url: http://www.gacetaoficialdebolivia.gob.bo/normas/listadofec
+    url_verificacion: encontrada_no_abierta   # ⚠️ NO VERIFICADA: aparece en buscador; el sitio bloquea lectores automáticos (robots). Solo http. Muy lento: falla por tiempo de espera con 25 s
     urls_secundarias:
-      - url: http://www.gacetaoficialdebolivia.gob.bo/normas/listadofec
-        uso: listado de normas por fecha de publicación (la mejor entrada para vigilar novedades)
+      - url: http://www.gacetaoficialdebolivia.gob.bo/normas/buscar
+        uso: buscador de normas (dirección alternativa si el listado no responde)
         url_verificacion: encontrada_no_abierta
     acceso:
       metodo: http_html
-      alternativa: apify
+      timeout_s: 90               # recolector 1.2 (2026-11-12)
+      reintentos: 1
+      urls_alternativas: [http://www.gacetaoficialdebolivia.gob.bo/normas/buscar]
+      respaldo: {metodo: google_news_rss, query: '"Gaceta Oficial" OR "decreto supremo" Bolivia (turismo OR feriado OR "área protegida" OR aeropuerto OR visa)'}
       extraer: "tipo de norma, número, fecha, número de edición, resumen; enlace a la norma (verGratis)"
     frecuencia_minutos: 1440
     que_buscar:

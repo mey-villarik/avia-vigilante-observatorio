@@ -18,6 +18,7 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `17_tareas_control.sql` | Borrado a los 6 meses que sí alcanza lo publicado, tareas que no se paran entre sí y `vigilante.estado_tareas()` para ver si corren. |
 | `99_prueba_tareas_control.sql` | Prueba del 17. Termina en `ROLLBACK`. |
 | `19_vigilante_bd_items.sql` | `vigilante_bd()` ya no falla cuando una fuente trae `items` como lista, y panel, chat y web pública muestran solo lo vigente: con fechas hasta el último día; sin fechas, 24 h desde la última noticia (`vigilante.senal_vigente`). Tras el 19, la prueba del 16 que espera ver señales de hace 11 días deja de valer. |
+| `20_reparar_fuentes.sql` | Repara Gaceta Oficial (espera 90 s, reintento, respaldo Google News), Conoce Bolivia (nueva dirección `conocebolivia.produccion.gob.bo`) y SENAMHI (sin Apify: tabla de avisos leída directamente). Necesita el recolector 1.2.0. Ver `docs/reparar-fuentes.md`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

@@ -8,6 +8,14 @@ Cada vez que se ejecuta (cron cada 5 minutos):
      - Página web: la huella se calcula sobre el texto ÚTIL (sin menús, cabecera, pie ni horas);
        si no cambió desde la última vez, no hace nada.
      - Apify: solo si queda saldo del tope mensual (parámetro apify_tope_usd_mes).
+     Opciones por fuente (en sources.config), para webs lentas o que cambian de sitio:
+       timeout_s            segundos de espera de esa fuente (por defecto 25, máximo 180)
+       reintentos           nuevos intentos si no responde o da error 5xx (por defecto 0, máximo 3)
+       urls_alternativas    otras direcciones que se prueban, en orden, si la principal falla
+       extractor: "tabla"   lee una tabla fila a fila (p. ej. avisos SENAMHI); tabla_filtro = texto o
+                            expresión que debe tener la fila
+       respaldo             {"metodo": "google_news_rss", "query": "..."}: si nada responde, se leen
+                            las noticias sobre esa fuente y queda en aviso (WARN), no en fallo
   3. Manda lo leído a vigilante.guardar_comprobacion(): la base reconoce cada documento (id del
      proveedor o dirección normalizada), guarda una VERSIÓN nueva solo si su texto cambió,
      descarta el ruido evidente, puntúa y deja para el clasificador solo lo que pasa el filtro.
@@ -40,6 +48,7 @@ import html
 import json
 import os
 import re
+import socket
 import sys
 import time
 import urllib.error
@@ -53,7 +62,7 @@ UA = 'Mozilla/5.0 (compatible; AVIA-Vigilante/1.0; recolector)'
 TIMEOUT = 25
 MAX_ITEMS = 50
 HILOS = 6
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 
 
 # ───────────────────────── configuración ─────────────────────────
@@ -256,9 +265,71 @@ def texto_util(p: 'Enlaces') -> str:
     return re.sub(r'\s+', ' ', HACE.sub(' ', HORAS.sub(' ', t))).strip()
 
 
-def leer_pagina(url: str, huella_anterior: str | None, cabeceras: dict | None = None) -> tuple[list[dict], str, str]:
+class Tabla(HTMLParser):
+    """Filas de las tablas de una página: [(celdas de texto, enlaces)]."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.filas: list[tuple[list[str], list[str]]] = []
+        self._celdas: list[str] | None = None
+        self._enlaces: list[str] = []
+        self._buf: list[str] | None = None
+        self._omitir = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ('script', 'style'):
+            self._omitir += 1
+        elif tag == 'tr':
+            self._celdas, self._enlaces = [], []
+        elif tag in ('td', 'th') and self._celdas is not None:
+            self._buf = []
+        elif tag == 'a' and self._celdas is not None:
+            href = dict(attrs).get('href')
+            if href and not href.startswith(('#', 'javascript:', 'mailto:')):
+                self._enlaces.append(href)
+
+    def handle_endtag(self, tag):
+        if tag in ('script', 'style') and self._omitir:
+            self._omitir -= 1
+        elif tag in ('td', 'th') and self._buf is not None and self._celdas is not None:
+            self._celdas.append(re.sub(r'\s+', ' ', ''.join(self._buf)).strip())
+            self._buf = None
+        elif tag == 'tr' and self._celdas is not None:
+            if any(self._celdas):
+                self.filas.append((self._celdas, self._enlaces))
+            self._celdas, self._buf = None, None
+
+    def handle_data(self, data):
+        if self._buf is not None and not self._omitir:
+            self._buf.append(data)
+
+
+BOTONES = re.compile(r'(ver|ver pdf|descargar|pdf|abrir|m[aá]s|[+\-])', re.I)
+
+
+def filas_de_tabla(url: str, texto_html: str, cfg: dict) -> list[dict]:
+    """Una noticia por fila de tabla (p. ej. cada aviso de SENAMHI con su PDF)."""
+    t = Tabla()
+    t.feed(texto_html)
+    filtro = cfg.get('tabla_filtro')
+    patron = re.compile(filtro, re.I) if filtro else None
+    items = []
+    for celdas, enlaces in t.filas:
+        texto = ' | '.join(c for c in celdas if c and not BOTONES.fullmatch(c))
+        if len(celdas) < 2 or (patron and not patron.search(texto)):
+            continue
+        enlace = urllib.parse.urljoin(url, enlaces[0]) if enlaces else None
+        clave = hashlib.sha256(texto.encode()).hexdigest()[:16]
+        items.append({'titulo': texto[:300], 'url': enlace or f'{url}#fila-{clave}', 'resumen': texto[:1500],
+                      'id': enlace or f'{url}#fila-{clave}', 'extra': {'celdas': celdas[:12]}})
+    return items[:MAX_ITEMS]
+
+
+def leer_pagina(url: str, huella_anterior: str | None, cabeceras: dict | None = None,
+                timeout: int = TIMEOUT, cfg: dict | None = None) -> tuple[list[dict], str, str]:
     """Devuelve (items, huella, info). Si la página no cambió, items = []. Lanza NoModificado si hay 304."""
-    _, cuerpo, tipo = descargar(url, cabeceras=cabeceras)
+    cfg = cfg or {}
+    _, cuerpo, tipo = descargar(url, cabeceras=cabeceras, timeout=timeout)
     cod = 'utf-8'
     m = re.search(r'charset=([\w-]+)', tipo or '')
     if m:
@@ -270,6 +341,11 @@ def leer_pagina(url: str, huella_anterior: str | None, cabeceras: dict | None = 
     huella = hashlib.sha256(visible.encode()).hexdigest()[:32]
     if huella_anterior and huella == huella_anterior:
         return [], huella, 'Sin cambios desde la última lectura'
+    if cfg.get('extractor') == 'tabla':
+        filas = filas_de_tabla(url, texto_html, cfg)
+        if filas:
+            return filas, huella, f'Página cambiada: {len(filas)} filas de tabla'
+        # sin filas reconocibles: se sigue con la lectura normal (enlaces o página entera)
     base = urllib.parse.urlparse(url)
     vistos, items = set(), []
     for href, txt in p.enlaces:
@@ -354,17 +430,46 @@ def apify(actor: str, entrada: dict) -> tuple[list[dict], float]:
 
 
 # ───────────────────────── una fuente ─────────────────────────
-def leer_fuente(f: dict, sb: Supabase | None, apify_saldo: float) -> dict:
-    """Devuelve {estado, info, items, huella, costo}. No escribe en la base."""
-    metodo, url, cfg = f['metodo'], f['url'], f.get('config') or {}
+def _num(cfg: dict, clave: str, defecto: int, maximo: int) -> int:
+    try:
+        return max(0, min(int(cfg.get(clave, defecto)), maximo))
+    except (TypeError, ValueError):
+        return defecto
+
+
+def reintentable(e: Exception) -> bool:
+    """Fallos de red pasajeros (no responde, se corta, 5xx). Un 404 o un 403 no se reintenta."""
+    if isinstance(e, urllib.error.HTTPError):
+        return e.code >= 500 or e.code == 429
+    return isinstance(e, (TimeoutError, socket.timeout, ConnectionError, urllib.error.URLError))
+
+
+def explicar(e: Exception, timeout: int) -> str:
+    """Motivo legible del fallo, para la web y la bitácora."""
+    if isinstance(e, urllib.error.HTTPError):
+        return f'HTTP {e.code}'
+    motivo = getattr(e, 'reason', e)
+    if isinstance(motivo, (TimeoutError, socket.timeout)) or 'timed out' in str(motivo):
+        return f'no respondió en {timeout} s (tiempo de espera agotado)'
+    if isinstance(motivo, socket.gaierror):
+        return 'el dominio no existe o no resuelve (DNS)'
+    if isinstance(motivo, ConnectionRefusedError):
+        return 'el servidor rechazó la conexión'
+    return f'{type(e).__name__}: {str(e)[:160]}'
+
+
+def leer_directo(f: dict, url: str, apify_saldo: float, timeout: int, principal: bool) -> dict:
+    """Lee UNA dirección con el método de la fuente. Devuelve {estado, info, items, huella, costo}."""
+    metodo, cfg = f['metodo'], f.get('config') or {}
+    cond = condicional(f) if principal else None   # ETag/Last-Modified solo valen para la dirección principal
     if metodo == 'rss':
-        _, cuerpo, _ = descargar(url, cabeceras=condicional(f))
+        _, cuerpo, _ = descargar(url, cabeceras=cond, timeout=timeout)
         items = leer_feed(cuerpo)
         return {'estado': 'OK' if items else 'WARN', 'info': f'{len(items)} entradas' if items else 'El RSS no tiene entradas', 'items': items}
     if metodo == 'google_news_rss':
         # la dirección guardada solo sirve si ya trae la búsqueda (?q=); si no, se arma con la consulta de la fuente
         u = url if 'news.google.com/rss' in url and 'q=' in url else url_google_news(consulta_de(f), cfg)
-        _, cuerpo, _ = descargar(u)
+        _, cuerpo, _ = descargar(u, timeout=timeout)
         items = leer_feed(cuerpo)
         return {'estado': 'OK', 'info': f'{len(items)} noticias en Google News', 'items': items}
     if metodo == 'gdelt':
@@ -372,7 +477,7 @@ def leer_fuente(f: dict, sb: Supabase | None, apify_saldo: float) -> dict:
         items = leer_gdelt(u)
         return {'estado': 'OK', 'info': f'{len(items)} artículos en GDELT', 'items': items}
     if metodo == 'http_html':
-        items, huella, info = leer_pagina(url, f.get('huella'), condicional(f))
+        items, huella, info = leer_pagina(url, f.get('huella') if principal else None, cond, timeout, cfg)
         return {'estado': 'OK', 'info': info, 'items': items, 'huella': huella}
     if metodo == 'apify':
         actor = f.get('apify_actor')
@@ -386,6 +491,54 @@ def leer_fuente(f: dict, sb: Supabase | None, apify_saldo: float) -> dict:
     return {'estado': None, 'info': f'Método «{metodo}»: no lo lee el recolector', 'items': []}
 
 
+def leer_fuente(f: dict, sb: Supabase | None, apify_saldo: float) -> dict:
+    """Devuelve {estado, info, items, huella, costo}. No escribe en la base.
+
+    Prueba la dirección principal y luego las alternativas (config.urls_alternativas), cada una con
+    sus reintentos; si ninguna responde y hay config.respaldo, lee las noticias de respaldo (WARN).
+    """
+    cfg = f.get('config') or {}
+    timeout = _num(cfg, 'timeout_s', TIMEOUT, 180) or TIMEOUT
+    reintentos = _num(cfg, 'reintentos', 0, 3)
+    urls = [f['url']] + [u for u in (cfg.get('urls_alternativas') or []) if isinstance(u, str) and u and u != f['url']]
+    fallos: list[str] = []
+    ultimo: Exception | None = None
+    for n, url in enumerate(urls):
+        for intento in range(reintentos + 1):
+            try:
+                r = leer_directo(f, url, apify_saldo, timeout, principal=(n == 0))
+                if n > 0 and r.get('estado'):
+                    r['info'] = f'{r["info"]} · leída en la dirección alternativa {url} (la principal falló: {fallos[0]})'
+                    r['huella'] = None   # la huella guardada es de la dirección principal
+                elif intento and r.get('estado'):
+                    r['info'] = f'{r["info"]} · respondió al intento {intento + 1}'
+                return r
+            except NoModificado:
+                raise
+            except Exception as e:  # noqa: BLE001
+                ultimo = e
+                if not reintentable(e) or intento == reintentos:
+                    fallos.append(f'{url}: {explicar(e, timeout)}' + (f' tras {intento + 1} intentos' if intento else ''))
+                    break
+                time.sleep(min(5 * (intento + 1), 20))
+    resp = cfg.get('respaldo') or {}
+    if resp.get('metodo') in ('google_news_rss', 'gdelt'):
+        f_resp = {**f, 'metodo': resp['metodo'], 'url': resp.get('url') or '', 'query': resp.get('query') or f.get('query'),
+                  'config': {**cfg, **resp}}
+        try:
+            r = leer_directo(f_resp, f_resp['url'], apify_saldo, TIMEOUT, principal=False)
+            r['estado'] = 'WARN'
+            for it in r['items']:   # no son de la web oficial: noticias de prensa sobre ella
+                it['extra'] = {**(it.get('extra') or {}), 'respaldo': resp['metodo'], 'no_oficial': True}
+            r['info'] = f'La web no responde ({"; ".join(fallos)}). Se leyeron {len(r["items"])} noticias de respaldo ({resp["metodo"]})'
+            return r
+        except Exception as e:  # noqa: BLE001
+            fallos.append(f'respaldo {resp["metodo"]}: {explicar(e, TIMEOUT)}')
+    if isinstance(ultimo, urllib.error.HTTPError) and len(urls) == 1 and not resp:
+        raise ultimo   # se conserva el mensaje de siempre «HTTP 404 al leer …»
+    raise RuntimeError('; '.join(fallos) or 'sin respuesta')
+
+
 def procesar_fuente(f: dict, sb: Supabase, prueba: bool, apify_saldo: float, ejecucion: str) -> str:
     t0 = time.time()
     try:
@@ -395,6 +548,8 @@ def procesar_fuente(f: dict, sb: Supabase, prueba: bool, apify_saldo: float, eje
         r = {'estado': 'OK', 'info': 'Sin cambios (304)', 'items': [], 'no_modificado': True}
     except urllib.error.HTTPError as e:
         r = {'estado': 'CRIT', 'info': f'HTTP {e.code} al leer {f["url"]}', 'items': []}
+    except RuntimeError as e:  # mensajes ya explicados por leer_fuente
+        r = {'estado': 'CRIT', 'info': str(e)[:400], 'items': []}
     except Exception as e:  # noqa: BLE001 — cualquier fallo de lectura es un CRIT de la fuente
         r = {'estado': 'CRIT', 'info': f'{type(e).__name__}: {str(e)[:200]}', 'items': []}
     seg = time.time() - t0
