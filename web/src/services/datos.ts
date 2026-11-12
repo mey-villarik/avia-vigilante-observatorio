@@ -11,7 +11,7 @@ import type {
 import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
 import type { Oportunidad } from './recolector';
-import { fechaVencida, oportunidadVencida } from '../lib/vigencia';
+import { fechaVencida, vigente } from '../lib/vigencia';
 
 const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
 /** URL pública de respaldo; vacía = desactivada */
@@ -35,6 +35,8 @@ interface JSenal {
   detectada?: string | null;
   /** desde el 16: plazo de revisión, si ya venció y si es una predicción */
   revision_vence?: string | null; revision_vencida?: string | null; escenario?: boolean | null;
+  /** desde el 19: fechas del evento y última noticia que alimentó la señal */
+  evento_inicio?: string | null; evento_fin?: string | null; ultima_noticia?: string | null;
 }
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
@@ -142,10 +144,12 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     last: minutosDesde(f.ultima, ahora) ?? undefined,
   }));
 
-  // Oportunidades con el plazo vencido: fuera de la web (ni la ficha ni su señal)
+  // Solo lo vigente (lib/vigencia.ts): con fechas, hasta el último día; sin fechas, 24 h desde la última noticia.
+  // Una ficha de oportunidad vencida se va con su señal.
   const oportunidades = (j.oportunidades ?? []).filter((o) => !fechaVencida(o.plazo_hasta, ahora));
   const senalesDeVencidas = new Set((j.oportunidades ?? []).filter((o) => o.senal && fechaVencida(o.plazo_hasta, ahora)).map((o) => o.senal!));
-  const vigentes = (j.senales ?? []).filter((s) => !oportunidadVencida(s.naturaleza, s.fecha_limite, ahora)
+  const vigentes = (j.senales ?? []).filter((s) =>
+    vigente([s.fecha_limite, s.evento_inicio, s.evento_fin], s.ultima_noticia ?? s.detectada, ahora)
     && !(s.naturaleza !== 'riesgo' && senalesDeVencidas.has(s.id)));
 
   const senales: Senal[] = vigentes.map((s) => {

@@ -6,7 +6,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Naturaleza } from '../types';
 import { SENALES_DEMO, catName } from '../data/demo';
-import { oportunidadVencida } from '../lib/vigencia';
 
 const URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
 const KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
@@ -97,8 +96,8 @@ export async function leerPublicas(anteriores = false): Promise<Publicas> {
     nombre: d.nombre || 'Observatorio',
     telegramUrl: d.telegram_url || null,
     ejemplo: false,
-    // una oportunidad con el plazo vencido no se muestra, tampoco en «Ver anteriores»
-    alertas: (d.alertas ?? []).filter((a) => !oportunidadVencida(a.naturaleza, a.plazo_hasta))
+    // solo lo vigente: lo decide la base (vigilante.senal_vigente, db/generico/19), también en «Ver anteriores»
+    alertas: (d.alertas ?? []).filter((a) => a.actual !== false)
       .map((a) => ({ ...a, actual: a.actual ?? true, deps: a.deps ?? [], destinos: a.destinos ?? [] })),
     dias: d.dias_visibles ?? 7,
     nAnteriores: d.n_anteriores ?? 0,
