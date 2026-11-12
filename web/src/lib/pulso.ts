@@ -1,13 +1,19 @@
 // Pulso del observatorio: índices calculados con las señales reales que la web ya lee de Supabase.
 //
-// Antes la fórmula sumaba puntos fijos (38 + 14 por fuente caída + 8 por riesgo alto…) y llegaba
-// a 100 con muy pocas señales, así que casi siempre mostraba «100 de 100». Ahora:
+// Los índices miden lo SERIAS que son las señales activas, no cuántas hay (la cantidad se muestra
+// aparte, debajo de cada anillo). Sumar señales no sirve: con el volumen real (100+ señales en 48 h)
+// cualquier suma se queda pegada en 100.
 //
-// 1. Cada señal activa (no descartada) pesa según su prioridad, la confianza de AVIA y su etapa.
-// 2. Los pesos se suman y se convierten a 0-100 con una curva que crece rápido al principio y
-//    se acerca a 100 sin tocarlo de golpe: índice = 100 · (1 − e^(−suma / escala)).
-//    Así una señal leve mueve poco, varias señales graves suben mucho, y nunca se queda fijo en 100.
-// 3. Las fuentes no entran en los índices (una fuente caída no es un riesgo turístico), pero se
+// 1. Cada señal activa (no descartada) recibe un peso de 0 a 1:
+//    - riesgo: prioridad × confianza de AVIA × etapa (lo verificado pesa más que lo detectado);
+//    - oportunidad: puntuación de AVIA (relevancia, novedad, confianza) × etapa, y 0 si el plazo venció.
+// 2. El índice es el peso medio, con K señales «vacías» de más para que 1 o 2 señales sueltas
+//    no den un índice alto: índice = 100 · Σ pesos / (n + K).
+//    Ej.: 1 riesgo alto confirmado ≈ 33; 10 riesgos altos confirmados ≈ 77; 48 riesgos de todo tipo
+//    con la mitad altos y la mayoría sin decidir ≈ 45.
+// 3. El nivel Normal/Vigilancia/Atención/Crítico sale del índice de riesgo, con dos mínimos por volumen:
+//    un riesgo alto verificado → al menos Vigilancia; 5 o más → al menos Atención.
+// 4. Las fuentes no entran en los índices (una fuente caída no es un riesgo turístico), pero se
 //    informan como «cobertura» porque con fuentes caídas los índices pueden quedarse cortos.
 import type { Etapa, Fuente, Prioridad, Senal } from '../types';
 
@@ -15,12 +21,11 @@ const PESO_PRIORIDAD: Record<Prioridad, number> = { alta: 1, media: 0.5, baja: 0
 
 /** cuánto cuenta la señal según lo verificada que está */
 const PESO_ETAPA: Record<Etapa, number> = {
-  publicada: 1, confirmada: 1, en_verificacion: 0.8, en_analisis: 0.6, detectada: 0.6, descartada: 0,
+  publicada: 1, confirmada: 1, en_verificacion: 0.85, en_analisis: 0.7, detectada: 0.7, descartada: 0,
 };
 
-/** escala de la curva: con esta suma de pesos el índice llega a ~63 */
-const ESCALA_RIESGO = 3;   // p. ej. 3 riesgos altos confirmados ≈ 63
-const ESCALA_OPORTUNIDAD = 6; // hay más oportunidades que riesgos: 10 oportunidades normales ≈ 67
+/** señales «vacías» que se añaden al promedio para que pocas señales no den un índice alto */
+const K = 2;
 
 export type NivelVigilancia = 'Normal' | 'Vigilancia' | 'Atención' | 'Crítico';
 
@@ -43,7 +48,7 @@ export interface Pulso {
   };
 }
 
-const curva = (suma: number, escala: number) => Math.round(100 * (1 - Math.exp(-suma / escala)));
+const media = (suma: number, n: number) => Math.round((100 * suma) / (n + K));
 
 const confianza = (s: Senal) => 0.5 + 0.5 * Math.max(0, Math.min(1, s.conf ?? 0));
 
@@ -74,20 +79,22 @@ export function calcularPulso(senales: Senal[], fuentes: Fuente[]): Pulso {
     sumaOpp += Math.max(0, Math.min(1, valor)) * PESO_ETAPA[s.estado] * mixta * escenario;
   }
 
-  const riesgo = curva(sumaRiesgo, ESCALA_RIESGO);
-  const oportunidad = curva(sumaOpp, ESCALA_OPORTUNIDAD);
+  const riesgo = media(sumaRiesgo, riesgos.length);
+  const oportunidad = media(sumaOpp, opps.length);
   const riesgosAltos = riesgos.filter((s) => s.prioridad === 'alta').length;
 
   let vigilancia: NivelVigilancia = riesgo >= 75 ? 'Crítico' : riesgo >= 50 ? 'Atención' : riesgo >= 25 ? 'Vigilancia' : 'Normal';
-  // Regla mínima: un riesgo alto ya verificado nunca deja el nivel en «Normal».
-  if (vigilancia === 'Normal' && riesgos.some((s) => s.prioridad === 'alta' && ['confirmada', 'publicada'].includes(s.estado))) vigilancia = 'Vigilancia';
+  // Mínimos por volumen: riesgos altos ya verificados no pueden quedar en un nivel bajo.
+  const altosVerificados = riesgos.filter((s) => s.prioridad === 'alta' && s.naturaleza === 'riesgo' && ['confirmada', 'publicada'].includes(s.estado)).length;
+  if (altosVerificados >= 5 && (vigilancia === 'Normal' || vigilancia === 'Vigilancia')) vigilancia = 'Atención';
+  else if (altosVerificados >= 1 && vigilancia === 'Normal') vigilancia = 'Vigilancia';
 
   const conLectura = fuentes.filter((f) => f.estado !== 'MANT');
   return {
     riesgo,
     nivelRiesgo: riesgo >= 75 ? 'Muy alto' : riesgo >= 50 ? 'Alto' : riesgo >= 25 ? 'Moderado' : 'Bajo',
     oportunidad,
-    nivelOportunidad: opps.length === 0 ? 'Sin señales' : oportunidad >= 60 ? 'Favorable' : oportunidad >= 30 ? 'Moderada' : 'Escasa',
+    nivelOportunidad: opps.length === 0 ? 'Sin señales' : oportunidad >= 55 ? 'Favorable' : oportunidad >= 30 ? 'Moderada' : 'Escasa',
     vigilancia,
     datos: {
       activas: activas.length,
