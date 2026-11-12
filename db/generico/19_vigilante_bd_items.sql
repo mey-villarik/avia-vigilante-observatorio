@@ -7,7 +7,8 @@
 --
 -- Arreglo: vigilante._entero(jsonb, defecto) convierte sin fallar (número → número,
 -- texto numérico → número, lista → su longitud, otra cosa → defecto), y _vigilante_json()
--- la usa en items y en los dos parámetros numéricos. Mismo contenido que la del 16.
+-- la usa en items y en los dos parámetros numéricos. Mismo contenido que la del 16, salvo que
+-- además deja fuera las oportunidades con el plazo vencido (así el chat AVIA tampoco las ve).
 --
 -- Cómo aplicarlo: pegar este archivo entero en el SQL Editor de Supabase y pulsar Run.
 -- Comprobar después (debe salir un número, no un error):
@@ -76,6 +77,8 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
                   ORDER BY s.created_at DESC), '[]')
                   FROM (SELECT s.* FROM vigilante.signals s, c WHERE s.cliente_id = c.id
                           AND s.created_at >= now() - make_interval(months => c.meses)
+                          -- oportunidades con el plazo vencido: no se muestran (Meysel, 2026-11-12)
+                          AND NOT (s.naturaleza <> 'riesgo' AND s.plazo_hasta IS NOT NULL AND s.plazo_hasta < now())
                         ORDER BY s.created_at DESC LIMIT 1000) s),
     'oportunidades', vigilante._oportunidades_json(p_cliente)
   )

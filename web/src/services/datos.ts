@@ -11,6 +11,7 @@ import type {
 import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
 import type { Oportunidad } from './recolector';
+import { fechaVencida, oportunidadVencida } from '../lib/vigencia';
 
 const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
 /** URL pública de respaldo; vacía = desactivada */
@@ -141,7 +142,13 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     last: minutosDesde(f.ultima, ahora) ?? undefined,
   }));
 
-  const senales: Senal[] = (j.senales ?? []).map((s) => {
+  // Oportunidades con el plazo vencido: fuera de la web (ni la ficha ni su señal)
+  const oportunidades = (j.oportunidades ?? []).filter((o) => !fechaVencida(o.plazo_hasta, ahora));
+  const senalesDeVencidas = new Set((j.oportunidades ?? []).filter((o) => o.senal && fechaVencida(o.plazo_hasta, ahora)).map((o) => o.senal!));
+  const vigentes = (j.senales ?? []).filter((s) => !oportunidadVencida(s.naturaleza, s.fecha_limite, ahora)
+    && !(s.naturaleza !== 'riesgo' && senalesDeVencidas.has(s.id)));
+
+  const senales: Senal[] = vigentes.map((s) => {
     const enlaces = (s.enlaces ?? []).filter((e) => e && e.url);
     const sol = (s.soluciones ?? []).map((x) => ({ t: x.t, d: x.d ?? '' }));
     return {
@@ -192,7 +199,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     sintesis: j.sintesis?.frase || j.sintesis?.texto ? { frase: j.sintesis.frase ?? '', texto: j.sintesis.texto ?? '' } : null,
     generado: j.generado ?? null,
     ventanaHoras: j.ventana_horas ?? null,
-    oportunidades: j.oportunidades ?? [],
+    oportunidades,
     noticiasRevisadas: j.noticias_revisadas ?? null,
   };
 }

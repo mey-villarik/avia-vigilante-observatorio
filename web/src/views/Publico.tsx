@@ -49,7 +49,6 @@ function Detalle({ a }: { a: AlertaPublica }) {
         {a.deps.length > 0 && <div><dt>Dónde</dt><dd>{a.deps.join(', ')}</dd></div>}
         {a.destinos.length > 0 && <div><dt>Destinos</dt><dd>{a.destinos.join(', ')}</dd></div>}
         {plazo != null && plazo >= 0 && <div><dt>Plazo</dt><dd>{plazo === 0 ? 'Hoy' : `${plazo} días`} ({fecha(a.plazo_hasta!)})</dd></div>}
-        {plazo != null && plazo < 0 && <div><dt>Plazo</dt><dd>Cerrado el {fecha(a.plazo_hasta!)}</dd></div>}
         {a.fecha_evento && <div><dt>Fecha del evento</dt><dd>{fecha(a.fecha_evento)}</dd></div>}
         <div><dt>Publicada</dt><dd>{ago(minutosDesde(a.publicada_en))}</dd></div>
       </dl>
