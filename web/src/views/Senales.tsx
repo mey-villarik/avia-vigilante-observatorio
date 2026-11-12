@@ -15,7 +15,7 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       <span className="cm">
         <NatPill n={s.naturaleza} /><span className="tag">{CATS[s.categoria]}</span>
         {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
-        {s.revisionVencida && <span className="tag vencida" title="Pasó el plazo de revisión sin decisión">Plazo vencido</span>}
+        {s.revisionVencida && <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>}
         {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}
       </span>
       <span className="ct">{s.titulo}</span>

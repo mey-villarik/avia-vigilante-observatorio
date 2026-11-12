@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
-import { activeSignals, canDecide, countStates, pendingDecision, useStore } from '../store';
+import { activeSignals, canDecide, pendingDecision, useStore } from '../store';
 import { plazoTexto, scoreOf } from '../lib/util';
+import { calcularPulso, posicionVigilancia } from '../lib/pulso';
 import { leerVotos, type VotoPublicacion } from '../services/senales';
 import { supabase } from '../services/auth';
 import { Icon } from '../components/Icon';
@@ -67,22 +68,34 @@ function Ring({ v, col }: { v: number; col: string }) {
 
 function Pulso() {
   const fuentes = useStore((s) => s.fuentes);
-  const a = activeSignals(useStore((s) => s.senales));
-  const c = countStates(fuentes);
-  const att = Math.min(100, 38 + c.CRIT * 14 + c.WARN * 6 + a.filter((s) => s.naturaleza === 'riesgo' && s.prioridad === 'alta').length * 8);
-  const op = Math.min(100, 30 + a.filter((s) => s.naturaleza !== 'riesgo').length * 7);
-  const lvl = att > 70 ? 'Alto' : att > 50 ? 'Moderado' : 'Bajo';
+  const senales = useStore((s) => s.senales);
+  const real = useStore((s) => s.origen === 'vps');
+  const ventana = useStore((s) => s.ventanaHoras);
+  const p = calcularPulso(senales, fuentes);
+  const d = p.datos;
+  const niveles = ['Normal', 'Vigilancia', 'Atención', 'Crítico'] as const;
   return (
     <>
       <div className="gauges">
-        <div className="gauge"><Ring v={att} col="var(--risk)" /><span className="lab">Atención a riesgos</span><span className="lv">{lvl}</span></div>
-        <div className="gauge"><Ring v={op} col="var(--opp)" /><span className="lab">Oportunidad</span><span className="lv">{op > 65 ? 'Favorable' : 'Estable'}</span></div>
+        <div className="gauge">
+          <Ring v={p.riesgo} col="var(--risk)" /><span className="lab">Atención a riesgos</span><span className="lv">{p.nivelRiesgo}</span>
+          <small className="gauge-d">{d.riesgos} {d.riesgos === 1 ? 'riesgo activo' : 'riesgos activos'} · {d.riesgosAltos} {d.riesgosAltos === 1 ? 'alto' : 'altos'}{d.riesgosSinDecidir ? ` · ${d.riesgosSinDecidir} sin decidir` : ''}</small>
+        </div>
+        <div className="gauge">
+          <Ring v={p.oportunidad} col="var(--opp)" /><span className="lab">Oportunidad</span><span className="lv">{p.nivelOportunidad}</span>
+          <small className="gauge-d">{d.oportunidades} {d.oportunidades === 1 ? 'oportunidad' : 'oportunidades'}{d.plazoCorto ? ` · ${d.plazoCorto} cierran en menos de 15 días` : ''}</small>
+        </div>
       </div>
       <div className="scale">
-        <div className="scale-bar"><i style={{ left: `${att}%` }} /></div>
-        <div className="scale-l"><span>Normal</span><span>Vigilancia</span><span>Atención</span><span>Crítico</span></div>
+        <div className="scale-bar"><i style={{ left: `${posicionVigilancia(p)}%` }} /></div>
+        <div className="scale-l">{niveles.map((n) => <span key={n} className={n === p.vigilancia ? 'on' : undefined}>{n}</span>)}</div>
       </div>
-      <p className="note" style={{ margin: '10px 0 0' }}>Índices orientativos: suman estado de fuentes, prioridad y número de señales.</p>
+      <p className="note" style={{ margin: '10px 0 0' }}>
+        {real ? <>Calculado con las {d.activas} señales activas{ventana ? ` de las últimas ${ventana} h` : ''}</> : <>Datos de ejemplo</>}.
+        {' '}Los índices miden lo serias que son las señales, no cuántas hay: los riesgos según prioridad, confianza y si ya están verificados; las oportunidades según su puntuación y si el plazo sigue abierto.
+        {d.revisionVencida ? <> <b>{d.revisionVencida} con la revisión vencida.</b></> : null}
+        {d.fuentesTotal ? <> Fuentes leyendo bien: {d.fuentesOk} de {d.fuentesTotal}{d.fuentesOk < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
+      </p>
     </>
   );
 }
@@ -188,7 +201,7 @@ function Decision() {
           <div className="row">
             <NatPill n={s.naturaleza} /><span className="tag">{STL[s.estado]}</span>
             {s.revisionVencida
-              ? <span className="tag vencida" title="Pasó el plazo de revisión sin decisión">Plazo vencido</span>
+              ? <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>
               : s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : <span className="tag">{CATS[s.categoria]}</span>}
             {s.escenario && <span className="tag escenario">Escenario</span>}
           </div>

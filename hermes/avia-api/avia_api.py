@@ -121,9 +121,13 @@ async def _get_context(session: aiohttp.ClientSession, jwt: str | None) -> dict:
         ctx = await _supabase_post(session, '/rest/v1/rpc/vigilante_bd', {}, jwt)
         if isinstance(ctx, dict) and 'senales' in ctx:
             _ctx_cache[key] = (time.time(), ctx)
+            if not ctx.get('senales'):
+                print('vigilante_bd: respondió sin señales', flush=True)
             return ctx
-    except Exception:
-        pass
+        # Antes esto se callaba y el chat decía «no tengo señales»: ahora queda en journalctl -u avia-api
+        print(f'vigilante_bd: respuesta inesperada: {json.dumps(ctx, ensure_ascii=False)[:300]}', flush=True)
+    except Exception as e:
+        print(f'vigilante_bd: error al consultar Supabase: {e!r}', flush=True)
     return {}
 
 
