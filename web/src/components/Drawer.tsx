@@ -5,13 +5,14 @@ import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
 import { ago, clock, plazoTexto, porRevisar } from '../lib/util';
 import { Icon } from './Icon';
-import { Histo, NatPill, StPill } from './common';
+import { CertezaTag, Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
+import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -158,7 +159,7 @@ function SenalDetalle({ id }: { id: string }) {
       <Head icon="senales">Señal {s.id}{real ? '' : ' · ejemplo'}</Head>
       <div className="drawer-b">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <NatPill n={s.naturaleza} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span>
+          <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span>
           {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
           {s.revisionVencida && <span className="tag vencida">Plazo de revisión vencido</span>}
           {!s.revisionVencida && s.sla ? <span className="sla">⏱ {plazoTexto(s.sla)} para revisar</span> : null}
@@ -166,6 +167,7 @@ function SenalDetalle({ id }: { id: string }) {
         {s.escenario && <p className="note" style={{ margin: '8px 0 0' }}>Es una predicción de AVIA, no un hecho comprobado. Se queda en el panel del equipo y no sale en la web pública ni en Telegram.</p>}
         <h2>{s.titulo}</h2>
         <p className="lead">{s.resumen}</p>
+        <Certeza s={s} />
         <div className="dl">
           <div><small>Territorio</small><b>{s.deps.join(', ')}</b></div>
           <div><small>Destinos</small><b>{s.destinos.join(', ')}</b></div>
@@ -290,6 +292,18 @@ function Traza({ s }: { s: Parameters<typeof trazaDe>[0] }) {
   );
 }
 
+function Certeza({ s }: { s: Parameters<typeof certezaDe>[0] }) {
+  const c = certezaDe(s);
+  return (
+    <div className={`certeza cert-${c.nivel}`}>
+      <small>Grado de certeza</small>
+      <b>{CERTEZAS[c.nivel].t}</b>
+      <p>{c.motivo}{c.propuesto ? ` (AVIA proponía «${c.propuesto}»)` : ''}</p>
+      <p className="note" style={{ margin: 0 }}>{CERTEZAS[c.nivel].def} {ORIGEN_CERTEZA[c.origen]}.</p>
+    </div>
+  );
+}
+
 function Puntos({ s }: { s: Parameters<typeof puntuacionesDe>[0] }) {
   const p = puntuacionesDe(s);
   const prob = p.probabilidad.valor == null ? 'Sin datos' : `${Math.round(p.probabilidad.valor * 100)} % · ${p.probabilidad.nivel}`;
@@ -335,6 +349,14 @@ function Glosario() {
             </div>
           );
         })}
+        <div className="sect" style={{ marginTop: 18 }}>Grado de certeza</div>
+        <p style={{ margin: 0 }}>Cada señal dice qué tipo de hecho es, con una de estas cuatro palabras. No es lo mismo que la fiabilidad (cuánto respaldo hay) ni que la probabilidad (si pasará).</p>
+        {NIVELES_CERTEZA.map((k) => (
+          <div className="glosario-t" key={k}>
+            <p style={{ margin: '8px 0 0' }}><span className={`tag cert cert-${k}`}>{CERTEZAS[k].t}</span> {CERTEZAS[k].def}</p>
+            <p className="note" style={{ margin: '2px 0 0' }}><b>Ejemplo:</b> {CERTEZAS[k].ejemplo}</p>
+          </div>
+        ))}
       </div>
     </>
   );

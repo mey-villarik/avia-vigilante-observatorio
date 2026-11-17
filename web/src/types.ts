@@ -77,6 +77,17 @@ export interface Puntuaciones {
   impacto: { nivel: 'alto' | 'medio' | 'bajo' | 'sin datos'; motivo: string; origen: 'modelo' | 'relevancia' | 'prioridad' | 'ninguno' };
 }
 
+/** Grado de certeza (db/generico/24_grado_certeza.sql) */
+export type NivelCerteza = 'confirmado' | 'convocado' | 'posible' | 'rumor';
+export interface Certeza {
+  nivel: NivelCerteza;
+  motivo: string;
+  /** quién lo decidió: una persona, el modelo, el modelo corregido por la base o las reglas */
+  origen: 'persona' | 'modelo' | 'modelo_ajustado' | 'reglas';
+  /** lo que propuso el modelo cuando la base lo bajó */
+  propuesto?: NivelCerteza;
+}
+
 /** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */
 export interface Trazabilidad {
   /** cuándo AVIA creó la señal */
@@ -138,6 +149,8 @@ export interface Senal {
   traza?: Trazabilidad;
   /** fiabilidad, probabilidad e impacto (desde el 22) */
   puntos?: Puntuaciones;
+  /** confirmado / convocado / posible / rumor (desde el 24) */
+  certeza?: Certeza;
   /** última actualización de la señal en texto */
   actualizacion?: string;
 }

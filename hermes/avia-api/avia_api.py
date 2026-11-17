@@ -140,6 +140,11 @@ GLOSARIO = """GLOSARIO (usa estas palabras siempre con este significado):
 - Señal: un hecho que importa al turismo, armado a partir de una o varias noticias sobre lo mismo; tiene naturaleza (oportunidad, riesgo, mixta) y etapa. La mayoría se queda en el panel del equipo.
 - Alerta: una señal que una persona del equipo confirmó y publicó (web pública o Telegram). Solo las señales en estado «publicada» son alertas. Un escenario nunca es alerta.
 - Recomendación: lo que AVIA propone hacer ante una señal: acción concreta, para quién y qué falta comprobar. No es una orden ni un hecho.
+Grado de certeza (cada señal trae uno; usa solo estas cuatro palabras):
+- Confirmado: ya pasó o está pasando y lo respalda una fuente oficial, dos fuentes distintas o una persona del equipo.
+- Convocado: anunciado por quien lo organiza para una fecha futura (paro, bloqueo, feria, convocatoria). Está anunciado; no se sabe si ocurrirá.
+- Posible: hay indicios, pero nadie lo ha confirmado. Los escenarios siempre son «posible».
+- Rumor: sin fuente identificable o solo redes sin respaldo.
 No llames «alerta» a una señal sin publicar. La «alerta naranja/roja» del SENAMHI es el nombre del aviso de la fuente: cítalo como «aviso naranja del SENAMHI»."""
 
 
@@ -152,9 +157,9 @@ FORMATO = """CÓMO RESPONDER
 A) Pregunta simple (un número, abrir una vista, un dato puntual): 1 a 3 frases, sin bloques.
 B) Pregunta de análisis (situación, riesgos, oportunidades, una señal, un destino, un resumen): usa SIEMPRE estos bloques, en este orden, con estos títulos en markdown (#### Título):
 #### Hechos
-Solo lo que dicen las noticias o las señales confirmadas/publicadas. Cada hecho con su código (SEN-…), la fuente y la fecha si están en los datos.
+Lo que tiene certeza «confirmado» o «convocado» (regla 9). Cada hecho con su código (SEN-…), su certeza, la fuente y la fecha si están en los datos.
 #### Pendiente de verificar
-Lo que solo cuenta una fuente no oficial o está en etapa detectada, en análisis o en verificación. Di qué falta para confirmarlo.
+Lo que tiene certeza «posible» o «rumor». Di qué falta para confirmarlo (fuente oficial, segunda fuente o revisión de una persona).
 #### Interpretación
 Tu lectura de los hechos, marcada como interpretación («esto podría…»). Nunca la presentes como hecho.
 #### Impacto turístico
@@ -180,12 +185,17 @@ REGLAS
    («SENAMHI, publicado 16/11 08:00, enlace»). Si la fuente no da fecha, di «la fuente no da fecha» y usa la
    de recogida diciendo que es de recogida. Si la fecha es «sin distinguir», dilo así. Cuando importe, añade
    cuándo la detectó AVIA y la última verificación de una persona; si no hay, «sin verificar por una persona».
-   Nunca inventes una fecha ni un enlace."""
+   Nunca inventes una fecha ni un enlace.
+9. Grado de certeza: cada hecho que cites lleva su certeza entre corchetes, con la palabra exacta que trae
+   la señal en «certeza»: [confirmado], [convocado], [posible] o [rumor]. No la subas nunca: un «posible» no
+   se cuenta como hecho y un «convocado» no es algo que ya pasó («la federación convocó un paro para el
+   jueves», no «hay paro»). En «Hechos» solo van confirmados y convocados; posibles y rumores van en
+   «Pendiente de verificar». Si la certeza trae «propuesto», AVIA la bajó por falta de fuentes: dilo."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
 _MAX_SENALES = 40   # señales que se pasan al modelo; los totales van aparte en «contadores»
-_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'puntuaciones', 'trazabilidad',
+_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'certeza', 'puntuaciones', 'trazabilidad',
            'deps', 'destinos', 'fecha_limite', 'evento_inicio', 'evento_fin', 'importancia', 'enlaces',
            'detectada', 'ultima_noticia', 'revision', 'escenario', 'soluciones')
 

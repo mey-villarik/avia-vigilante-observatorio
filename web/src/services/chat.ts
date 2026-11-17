@@ -6,6 +6,7 @@ import { ROLE_NAME, norm } from '../lib/util';
 import { aviaConectado, remoto, type Comando } from './avia';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
+import { CERTEZAS, NIVELES_CERTEZA, certezaDe } from '../lib/certeza';
 
 const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te doy recomendaciones. Una señal solo es alerta cuando una persona del equipo la publica.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
 
@@ -44,17 +45,18 @@ const fuenteDe = (s: Senal) => {
 export function bloques(lista: Senal[]): string {
   const orden = [...lista].sort((a, b) => PRIO_N[a.prioridad] - PRIO_N[b.prioridad]);
   const reales = orden.filter((s) => !s.escenario);
-  const hechos = reales.filter((s) => s.estado === 'confirmada' || s.estado === 'publicada');
-  const pend = reales.filter((s) => POR_VERIFICAR.includes(s.estado));
+  // mejora 6: hechos = confirmado o convocado; pendiente = posible o rumor
+  const hechos = reales.filter((s) => ['confirmado', 'convocado'].includes(certezaDe(s).nivel));
+  const pend = reales.filter((s) => ['posible', 'rumor'].includes(certezaDe(s).nivel));
   const esc = orden.filter((s) => s.escenario);
   const lugares = [...new Set(reales.flatMap((s) => [...s.deps, ...s.destinos]))];
-  const linea = (s: Senal) => `- ${s.id} ${s.titulo}${fuenteDe(s)}`;
+  const linea = (s: Senal) => `- [${certezaDe(s).nivel}] ${s.id} ${s.titulo}${fuenteDe(s)}`;
   const top = (hechos[0] ?? pend[0]);
   return [
     '#### Hechos',
-    hechos.length ? hechos.map(linea).join('\n') : 'Sin datos: ninguna señal está confirmada todavía.',
+    hechos.length ? hechos.map(linea).join('\n') : 'Sin datos: ninguna señal está confirmada ni convocada todavía.',
     '#### Pendiente de verificar',
-    pend.length ? pend.map((s) => `${linea(s)}: falta ${s.corr < 2 ? 'una segunda fuente independiente' : 'la revisión de una persona'}`).join('\n') : 'Nada pendiente.',
+    pend.length ? pend.map((s) => `${linea(s)}: falta ${s.corr < 2 ? 'una fuente oficial o una segunda fuente independiente' : 'la revisión de una persona'} (${certezaDe(s).motivo.toLowerCase()})`).join('\n') : 'Nada pendiente.',
     '#### Interpretación',
     top?.importancia ? `AVIA interpreta (no es un hecho): ${top.importancia}` : 'Sin datos.',
     '#### Impacto turístico',
@@ -90,6 +92,11 @@ function localReply(q: string): { text: string; act?: string } {
       text: bad.length ? `Hay ${bad.length} fuentes que revisar:\n` + bad.map((s) => `• ${s.nombre}: ${STATE_TXT[s.estado]} — ${s.info}`).join('\n') : 'Todas las fuentes están bien.',
       act: 'Abrí la vista Fuentes',
     };
+  }
+  if (/certeza|rumor|convocad|confirmad.*posible|posible.*confirmad/.test(t)) {
+    st.openDrawer({ kind: 'glosario' });
+    const cuenta = NIVELES_CERTEZA.map((k) => `${activeSignals(st.senales).filter((s) => certezaDe(s).nivel === k).length} ${k}`).join(', ');
+    return { text: `Grado de certeza de cada señal:\n${NIVELES_CERTEZA.map((k) => `• ${CERTEZAS[k].t}: ${CERTEZAS[k].def}`).join('\n')}\nAhora: ${cuenta}.`, act: 'Abrí el glosario' };
   }
   const termino = TERMINOS.find((k) => new RegExp(`que es (una |un )?${norm(GLOSARIO[k].t)}|diferencia`).test(t));
   if (termino || /glosario/.test(t)) {

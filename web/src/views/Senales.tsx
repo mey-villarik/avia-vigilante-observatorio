@@ -3,7 +3,7 @@ import type { Etapa, Senal } from '../types';
 import { CATS, DEPS, STAGES } from '../data/demo';
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
-import { NatPill } from '../components/common';
+import { CertezaTag, NatPill } from '../components/common';
 
 function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: boolean; onDragStart: () => void; onDragEnd: () => void }) {
   const openDrawer = useStore((st) => st.openDrawer);
@@ -13,7 +13,7 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       onDragEnd={onDragEnd}
       onClick={() => openDrawer({ kind: 'senal', id: s.id })}>
       <span className="cm">
-        <NatPill n={s.naturaleza} /><span className="tag">{CATS[s.categoria]}</span>
+        <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span>
         {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
         {s.revisionVencida && <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>}
         {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}

@@ -9,6 +9,17 @@ Mejora 2 de la PoC (documento del revisor). Panel, web pública, AVIA y Hermes u
 | **Alerta** | Una señal que una persona del equipo confirmó y publicó en la web pública o en Telegram. Puede ser riesgo u oportunidad. | No hay alerta sin aprobación de una persona; un escenario (predicción) nunca es alerta. | `alerts` (señal en «publicada») |
 | **Recomendación** | Lo que AVIA propone hacer ante una señal: acción concreta, para quién y qué falta comprobar antes de actuar. | No es una orden ni un hecho: la decide una persona. | `soluciones` de la señal, `accion` de la ficha de oportunidad, `recomendacion` de la alerta |
 
+## Grado de certeza
+
+Cada señal dice qué tipo de hecho es, con una de estas cuatro palabras (detalle en `docs/certeza.md`). No es la fiabilidad (cuánto respaldo hay) ni la probabilidad (si pasará).
+
+| Palabra | Qué significa | Ejemplo |
+| --- | --- | --- |
+| **Confirmado** | Ya pasó o está pasando, y lo respalda una fuente oficial, dos fuentes distintas o una persona del equipo. | El SENAMHI emitió el aviso naranja N° 41. |
+| **Convocado** | Anunciado por quien lo organiza para una fecha futura. Está anunciado; no se sabe si ocurrirá. | La federación convocó un paro para el jueves. |
+| **Posible** | Hay indicios, pero nadie lo ha confirmado. Los escenarios siempre son «posible». | Un diario dice que se analiza cerrar un tramo. |
+| **Rumor** | Sin fuente identificable, o solo redes sin respaldo. | «Circula en redes» que habrá bloqueos. |
+
 **Ojo con el SENAMHI:** sus «alertas naranja/roja» son el nombre del aviso de la fuente. Se citan como «aviso naranja del SENAMHI» y no cuentan como alertas del observatorio.
 
 ## Dónde se aplica

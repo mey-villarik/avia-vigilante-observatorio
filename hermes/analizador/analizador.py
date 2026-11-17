@@ -44,6 +44,7 @@ PROMPT = AQUI / 'prompt_clasificador.md'
 NATURALEZAS = {'riesgo', 'oportunidad', 'mixta'}
 CATEGORIAS = {'clima', 'salud', 'vial', 'seguridad', 'conectividad', 'eventos', 'financiamiento', 'normativa', 'mercados'}
 PRIORIDADES = {'alta', 'media', 'baja'}
+CERTEZAS = ('confirmado', 'convocado', 'posible', 'rumor')
 TAREAS = {'corroborar', 'contradiccion', 'relacionar', 'oportunidad_inferida'}
 FECHA = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 # lo que el modelo NO puede decidir: la procedencia la pone la base
@@ -165,6 +166,10 @@ def limpiar(res: list, claves: set[int]) -> list[dict]:
             pr['valor'] = round(float(pr['valor']), 2)
         else:
             x.pop('probabilidad', None)
+        # mejora 6: grado de certeza con motivo (la base lo comprueba en vigilante.certeza)
+        ce = x.get('certeza')
+        if not (isinstance(ce, dict) and ce.get('nivel') in CERTEZAS and str(ce.get('motivo') or '').strip()):
+            x.pop('certeza', None)
         op = x.get('oportunidad')
         if not (isinstance(op, dict) and op.get('hecho') and op.get('tipo')):
             x.pop('oportunidad', None)
