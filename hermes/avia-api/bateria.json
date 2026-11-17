@@ -288,6 +288,23 @@
    ],
    "no_debe": [],
    "manual": "No existe: lo dice y no inventa título, fuente ni fechas."
+  },
+  {
+   "id": 21,
+   "grupo": "Cambios desde ayer",
+   "paso": 9,
+   "fallo_visto": "AVIA no sabía qué cambió desde el día anterior",
+   "pregunta": "¿Qué cambió desde ayer?",
+   "debe": [
+    "Nuevas",
+    "Subieron de certeza",
+    "Bajaron de certeza",
+    "Resueltas"
+   ],
+   "no_debe": [
+    "no tengo (la )?comparaci[oó]n"
+   ],
+   "manual": "Los conteos deben coincidir con el recuadro «Cambios desde ayer» del panel (o decir que aún no hay 24 h de registro)."
   }
  ]
 }

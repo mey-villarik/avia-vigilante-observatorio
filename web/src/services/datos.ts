@@ -6,7 +6,7 @@
 //    Deja VITE_DATA_URL vacío cuando Hermes ya suba al almacenamiento privado.
 // Si nada responde, la web sigue con los datos de ejemplo de src/data/demo.ts.
 import type {
-  CategoriaId, Certeza, Enlace, RecomendacionSegura, SintesisDia, Puntuaciones, Trazabilidad, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
+  CategoriaId, Certeza, Enlace, RecomendacionSegura, ComparacionDia, SintesisDia, Puntuaciones, Trazabilidad, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
 } from '../types';
 import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
@@ -61,6 +61,8 @@ export interface VigilanteJson {
   sintesis?: { frase?: string; texto?: string };
   /** desde el 26: qué pasa, por qué importa y qué vigilar, armados por la base */
   sintesis_dia?: SintesisDia | null;
+  /** desde el 27: qué cambió en las últimas 24 h */
+  comparacion_dia?: ComparacionDia | null;
   fuentes?: JFuente[];
   senales?: JSenal[];
   temas?: Tema[];
@@ -78,6 +80,7 @@ export interface DatosVps {
   eventos: Evento[];
   sintesis: { frase: string; texto: string } | null;
   sintesisDia: SintesisDia | null;
+  comparacionDia: ComparacionDia | null;
   generado: string | null;
   ventanaHoras: number | null;
   noticiasRevisadas: number | null;
@@ -227,6 +230,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     eventos,
     sintesis: j.sintesis?.frase || j.sintesis?.texto ? { frase: j.sintesis.frase ?? '', texto: j.sintesis.texto ?? '' } : null,
     sintesisDia: j.sintesis_dia ?? null,
+    comparacionDia: j.comparacion_dia?.conteos ? j.comparacion_dia : null,
     generado: j.generado ?? null,
     ventanaHoras: j.ventana_horas ?? null,
     oportunidades,

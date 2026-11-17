@@ -212,7 +212,14 @@ REGLAS
    detectada o en análisis 0,7); cada oportunidad pesa valor (45 % relevancia, 25 % novedad, 30 % fiabilidad)
    × etapa, y 0 si el plazo venció; índice = 100 × suma de pesos ÷ (señales + 2). Las mixtas y los escenarios
    cuentan la mitad. Niveles: menos de 25 normal o bajo, 25-49 vigilancia o moderado, 50-74 atención o alto,
-   75 o más crítico o muy alto. Las fuentes caídas no entran en los índices."""
+   75 o más crítico o muy alto. Las fuentes caídas no entran en los índices.
+13. Cambios desde ayer: si preguntan qué cambió, las novedades de hoy o cómo está «comparado con ayer» y abajo
+   vienen CAMBIOS DESDE AYER, no uses los seis bloques: responde con estos cuatro, en este orden:
+   #### Nuevas · #### Subieron de certeza · #### Bajaron de certeza · #### Resueltas
+   Empieza con una línea con los cuatro conteos tal cual. Cada señal con su código y su certeza entre corchetes
+   (en las que cambiaron: «de [posible] a [confirmado]»). Un bloque vacío lleva «Ninguna». Si trae AVISO de que
+   aún no hay 24 h de registro, dilo en los bloques de certeza en lugar de poner «Ninguna». Si no vienen
+   CAMBIOS DESDE AYER, di que no tienes la comparación y no la calcules tú."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
@@ -252,6 +259,34 @@ def _sintesis_txt(s) -> str:
     return (f"SÍNTESIS DEL DÍA (armada por la base; úsala para el resumen del día):\nTotales: {s.get('totales', '')}\n"
             f"Qué pasa:\n{lineas(s.get('que_pasa'))}\nPor qué importa:\n{lineas(s.get('por_que_importa'))}\n"
             f"Qué vigilar:\n{lineas(s.get('que_vigilar'))}")
+
+
+# Preguntas por lo que cambió (mejora «vs ayer», db/generico/27_comparacion_dia.sql)
+_RE_CAMBIOS = re.compile(r'qu[eé] (ha )?cambi|cambios|novedad|nuevo hoy|nuevas hoy|(comparad[oa]s?|frente|respecto|vs\.?) (a |con )?ayer|desde ayer|'
+                         r'[uú]ltimas 24|qu[eé] hay de nuevo|qu[eé] pas[oó] (hoy|desde)', re.I)
+
+
+def _comparacion_txt(c) -> str:
+    """Lo que cambió en 24 h según la base (vigilante.comparacion_dia), en texto para el prompt."""
+    if not isinstance(c, dict):
+        return ('CAMBIOS DESDE AYER: la base aún no los calcula (falta ejecutar 27_comparacion_dia.sql). '
+                'Si preguntan qué cambió, dilo así y no compares tú.')
+    k = c.get('conteos') or {}
+    def lineas(items, fmt):
+        return '\n'.join('- ' + fmt(i) for i in (items or []) if isinstance(i, dict)) or '- Ninguna'
+    nueva = lambda i: f"{i.get('codigo')} [{i.get('certeza')}] {i.get('titulo')}"
+    cambio = lambda i: f"{i.get('codigo')} {i.get('titulo')}: de [{i.get('antes')}] a [{i.get('ahora')}]"
+    como = {'cerrada': 'cerrada', 'descartada': 'descartada por el equipo', 'terminada': 'terminó su evento o plazo'}
+    resuelta = lambda i: f"{i.get('codigo')} {i.get('titulo')} ({como.get(i.get('como'), i.get('como'))})"
+    aviso = '' if c.get('comparable') else (
+        '\nAVISO: aún no hay 24 h de registro de certezas, así que no se puede decir qué subió o bajó de certeza: dilo así.')
+    return (f"CAMBIOS DESDE AYER (últimas 24 h, calculados por la base; no los recalcules):\n"
+            f"Conteos: {k.get('nuevas', 0)} nuevas, {k.get('subieron', 0)} subieron de certeza, "
+            f"{k.get('bajaron', 0)} bajaron de certeza, {k.get('resueltas', 0)} resueltas (las listas traen hasta 10).{aviso}\n"
+            f"Señales nuevas:\n{lineas(c.get('senales_nuevas'), nueva)}\n"
+            f"Subieron de certeza:\n{lineas(c.get('subieron_certeza'), cambio)}\n"
+            f"Bajaron de certeza:\n{lineas(c.get('bajaron_certeza'), cambio)}\n"
+            f"Resueltas:\n{lineas(c.get('resueltas'), resuelta)}")
 
 
 def _contar(activas: list, ctx: dict) -> dict:
@@ -303,6 +338,7 @@ async def handle_chat(request: web.Request) -> web.Response:
         todas   = [x for x in (ctx.get('senales', []) or []) if isinstance(x, dict)]
         activas = [x for x in todas if x.get('estado') != 'descartada']
         txt     = ' '.join(str(m.get('content', '')) for m in mensajes[-3:] if isinstance(m, dict))
+        ultima  = next((str(m.get('content', '')) for m in reversed(mensajes) if isinstance(m, dict) and m.get('role') == 'user'), '')
         ids     = set(re.findall(r'SEN-\d+', txt))
         pedidas = [x for x in todas if str(x.get('id')) in ids]          # aunque esté descartada, si la nombran
         senales = pedidas + [_compacta(x) for x in activas[:_MAX_SENALES] if x not in pedidas]
@@ -335,6 +371,8 @@ Cuando des un número total, cita la hora: «según los datos actualizados a las
 {"La lista de abajo solo trae " + str(len(senales)) + " de las " + str(k.get('senales_activas')) + " señales activas: para totales, usa los contadores." if len(activas) > _MAX_SENALES else ""}
 
 {_sintesis_txt(ctx.get('sintesis_dia'))}
+
+{_comparacion_txt(ctx.get('comparacion_dia')) if _RE_CAMBIOS.search(ultima) else ''}
 
 SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}
