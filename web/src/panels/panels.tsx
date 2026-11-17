@@ -5,6 +5,7 @@ import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
 import { activeSignals, canDecide, pendingDecision, useContadores, useStore } from '../store';
 import { horaBolivia } from '../lib/contadores';
+import { puntuacionesDe } from '../lib/puntuaciones';
 import { plazoTexto, scoreOf } from '../lib/util';
 import { calcularPulso, posicionVigilancia } from '../lib/pulso';
 import { leerVotos, type VotoPublicacion } from '../services/senales';
@@ -199,7 +200,7 @@ function Decision() {
           </div>
           <button className="tt" style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left' }} onClick={() => openDrawer({ kind: 'senal', id: s.id })}>{s.titulo}</button>
           <div className="row">
-            <span className="note">{s.corr} fuente(s) · confianza {Math.round(s.conf * 100)}%</span>
+            <span className="note">{s.corr} fuente(s) · fiabilidad {puntuacionesDe(s).fiabilidad.valor}/100</span>
             {canDecide(role)
               ? <span className="dec-actions">
                 <button className="btn sm" onClick={() => moveSignal(s.id, 'confirmada')}><Icon name="check" /> Confirmar</button>

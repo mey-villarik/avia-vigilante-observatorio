@@ -152,6 +152,19 @@ def limpiar(res: list, claves: set[int]) -> list[dict]:
             x['confianza'] = max(0.0, min(1.0, float(x['confianza']))) if 'confianza' in x else None
         except (TypeError, ValueError):
             x['confianza'] = None
+        # mejora 4: impacto y probabilidad solo con motivo (la base los usa en vigilante.puntuaciones)
+        imp = x.get('impacto')
+        if not (isinstance(imp, dict) and imp.get('nivel') in ('alto', 'medio', 'bajo') and str(imp.get('motivo') or '').strip()):
+            x.pop('impacto', None)
+        pr = x.get('probabilidad')
+        try:
+            ok_pr = isinstance(pr, dict) and 0 <= float(pr.get('valor')) <= 1 and str(pr.get('justificacion') or '').strip()
+        except (TypeError, ValueError):
+            ok_pr = False
+        if ok_pr:
+            pr['valor'] = round(float(pr['valor']), 2)
+        else:
+            x.pop('probabilidad', None)
         op = x.get('oportunidad')
         if not (isinstance(op, dict) and op.get('hecho') and op.get('tipo')):
             x.pop('oportunidad', None)

@@ -23,6 +23,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_aprobacion.sql` | Prueba del 18. Termina en `ROLLBACK`. |
 | `21_contadores_unicos.sql` | Panel y AVIA cuentan lo mismo: una sola lista visible (`senales_visibles`) y un solo conteo con hora (`contadores`). Ver `docs/contadores.md`. |
 | `99_prueba_contadores.sql` | Prueba del 21. Termina en `ROLLBACK`. |
+| `22_puntuaciones.sql` | Tres puntuaciones por señal: fiabilidad de la evidencia (base), probabilidad (solo justificada) e impacto turístico. Ver `docs/puntuaciones.md`. |
+| `99_prueba_puntuaciones.sql` | Prueba del 22. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

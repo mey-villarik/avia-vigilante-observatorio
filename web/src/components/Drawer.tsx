@@ -10,6 +10,7 @@ import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
+import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -169,12 +170,11 @@ function SenalDetalle({ id }: { id: string }) {
         <div className="dl">
           <div><small>Territorio</small><b>{s.deps.join(', ')}</b></div>
           <div><small>Destinos</small><b>{s.destinos.join(', ')}</b></div>
-          <div><small>Relevancia · Novedad</small><b className="mono">{s.rel}/10 · {s.nov}/10</b></div>
-          <div><small>Confianza</small><b className="mono">{Math.round(s.conf * 100)}%</b></div>
           {s.plazo != null ? <div><small>Plazo</small><b>{s.plazo} días</b></div> : null}
           <div><small>Detectada</small><b>{ago(s.min)}</b></div>
           {s.revision ? <div><small>Próxima revisión</small><b className="mono">{s.revision}</b></div> : null}
         </div>
+        <Puntos s={s} />
         {s.actualizacion && <><div className="sect">Última actualización</div><p style={{ margin: 0 }}>{s.actualizacion}</p></>}
         <div className="sect">Por qué importa al turismo</div>
         <p style={{ margin: 0 }}>{s.importancia}</p>
@@ -258,6 +258,34 @@ function Catalogo() {
         <div className="sect">Escalable</div>
         <p className="note" style={{ margin: 0 }}>Cada panel es un módulo independiente que lee la misma base de señales. Añadir uno nuevo (por ejemplo, ocupación hotelera o vuelos) no cambia los demás.</p>
       </div>
+    </>
+  );
+}
+
+function Puntos({ s }: { s: Parameters<typeof puntuacionesDe>[0] }) {
+  const p = puntuacionesDe(s);
+  const prob = p.probabilidad.valor == null ? 'Sin datos' : `${Math.round(p.probabilidad.valor * 100)} % · ${p.probabilidad.nivel}`;
+  return (
+    <>
+      <div className="sect">Puntuaciones</div>
+      <div className="puntos">
+        <div className={`punto n-${p.fiabilidad.nivel}`} title={EXPLICA.fiabilidad}>
+          <small>Fiabilidad de la evidencia</small>
+          <b className="mono">{p.fiabilidad.valor}/100 · {p.fiabilidad.nivel}</b>
+          <ul>{p.fiabilidad.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
+        </div>
+        <div className={`punto ${p.probabilidad.valor == null ? 'n-sin' : 'n-' + p.probabilidad.nivel}`} title={EXPLICA.probabilidad}>
+          <small>Probabilidad</small>
+          <b className="mono">{prob}</b>
+          <p>{p.probabilidad.justificacion}</p>
+        </div>
+        <div className={`punto ${p.impacto.nivel === 'sin datos' ? 'n-sin' : ''}`} title={EXPLICA.impacto}>
+          <small>Impacto turístico</small>
+          <b>{p.impacto.nivel === 'sin datos' ? 'Sin datos' : p.impacto.nivel[0].toUpperCase() + p.impacto.nivel.slice(1)}</b>
+          <p>{p.impacto.motivo}</p>
+        </div>
+      </div>
+      <p className="note" style={{ margin: '4px 0 0' }}>Pasa el ratón por cada puntuación para ver cómo se calcula.</p>
     </>
   );
 }

@@ -11,6 +11,7 @@ import type { Evaluacion, Senal, TipoAnalisis } from '../types';
 import { CATS, DEPS } from '../data/demo';
 import { norm, scoreOf } from '../lib/util';
 import { sesionActual } from './auth';
+import { puntuacionesDe } from '../lib/puntuaciones';
 
 const API = (import.meta.env.VITE_AVIA_API_URL as string | undefined)?.replace(/\/$/, '');
 export const aviaConectado = Boolean(API);
@@ -47,7 +48,7 @@ export const AN_TYPES: Record<TipoAnalisis, [string, string]> = {
 export const compact = (s: Senal) => ({
   id: s.id, titulo: s.titulo, resumen: s.resumen, naturaleza: s.naturaleza, categoria: s.categoria,
   departamentos: s.deps, destinos: s.destinos, estado: s.estado, prioridad: s.prioridad,
-  relevancia: s.rel, novedad: s.nov, confianza: s.conf, fuentes: s.corr, plazo_dias: s.plazo ?? null,
+  puntuaciones: puntuacionesDe(s), fuentes: s.corr, plazo_dias: s.plazo ?? null,
   importancia: s.importancia, acciones: s.soluciones.map((x) => x.t),
 });
 

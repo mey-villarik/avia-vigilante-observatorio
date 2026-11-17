@@ -6,7 +6,7 @@
 //    Deja VITE_DATA_URL vacío cuando Hermes ya suba al almacenamiento privado.
 // Si nada responde, la web sigue con los datos de ejemplo de src/data/demo.ts.
 import type {
-  CategoriaId, Enlace, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
+  CategoriaId, Enlace, Puntuaciones, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
 } from '../types';
 import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
@@ -38,6 +38,8 @@ interface JSenal {
   revision_vence?: string | null; revision_vencida?: string | null; escenario?: boolean | null;
   /** desde el 19: fechas del evento y última noticia que alimentó la señal */
   evento_inicio?: string | null; evento_fin?: string | null; ultima_noticia?: string | null;
+  /** desde el 22: fiabilidad, probabilidad e impacto */
+  puntuaciones?: Puntuaciones | null;
 }
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
@@ -191,6 +193,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       soluciones: sol.length ? sol : [{ t: 'Revisar la señal', d: '' }],
       revision: s.revision ?? undefined,
       actualizacion: s.actualizacion ?? undefined,
+      puntos: s.puntuaciones ?? undefined,
     };
   });
 

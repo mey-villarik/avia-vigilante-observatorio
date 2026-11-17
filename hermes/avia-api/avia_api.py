@@ -170,12 +170,17 @@ REGLAS
 3. Responde todas las partes de la pregunta. Si una parte no se puede responder con los datos, dilo en esa parte.
 4. No mezcles hechos con hipótesis en la misma frase. Ante la duda, va en «Pendiente de verificar».
 5. Usa solo los datos de este mensaje. Si algo no está, di «no lo tengo en los datos del observatorio».
-6. Termina la respuesta: no la cortes a mitad de un bloque; si falta espacio, acorta cada bloque."""
+6. Termina la respuesta: no la cortes a mitad de un bloque; si falta espacio, acorta cada bloque.
+7. Puntuaciones: cada señal trae tres, siempre por su nombre y nunca un número suelto («0,95» no):
+   - Fiabilidad de la evidencia (0-100, la calcula la base por fuentes oficiales, fuentes distintas y revisión humana; cita su nivel y por qué).
+   - Probabilidad: solo si trae valor y justificación; si dice «sin datos», di «probabilidad: sin datos». No la estimes tú.
+   - Impacto turístico (alto/medio/bajo) con su motivo.
+   No las mezcles: una fuente muy fiable no hace que algo sea probable ni importante."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
 _MAX_SENALES = 40   # señales que se pasan al modelo; los totales van aparte en «contadores»
-_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'conf', 'rel', 'nov',
+_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'puntuaciones',
            'deps', 'destinos', 'fecha_limite', 'evento_inicio', 'evento_fin', 'importancia', 'enlaces',
            'detectada', 'ultima_noticia', 'revision', 'escenario', 'soluciones')
 

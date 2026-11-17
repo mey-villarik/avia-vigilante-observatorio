@@ -67,6 +67,16 @@ export interface Enlace { nombre: string; url: string; fecha?: string }
 
 export interface CambioEtapa { de: Etapa; a: Etapa; quien: string; cuando: string; nota: string }
 
+/** Tres puntuaciones separadas (db/generico/22_puntuaciones.sql) */
+export interface Puntuaciones {
+  /** respaldo de la evidencia, 0-100, calculado por la base */
+  fiabilidad: { valor: number; nivel: 'alta' | 'media' | 'baja'; motivos: string[]; noticias: number; fuentes: number; oficial: boolean };
+  /** 0-1 solo si el modelo la justificó; si no, valor null y nivel «sin datos» */
+  probabilidad: { valor: number | null; nivel: 'alta' | 'media' | 'baja' | 'sin datos'; justificacion: string };
+  /** impacto turístico con su motivo */
+  impacto: { nivel: 'alto' | 'medio' | 'bajo' | 'sin datos'; motivo: string; origen: 'modelo' | 'relevancia' | 'ninguno' };
+}
+
 export interface Senal {
   id: string;
   titulo: string;
@@ -105,6 +115,8 @@ export interface Senal {
   enlaces?: Enlace[];
   /** próxima revisión prevista, AAAA-MM-DD */
   revision?: string;
+  /** fiabilidad, probabilidad e impacto (desde el 22) */
+  puntos?: Puntuaciones;
   /** última actualización de la señal en texto */
   actualizacion?: string;
 }
