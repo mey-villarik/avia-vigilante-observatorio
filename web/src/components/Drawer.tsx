@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import type { Etapa, Fuente } from '../types';
 import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
-import { ago, clock, plazoTexto } from '../lib/util';
+import { ago, clock, plazoTexto, porRevisar } from '../lib/util';
 import { Icon } from './Icon';
 import { Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
@@ -133,7 +133,7 @@ function SenalDetalle({ id }: { id: string }) {
   const role = useStore((st) => st.role);
   const enBd = useStore((st) => st.enBd);
   const real = useStore((st) => st.origen === 'vps');
-  const { moveSignal, closeDrawer } = useStore.getState();
+  const { moveSignal, decideReview, closeDrawer } = useStore.getState();
   const { openChat } = useChat();
   const [sol, setSol] = useState<number | null>(null);
   const [note, setNote] = useState('');
@@ -145,6 +145,12 @@ function SenalDetalle({ id }: { id: string }) {
     closeDrawer();
     moveSignal(s.id, to, n);
   };
+  const revisar = (aprobar: boolean) => {
+    const n = ((sol != null ? 'Acción: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
+    closeDrawer();
+    void decideReview(s.id, aprobar, n);
+  };
+  const espera = porRevisar(s);
 
   return (
     <>
@@ -193,6 +199,19 @@ function SenalDetalle({ id }: { id: string }) {
               <label htmlFor="decNote">Nota de la decisión</label>
               <textarea className="inp" id="decNote" placeholder="Motivo, condiciones o comentarios" value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
+            {espera && (
+              <div className={`revisar-aviso ${s.revisionVencida ? 'vencida' : ''}`} style={{ margin: 0 }}>
+                <span>
+                  <b>{s.revisionVencida ? 'Plazo vencido: sigue sin publicarse' : 'Espera tu aprobación'}</b>
+                  {!s.revisionVencida && s.sla ? ` · quedan ${plazoTexto(s.sla)}` : ''}
+                </span>
+                <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn gold" title={s.escenario ? 'Es un escenario: queda aprobado pero no se publica' : 'Sale en la web pública y se avisa por Telegram'}
+                    onClick={() => revisar(true)}><Icon name="check" /> {s.escenario ? 'Aprobar (no se publica)' : 'Aprobar y publicar'}</button>
+                  <button className="btn ghost" onClick={() => revisar(false)}>Rechazar</button>
+                </span>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn gold" onClick={() => decide('confirmada')}><Icon name="check" /> Confirmar</button>
               <button className="btn" title="Sale en la web pública y se avisa por Telegram" onClick={() => decide('publicada')}>Publicar</button>
@@ -210,7 +229,7 @@ function SenalDetalle({ id }: { id: string }) {
             ))}
           </>
         )}
-        <Lock>{real ? (enBd ? 'Señal real publicada por AVIA. Al cambiar su etapa se guarda en la base de datos, con tu nombre y la nota, y queda en la Bitácora. Al pulsar «Publicar» sale en la web pública y el bot avisa por Telegram; si luego la mueves a otra columna, se retira de la web.' : 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.') : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
+        <Lock>{real ? (enBd ? 'Señal real publicada por AVIA. Al cambiar su etapa se guarda en la base de datos, con tu nombre y la nota, y queda en la Bitácora. Al pulsar «Aprobar y publicar» o «Publicar» sale en la web pública y el bot avisa por Telegram; lo que espera revisión nunca sale sin aprobación; si luego la mueves a otra columna, se retira de la web.' : 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.') : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
       </div>
     </>
   );

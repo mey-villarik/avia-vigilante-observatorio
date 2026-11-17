@@ -543,3 +543,6 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
   background:var(--surface2);color:var(--ink);font-size:22px;line-height:1;cursor:pointer}
 .opp-cerrar:hover{background:var(--raise)}
 @media (max-width:640px){.opp-corta{min-height:0}.opp-ventana .ficha-detalle{padding:18px 16px}}
+/* Aprobación del analista (18_aprobacion_analista.sql) */
+.revisar-aviso{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:10px;background:var(--surface2);font-size:13px}
+.revisar-aviso.vencida{border-left-color:var(--crit)}
