@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
-import { activeSignals, canDecide, pendingDecision, useStore } from '../store';
+import { activeSignals, canDecide, pendingDecision, useContadores, useSintesisDia, useStore } from '../store';
+import { CERTEZAS } from '../lib/certeza';
+import type { ItemSintesis } from '../types';
+import { horaBolivia } from '../lib/contadores';
+import { puntuacionesDe } from '../lib/puntuaciones';
 import { plazoTexto, scoreOf } from '../lib/util';
 import { calcularPulso, posicionVigilancia } from '../lib/pulso';
 import { leerVotos, type VotoPublicacion } from '../services/senales';
@@ -12,44 +16,43 @@ import { Icon } from '../components/Icon';
 import { CatBars, Empty, EventsList, Histo, LineChart, NatPill, SigList, StPill } from '../components/common';
 
 /** noticias leídas: la cifra del VPS, o el último punto de la serie */
-function useNoticias(): number {
-  const n = useStore((s) => s.noticiasRevisadas);
-  const det = useStore((s) => s.serie.det);
-  return n ?? det[det.length - 1] ?? 0;
-}
 const PRIO = { alta: 0, media: 1, baja: 2 } as const;
 
 function Sintesis() {
-  const a = activeSignals(useStore((s) => s.senales));
-  const sintesis = useStore((s) => s.sintesis);
+  const k = useContadores();
+  const sd = useSintesisDia();
   const real = useStore((s) => s.origen === 'vps');
-  const ventana = useStore((s) => s.ventanaHoras);
-  const noticias = useNoticias();
-  const opps = a.filter((s) => s.naturaleza === 'oportunidad');
-  const riesgos = a.filter((s) => s.naturaleza === 'riesgo');
-  const ver = a.filter((s) => ['confirmada', 'publicada'].includes(s.estado));
-  const cortas = opps.filter((s) => s.plazo != null && s.plazo < 15).length;
-  const altas = riesgos.filter((s) => s.prioridad === 'alta').length;
-  const multi = ver.filter((s) => s.corr >= 2).length;
+  const abrir = (codigo?: string) => { if (codigo) useStore.getState().openDrawer({ kind: 'senal', id: codigo }); };
+  const Item = ({ i }: { i: ItemSintesis }) => (
+    <li>
+      {i.certeza && <span className={`tag cert cert-${i.certeza}`}>{CERTEZAS[i.certeza].t}</span>}{' '}
+      {i.codigo ? <button className="linklike" onClick={() => abrir(i.codigo)}>{i.titulo}</button> : null}
+      {i.codigo ? ': ' : ''}{i.texto ?? i.motivo}
+      {i.lugares ? <small className="sd-l"> · {i.lugares}</small> : null}
+    </li>
+  );
+  const Bloque = ({ t, l, vacio }: { t: string; l: ItemSintesis[]; vacio: string }) => (
+    <section className="sd-b">
+      <h4>{t}</h4>
+      {l.length ? <ul>{l.map((i, n) => <Item key={`${i.codigo ?? i.tipo}-${n}`} i={i} />)}</ul> : <p className="note" style={{ margin: 0 }}>{vacio}</p>}
+    </section>
+  );
   return (
     <div className="synth">
-      {real ? (
-        <>
-          {sintesis?.frase && <blockquote>{sintesis.frase}</blockquote>}
-          <p>AVIA revisó <b>{noticias} noticias</b> y las juntó en <b>{a.length} señales</b>{ventana ? <> en las últimas <b>{ventana} h</b></> : null}. {sintesis?.texto}</p>
-        </>
-      ) : (
-        <>
-          <blockquote>Semana de oportunidades con un frente de lluvias que vigilar en Yungas.</blockquote>
-          <p>AVIA juntó <b>{noticias} noticias</b> en <b>{a.length} señales</b>. Destacan el fondo de CAF para turismo comunitario (cierra en <b>12 días</b>) y la nueva frecuencia aérea a Santa Cruz. El riesgo principal es la alerta naranja en Yungas y Rurrenabaque, que se cruza con una restricción vial aún sin confirmar.</p>
-        </>
-      )}
+      <p className="sd-t">{sd.totales}</p>
+      <Bloque t="Qué pasa" l={sd.que_pasa} vacio="Sin novedades confirmadas ni convocadas." />
+      <Bloque t="Por qué importa" l={sd.por_que_importa} vacio="Sin datos: no hay hechos que valorar." />
+      <Bloque t="Qué vigilar" l={sd.que_vigilar} vacio="Nada pendiente de vigilar." />
       <div className="kpis">
-        <div className="kpi"><small>Señales activas</small><b className="num">{a.length}</b><em>{ventana ? `en ${ventana} h` : 'sin descartadas'}</em></div>
-        <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{opps.length}</b><em>{cortas} con plazo &lt; 15 días</em></div>
-        <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{riesgos.length}</b><em>{altas} de prioridad alta</em></div>
-        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{ver.length}</b><em>{multi} con 2 o más fuentes</em></div>
+        <div className="kpi"><small>Señales activas</small><b className="num">{k.senales_activas}</b><em>sin descartadas</em></div>
+        <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{k.oportunidades}</b><em>{k.plazo_corto} con plazo &lt; 15 días{k.mixtas ? ` · ${k.mixtas} mixtas aparte` : ''}</em></div>
+        <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{k.riesgos}</b><em>{k.riesgos_altos} de prioridad alta</em></div>
+        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{k.verificadas}</b><em>{k.verificadas_2_fuentes} con 2 o más fuentes</em></div>
       </div>
+      <p className="note actualizado" title="Los mismos números que recibe AVIA (vigilante.contadores)">
+        Datos actualizados a las {horaBolivia(k.actualizado)} (hora de Bolivia){real ? '' : ' · datos de ejemplo'}
+        {' · '}<button className="linklike" onClick={() => useStore.getState().openDrawer({ kind: 'glosario' })}>¿Qué es noticia, señal, alerta y recomendación?</button>
+      </p>
     </div>
   );
 }
@@ -91,8 +94,9 @@ function Pulso() {
         <div className="scale-l">{niveles.map((n) => <span key={n} className={n === p.vigilancia ? 'on' : undefined}>{n}</span>)}</div>
       </div>
       <p className="note" style={{ margin: '10px 0 0' }}>
+        <button className="linklike" onClick={() => useStore.getState().openDrawer({ kind: 'pulso' })}>¿Cómo se calcula el Pulso?</button>{' '}
         {real ? <>Calculado con las {d.activas} señales activas{ventana ? ` de las últimas ${ventana} h` : ''}</> : <>Datos de ejemplo</>}.
-        {' '}Los índices miden lo serias que son las señales, no cuántas hay: los riesgos según prioridad, confianza y si ya están verificados; las oportunidades según su puntuación y si el plazo sigue abierto.
+        {' '}Los índices miden lo serias que son las señales, no cuántas hay: los riesgos según prioridad, fiabilidad de la evidencia y si ya están verificados; las oportunidades según su relevancia, novedad y fiabilidad, y si el plazo sigue abierto.
         {d.revisionVencida ? <> <b>{d.revisionVencida} con la revisión vencida.</b></> : null}
         {d.fuentesTotal ? <> Fuentes leyendo bien: {d.fuentesOk} de {d.fuentesTotal}{d.fuentesOk < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
       </p>
@@ -118,14 +122,13 @@ function FuentesMatrix() {
 }
 
 function Cadena() {
-  const a = useStore((s) => s.senales);
-  const noticias = useNoticias();
+  const k = useContadores();
   const steps: [string, number, string, string][] = [
-    ['senales', noticias, 'Noticias leídas', 'var(--accent)'],
-    ['temas', a.length, 'Señales agrupadas', 'var(--mix)'],
-    ['shield', a.filter((s) => s.corr >= 2).length, 'Corroboradas', 'var(--ok)'],
-    ['oportunidades', a.filter((s) => s.naturaleza !== 'riesgo').length, 'Valoradas para turismo', 'var(--opp)'],
-    ['decision', a.filter((s) => s.estado === 'publicada').length, 'Acciones propuestas', 'var(--risk)'],
+    ['senales', k.noticias_24h, 'Noticias leídas (24 h)', 'var(--accent)'],
+    ['temas', k.senales_activas, 'Señales activas', 'var(--mix)'],
+    ['shield', k.verificadas, 'Verificadas', 'var(--ok)'],
+    ['oportunidades', k.oportunidades + k.mixtas, 'Oportunidades y mixtas', 'var(--opp)'],
+    ['decision', k.alertas_publicadas, 'Alertas publicadas', 'var(--risk)'],
   ];
   return (
     <>
@@ -207,7 +210,7 @@ function Decision() {
           </div>
           <button className="tt" style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left' }} onClick={() => openDrawer({ kind: 'senal', id: s.id })}>{s.titulo}</button>
           <div className="row">
-            <span className="note">{s.corr} fuente(s) · confianza {Math.round(s.conf * 100)}%</span>
+            <span className="note">{s.corr} fuente(s) · fiabilidad {puntuacionesDe(s).fiabilidad.valor}/100</span>
             {canDecide(role)
               ? <span className="dec-actions">
                 <button className="btn sm" onClick={() => moveSignal(s.id, 'confirmada')}><Icon name="check" /> Confirmar</button>

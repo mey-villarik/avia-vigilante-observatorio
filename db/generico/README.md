@@ -19,6 +19,20 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_tareas_control.sql` | Prueba del 17. Termina en `ROLLBACK`. |
 | `19_vigilante_bd_items.sql` | `vigilante_bd()` ya no falla cuando una fuente trae `items` como lista, y panel, chat y web pública muestran solo lo vigente: con fechas hasta el último día; sin fechas, 24 h desde la última noticia (`vigilante.senal_vigente`). Tras el 19, la prueba del 16 que espera ver señales de hace 11 días deja de valer. |
 | `20_reparar_fuentes.sql` | Repara Gaceta Oficial (espera 90 s, reintento, respaldo Google News), Conoce Bolivia (nueva dirección `conocebolivia.produccion.gob.bo`) y SENAMHI (sin Apify: tabla de avisos leída directamente). Necesita el recolector 1.2.0. Ver `docs/reparar-fuentes.md`. |
+| `18_aprobacion_analista.sql` | Aprobación del analista: plazo de 1 hora, nada se publica sin aprobación, aprobar/rechazar en un clic y botones en un grupo privado de Telegram. Ver `docs/aprobacion-analista.md`. |
+| `99_prueba_aprobacion.sql` | Prueba del 18. Termina en `ROLLBACK`. |
+| `21_contadores_unicos.sql` | Panel y AVIA cuentan lo mismo: una sola lista visible (`senales_visibles`) y un solo conteo con hora (`contadores`). Ver `docs/contadores.md`. |
+| `99_prueba_contadores.sql` | Prueba del 21. Termina en `ROLLBACK`. |
+| `22_puntuaciones.sql` | Tres puntuaciones por señal: fiabilidad de la evidencia (base), probabilidad (solo justificada) e impacto turístico. Ver `docs/puntuaciones.md`. |
+| `99_prueba_puntuaciones.sql` | Prueba del 22. Termina en `ROLLBACK`. |
+| `23_trazabilidad.sql` | Trazabilidad por señal: fuente, enlace, fecha de publicación y de recogida, detección, fuente comprobada y última verificación de una persona. Ver `docs/trazabilidad.md`. |
+| `99_prueba_trazabilidad.sql` | Prueba del 23. Termina en `ROLLBACK`. |
+| `24_grado_certeza.sql` | Grado de certeza por señal: confirmado, convocado, posible o rumor, con motivo y origen (persona, modelo, modelo ajustado o reglas). `guardar_clasificacion` guarda la propuesta del modelo. Ver `docs/certeza.md`. |
+| `99_prueba_certeza.sql` | Prueba del 24 (8 casos). Termina en `ROLLBACK`. |
+| `25_recomendaciones_seguras.sql` | Recomendación segura por señal: para quién, con quién verificar (parámetro `verificar_con`), qué falta saber y aviso cuando da algo por habilitado u operativo sin dato oficial de las últimas 24 h. Ver `docs/recomendaciones-seguras.md`. |
+| `99_prueba_recomendaciones.sql` | Prueba del 25. Termina en `ROLLBACK`. |
+| `26_sintesis_dia.sql` | Síntesis del día en 3 bloques (qué pasa, por qué importa, qué vigilar) armada por la base con las mismas señales que los contadores; parámetro `sintesis_max`. Ver `docs/sintesis-dia.md`. |
+| `99_prueba_sintesis.sql` | Prueba del 26. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../store';
 import { aviaConectado } from '../services/avia';
 import { CHIPS, sendChat, useChat } from '../services/chat';
+import { Markdown } from './Markdown';
 
 const Avatar = () => (
   <svg className="av" viewBox="0 0 32 32" aria-hidden="true">
@@ -16,6 +17,7 @@ export function Chat() {
   const docked = useStore((s) => s.docked);
   const msgs = useStore((s) => s.chat);
   const busy = useStore((s) => s.chatBusy);
+  const origen = useStore((s) => s.origen);
   const setPrefs = useStore((s) => s.setPrefs);
   const { openChat, closeChat, resetChat } = useChat();
   const [txt, setTxt] = useState('');
@@ -57,7 +59,7 @@ export function Chat() {
         }}
         onPointerUp={() => { drag.current = null; }}>
         <Avatar />
-        <div><b>AVIA</b><small>{aviaConectado ? 'Conectada · datos de ejemplo' : 'Modo local (sin IA) · datos de ejemplo'}</small></div>
+        <div><b>AVIA</b><small>{aviaConectado ? 'Conectada' : 'Modo local (sin IA)'}{origen === 'vps' ? '' : ' · datos de ejemplo'}</small></div>
         <div className="tools">
           <button className="icon-btn" aria-label="Acoplar o soltar" title="Acoplar a la derecha / flotante" onClick={() => { setPos(null); setPrefs({ docked: !docked }); }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M14.5 4.5v15" /></svg>
@@ -71,7 +73,7 @@ export function Chat() {
         </div>
       </div>
       <div className="chat-log" ref={log} aria-live="polite">
-        {msgs.map((m) => <div key={m.id} className={`msg ${m.role}`}>{m.text}{m.act && <span className="act">{m.act}</span>}</div>)}
+        {msgs.map((m) => <div key={m.id} className={`msg ${m.role}`}>{m.role === 'a' && /^#{1,4}\s|\n#{1,4}\s|\*\*/.test(m.text) ? <Markdown text={m.text} /> : m.text}{m.act && <span className="act">{m.act}</span>}</div>)}
       </div>
       <div className="chips">
         {showChips && CHIPS.map((c) => <button key={c} className="chip" onClick={() => void sendChat(c)}>{c}</button>)}

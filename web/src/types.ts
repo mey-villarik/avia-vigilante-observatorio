@@ -67,6 +67,88 @@ export interface Enlace { nombre: string; url: string; fecha?: string }
 
 export interface CambioEtapa { de: Etapa; a: Etapa; quien: string; cuando: string; nota: string }
 
+/** Tres puntuaciones separadas (db/generico/22_puntuaciones.sql) */
+export interface Puntuaciones {
+  /** respaldo de la evidencia, 0-100, calculado por la base */
+  fiabilidad: { valor: number; nivel: 'alta' | 'media' | 'baja'; motivos: string[]; noticias: number; fuentes: number; oficial: boolean };
+  /** 0-1 solo si el modelo la justificó; si no, valor null y nivel «sin datos» */
+  probabilidad: { valor: number | null; nivel: 'alta' | 'media' | 'baja' | 'sin datos'; justificacion: string };
+  /** impacto turístico con su motivo */
+  impacto: { nivel: 'alto' | 'medio' | 'bajo' | 'sin datos'; motivo: string; origen: 'modelo' | 'relevancia' | 'prioridad' | 'ninguno' };
+}
+
+/** Grado de certeza (db/generico/24_grado_certeza.sql) */
+export type NivelCerteza = 'confirmado' | 'convocado' | 'posible' | 'rumor';
+export interface Certeza {
+  nivel: NivelCerteza;
+  motivo: string;
+  /** quién lo decidió: una persona, el modelo, el modelo corregido por la base o las reglas */
+  origen: 'persona' | 'modelo' | 'modelo_ajustado' | 'reglas';
+  /** lo que propuso el modelo cuando la base lo bajó */
+  propuesto?: NivelCerteza;
+}
+
+/** Recomendación segura (db/generico/25_recomendaciones_seguras.sql) */
+export interface RecomendacionSegura {
+  /** la recomendación; empieza por «Sin confirmar:» si afirma algo sin verificar */
+  texto?: string;
+  /** texto original cuando se marcó como sin confirmar */
+  original?: string;
+  para_quien?: string;
+  /** con quién comprobarlo según el tema */
+  verificar_con: string;
+  /** lo que hay que saber antes de actuar */
+  falta_saber: string[];
+  /** da algo por habilitado/operativo/seguro sin dato oficial ni persona en las últimas 24 h */
+  afirma_sin_verificar: boolean;
+  aviso?: string;
+  /** hora del último dato oficial */
+  dato_oficial?: string;
+}
+
+/** Síntesis del día en 3 bloques (db/generico/26_sintesis_dia.sql) */
+export interface ItemSintesis {
+  codigo?: string;
+  titulo?: string;
+  texto?: string;
+  /** solo en «qué pasa» */
+  certeza?: NivelCerteza;
+  naturaleza?: Naturaleza;
+  lugares?: string;
+  impacto?: string;
+  motivo?: string;
+  para_quien?: string;
+  /** solo en «qué vigilar» */
+  tipo?: 'sin_confirmar' | 'convocado' | 'plazo' | 'recomendacion_sin_verificar' | 'revision_vencida' | 'fuentes';
+}
+export interface SintesisDia {
+  generado?: string;
+  /** una línea con los totales (los mismos contadores del panel) */
+  totales: string;
+  que_pasa: ItemSintesis[];
+  por_que_importa: ItemSintesis[];
+  que_vigilar: ItemSintesis[];
+}
+
+/** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */
+export interface Trazabilidad {
+  /** cuándo AVIA creó la señal */
+  detectada: string | null;
+  /** noticias que la sostienen: la oficial primero */
+  fuentes: { nombre: string; tipo?: string; oficial?: boolean; url?: string; titulo?: string;
+    /** fecha que da la fuente; ausente si no la da */
+    publicada?: string; recogida?: string;
+    /** vigilante.json antiguo: una sola fecha sin saber de qué */
+    fecha?: string; nota?: string }[];
+  noticias: number;
+  primera_publicacion?: string | null;
+  ultima_noticia?: string | null;
+  /** última vez que AVIA volvió a leer alguna de esas fuentes */
+  fuente_comprobada?: string | null;
+  /** última decisión de una persona; null = sin verificar por una persona */
+  ultima_verificacion: { cuando: string | null; cuandoTexto?: string; quien: string; estado: string } | null;
+}
+
 export interface Senal {
   id: string;
   titulo: string;
@@ -105,6 +187,14 @@ export interface Senal {
   enlaces?: Enlace[];
   /** próxima revisión prevista, AAAA-MM-DD */
   revision?: string;
+  /** fuente, enlace, fechas y última verificación (desde el 23) */
+  traza?: Trazabilidad;
+  /** fiabilidad, probabilidad e impacto (desde el 22) */
+  puntos?: Puntuaciones;
+  /** confirmado / convocado / posible / rumor (desde el 24) */
+  certeza?: Certeza;
+  /** qué hacer, para quién, con quién verificar y qué falta saber (desde el 25) */
+  reco?: RecomendacionSegura;
   /** última actualización de la señal en texto */
   actualizacion?: string;
 }

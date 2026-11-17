@@ -3,6 +3,7 @@ import type { EstadoFuente, Evento, Naturaleza, Senal } from '../types';
 import { CATS, STATE_TXT, STL } from '../data/demo';
 import { clock, scoreOf } from '../lib/util';
 import { useStore } from '../store';
+import { CERTEZAS, certezaDe } from '../lib/certeza';
 
 const NAT_TXT: Record<Naturaleza, string> = { oportunidad: 'Oportunidad', riesgo: 'Riesgo', mixta: 'Mixta' };
 
@@ -158,4 +159,10 @@ export function Foot() {
       <span>{real ? (enBd ? 'Señales publicadas por AVIA · las etapas de las señales se guardan en la base de datos' : 'Señales publicadas por AVIA · las decisiones aún no se guardan en el servidor') : 'Datos de ejemplo inventados · no usar para decisiones reales'}</span>
     </footer>
   );
+}
+
+/** Etiqueta del grado de certeza (confirmado / convocado / posible / rumor) */
+export function CertezaTag({ s }: { s: Senal }) {
+  const c = certezaDe(s);
+  return <span className={`tag cert cert-${c.nivel}`} title={`${CERTEZAS[c.nivel].def} ${c.motivo}`}>{CERTEZAS[c.nivel].t}</span>;
 }

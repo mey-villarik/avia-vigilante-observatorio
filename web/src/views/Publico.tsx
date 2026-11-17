@@ -166,8 +166,8 @@ export function Publico() {
       <header className="pub-head">
         <div className="eyebrow">Alertas para el turismo</div>
         <h1>{d?.nombre ?? 'Observatorio'}</h1>
-        <p className="sub">Oportunidades y riesgos que pueden afectar al turismo. AVIA las detecta en fuentes oficiales y medios, y el equipo del observatorio las revisa antes de publicarlas.</p>
-        {d?.telegramUrl && <a className="btn primary" href={d.telegramUrl} target="_blank" rel="noopener noreferrer">Recibir avisos por Telegram</a>}
+        <p className="sub">Oportunidades y riesgos que pueden afectar al turismo. AVIA lee noticias de fuentes oficiales y medios y las junta en señales; una señal solo se convierte en <b>alerta</b> cuando una persona del observatorio la confirma y la publica.</p>
+        {d?.telegramUrl && <a className="btn primary" href={d.telegramUrl} target="_blank" rel="noopener noreferrer">Recibir alertas por Telegram</a>}
         {d?.ejemplo && <p className="note">Ejemplo: esta página aún no está conectada a la base de datos.</p>}
       </header>
 
@@ -200,7 +200,7 @@ export function Publico() {
           {PERIODOS.map(([k, n]) => <option key={k} value={k}>{n}</option>)}
         </select>
       </div>
-      {d && !anteriores && <p className="note pub-ventana">Se ven los riesgos y avisos de los últimos {d.dias} días y las oportunidades con plazo abierto.</p>}
+      {d && !anteriores && <p className="note pub-ventana">Se ven las alertas de riesgo de los últimos {d.dias} días y las oportunidades con plazo abierto.</p>}
 
       {err && <p className="pub-err" role="alert">No se pudieron cargar las alertas: {err}</p>}
       {!d && !err && <p className="note">Cargando…</p>}

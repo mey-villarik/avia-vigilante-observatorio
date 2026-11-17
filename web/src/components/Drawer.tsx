@@ -3,12 +3,18 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import type { Etapa, Fuente } from '../types';
 import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
-import { ago, clock, plazoTexto } from '../lib/util';
+import { ago, clock, plazoTexto, porRevisar } from '../lib/util';
 import { Icon } from './Icon';
-import { Histo, NatPill, StPill } from './common';
+import { CertezaTag, Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
+import { GLOSARIO, TERMINOS } from '../lib/glosario';
+import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
+import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
+import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
+import { afirmaOperativo, recoDe } from '../lib/recomendacion';
+import { EXPLICA as PULSO_EXPLICA, calcularPulso, factoresTexto, masPesan } from '../lib/pulso';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -129,29 +135,33 @@ function FuenteDetalle({ id }: { id: string }) {
 
 function SenalDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.senales.find((x) => x.id === id));
-  const fuentes = useStore((st) => st.fuentes);
   const role = useStore((st) => st.role);
   const enBd = useStore((st) => st.enBd);
   const real = useStore((st) => st.origen === 'vps');
-  const { moveSignal, closeDrawer } = useStore.getState();
+  const { moveSignal, decideReview, closeDrawer } = useStore.getState();
   const { openChat } = useChat();
   const [sol, setSol] = useState<number | null>(null);
   const [note, setNote] = useState('');
   if (!s) return null;
-  const evid = s.fuentes.map((f) => fuentes.find((x) => x.id === f)).filter((x): x is Fuente => Boolean(x));
 
   const decide = (to: Etapa) => {
-    const n = ((sol != null ? 'Acción: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
+    const n = ((sol != null ? 'Recomendación: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
     closeDrawer();
     moveSignal(s.id, to, n);
   };
+  const revisar = (aprobar: boolean) => {
+    const n = ((sol != null ? 'Recomendación: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
+    closeDrawer();
+    void decideReview(s.id, aprobar, n);
+  };
+  const espera = porRevisar(s);
 
   return (
     <>
       <Head icon="senales">Señal {s.id}{real ? '' : ' · ejemplo'}</Head>
       <div className="drawer-b">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <NatPill n={s.naturaleza} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span>
+          <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span>
           {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
           {s.revisionVencida && <span className="tag vencida">Plazo de revisión vencido</span>}
           {!s.revisionVencida && s.sla ? <span className="sla">⏱ {plazoTexto(s.sla)} para revisar</span> : null}
@@ -159,32 +169,25 @@ function SenalDetalle({ id }: { id: string }) {
         {s.escenario && <p className="note" style={{ margin: '8px 0 0' }}>Es una predicción de AVIA, no un hecho comprobado. Se queda en el panel del equipo y no sale en la web pública ni en Telegram.</p>}
         <h2>{s.titulo}</h2>
         <p className="lead">{s.resumen}</p>
+        <Certeza s={s} />
         <div className="dl">
           <div><small>Territorio</small><b>{s.deps.join(', ')}</b></div>
           <div><small>Destinos</small><b>{s.destinos.join(', ')}</b></div>
-          <div><small>Relevancia · Novedad</small><b className="mono">{s.rel}/10 · {s.nov}/10</b></div>
-          <div><small>Confianza</small><b className="mono">{Math.round(s.conf * 100)}%</b></div>
           {s.plazo != null ? <div><small>Plazo</small><b>{s.plazo} días</b></div> : null}
           <div><small>Detectada</small><b>{ago(s.min)}</b></div>
           {s.revision ? <div><small>Próxima revisión</small><b className="mono">{s.revision}</b></div> : null}
         </div>
+        <Puntos s={s} />
         {s.actualizacion && <><div className="sect">Última actualización</div><p style={{ margin: 0 }}>{s.actualizacion}</p></>}
         <div className="sect">Por qué importa al turismo</div>
         <p style={{ margin: 0 }}>{s.importancia}</p>
-        <div className="sect">Evidencia y corroboración</div>
-        {evid.map((f) => <div className="evi" key={f.id}><Icon name="shield" /><span>{f.nombre}<small>{f.url}</small></span></div>)}
-        {(s.enlaces ?? []).map((e) => (
-          <div className="evi" key={e.url}>
-            <Icon name="link" />
-            <span><a href={e.url} target="_blank" rel="noopener noreferrer">{e.nombre || e.url}</a><small>{e.fecha ? e.fecha + ' · ' : ''}{hostOf(e.url)}</small></span>
-          </div>
-        ))}
-        {s.corr < 2 && <div className="evi pend"><Icon name="riesgo" /><span>Falta una segunda fuente independiente<small>AVIA sigue buscando corroboración</small></span></div>}
-        <div className="sect">Soluciones y acciones que propone AVIA</div>
+        <Traza s={s} />
+        <div className="sect">Recomendaciones de AVIA</div>
+        <Reco s={s} />
         {s.soluciones.map((o, i) => (
           <label className="sol" key={i}>
             <input type="radio" name="sol" checked={sol === i} onChange={() => setSol(i)} />
-            <span><b>{o.t}</b><small>{o.d}</small></span>
+            <span><b>{afirmaOperativo(o.t) && recoDe(s).afirma_sin_verificar ? 'Sin confirmar: ' : ''}{o.t}</b><small>{o.d}</small></span>
           </label>
         ))}
         {canDecide(role) ? (
@@ -193,6 +196,19 @@ function SenalDetalle({ id }: { id: string }) {
               <label htmlFor="decNote">Nota de la decisión</label>
               <textarea className="inp" id="decNote" placeholder="Motivo, condiciones o comentarios" value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
+            {espera && (
+              <div className={`revisar-aviso ${s.revisionVencida ? 'vencida' : ''}`} style={{ margin: 0 }}>
+                <span>
+                  <b>{s.revisionVencida ? 'Plazo vencido: sigue sin publicarse' : 'Espera tu aprobación'}</b>
+                  {!s.revisionVencida && s.sla ? ` · quedan ${plazoTexto(s.sla)}` : ''}
+                </span>
+                <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn gold" title={s.escenario ? 'Es un escenario: queda aprobado pero no se publica' : 'Sale en la web pública y se avisa por Telegram'}
+                    onClick={() => revisar(true)}><Icon name="check" /> {s.escenario ? 'Aprobar (no se publica)' : 'Aprobar y publicar'}</button>
+                  <button className="btn ghost" onClick={() => revisar(false)}>Rechazar</button>
+                </span>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn gold" onClick={() => decide('confirmada')}><Icon name="check" /> Confirmar</button>
               <button className="btn" title="Sale en la web pública y se avisa por Telegram" onClick={() => decide('publicada')}>Publicar</button>
@@ -210,7 +226,7 @@ function SenalDetalle({ id }: { id: string }) {
             ))}
           </>
         )}
-        <Lock>{real ? (enBd ? 'Señal real publicada por AVIA. Al cambiar su etapa se guarda en la base de datos, con tu nombre y la nota, y queda en la Bitácora. Al pulsar «Publicar» sale en la web pública y el bot avisa por Telegram; si luego la mueves a otra columna, se retira de la web.' : 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.') : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
+        <Lock>{real ? (enBd ? 'Señal real publicada por AVIA. Al cambiar su etapa se guarda en la base de datos, con tu nombre y la nota, y queda en la Bitácora. Al pulsar «Aprobar y publicar» o «Publicar» sale en la web pública y el bot avisa por Telegram; lo que espera revisión nunca sale sin aprobación; si luego la mueves a otra columna, se retira de la web.' : 'Señal real publicada por AVIA. Por ahora las decisiones solo cambian este navegador: no se guardan en el VPS y se pierden al recargar los datos.') : 'Señal de ejemplo. Las decisiones solo cambian esta demostración en tu navegador.'}</Lock>
       </div>
     </>
   );
@@ -237,6 +253,167 @@ function Catalogo() {
         </div>
         <div className="sect">Escalable</div>
         <p className="note" style={{ margin: 0 }}>Cada panel es un módulo independiente que lee la misma base de señales. Añadir uno nuevo (por ejemplo, ocupación hotelera o vuelos) no cambia los demás.</p>
+      </div>
+    </>
+  );
+}
+
+const ESTADO_TXT: Record<string, string> = { en_verificacion: 'pidió verificación', confirmada: 'confirmó', publicada: 'publicó', descartada: 'descartó' };
+
+function Traza({ s }: { s: Parameters<typeof trazaDe>[0] }) {
+  const t = trazaDe(s);
+  const v = t.ultima_verificacion;
+  return (
+    <>
+      <div className="sect">Trazabilidad</div>
+      <div className="dl traza">
+        <div><small>Detectada por AVIA</small><b>{fechaBolivia(t.detectada)}</b></div>
+        {t.ultima_noticia ? <div><small>Última noticia recogida</small><b>{fechaBolivia(t.ultima_noticia)}</b></div> : null}
+        {t.fuente_comprobada ? <div><small>Fuente comprobada por última vez</small><b>{fechaBolivia(t.fuente_comprobada)}</b></div> : null}
+        <div><small>Última verificación de una persona</small>
+          <b>{v ? `${v.cuando ? fechaBolivia(v.cuando) : v.cuandoTexto ?? ''} · ${v.quien} ${ESTADO_TXT[v.estado] ?? v.estado}` : 'Sin verificar por una persona'}</b></div>
+      </div>
+      <div className="sect" style={{ fontSize: 12 }}>Noticias que la sostienen ({t.fuentes.length})</div>
+      {t.fuentes.map((f, i) => (
+        <div className="evi" key={(f.url ?? f.nombre) + i}>
+          <Icon name={f.oficial ? 'shield' : 'link'} />
+          <span>
+            {f.url ? <a href={f.url} target="_blank" rel="noopener noreferrer">{f.titulo || f.nombre}</a> : (f.titulo || f.nombre)}
+            {f.oficial && <span className="tag" style={{ marginLeft: 6 }}>Oficial</span>}
+            <small>
+              {f.nombre}{f.url ? ' · ' + hostOf(f.url) : ''}
+              {f.fecha
+                ? ` · Fecha ${fechaBolivia(f.fecha)} (sin distinguir publicación o recogida)`
+                : <> · Publicada: {f.publicada ? fechaBolivia(f.publicada) : 'la fuente no da fecha'}{f.recogida ? ` · Recogida: ${fechaBolivia(f.recogida)}` : ''}</>}
+            </small>
+          </span>
+        </div>
+      ))}
+      {!t.fuentes.length && <div className="evi pend"><Icon name="riesgo" /><span>Sin noticias enlazadas<small>No se puede comprobar de dónde sale: trátala como no verificada</small></span></div>}
+      {s.corr < 2 && t.fuentes.length < 2 && <div className="evi pend"><Icon name="riesgo" /><span>Falta una segunda fuente independiente<small>AVIA sigue buscando corroboración</small></span></div>}
+    </>
+  );
+}
+
+function Reco({ s }: { s: Parameters<typeof recoDe>[0] }) {
+  const r = recoDe(s);
+  return (
+    <div className={`reco${r.afirma_sin_verificar ? ' sinver' : ''}`}>
+      {r.afirma_sin_verificar && <p className="reco-aviso"><Icon name="riesgo" /> {r.aviso}</p>}
+      {r.texto && !s.soluciones.some((o) => o.t === (r.original ?? r.texto)) && <p><b>{r.texto}</b></p>}
+      {r.para_quien && <p><small>Para</small> {r.para_quien}</p>}
+      <p><small>Verificar con</small> {r.verificar_con}{r.dato_oficial ? ` · último dato oficial: ${fechaBolivia(r.dato_oficial)}` : ''}</p>
+      <p><small>Falta saber</small></p>
+      {r.falta_saber.length ? <ul>{r.falta_saber.map((f) => <li key={f}>{f}</li>)}</ul> : <p className="note" style={{ margin: 0 }}>Nada pendiente según las fuentes.</p>}
+    </div>
+  );
+}
+
+function Certeza({ s }: { s: Parameters<typeof certezaDe>[0] }) {
+  const c = certezaDe(s);
+  return (
+    <div className={`certeza cert-${c.nivel}`}>
+      <small>Grado de certeza</small>
+      <b>{CERTEZAS[c.nivel].t}</b>
+      <p>{c.motivo}{c.propuesto ? ` (AVIA proponía «${c.propuesto}»)` : ''}</p>
+      <p className="note" style={{ margin: 0 }}>{CERTEZAS[c.nivel].def} {ORIGEN_CERTEZA[c.origen]}.</p>
+    </div>
+  );
+}
+
+function Puntos({ s }: { s: Parameters<typeof puntuacionesDe>[0] }) {
+  const p = puntuacionesDe(s);
+  const prob = p.probabilidad.valor == null ? 'Sin datos' : `${Math.round(p.probabilidad.valor * 100)} % · ${p.probabilidad.nivel}`;
+  return (
+    <>
+      <div className="sect">Puntuaciones</div>
+      <div className="puntos">
+        <div className={`punto n-${p.fiabilidad.nivel}`} title={EXPLICA.fiabilidad}>
+          <small>Fiabilidad de la evidencia</small>
+          <b className="mono">{p.fiabilidad.valor}/100 · {p.fiabilidad.nivel}</b>
+          <ul>{p.fiabilidad.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
+        </div>
+        <div className={`punto ${p.probabilidad.valor == null ? 'n-sin' : 'n-' + p.probabilidad.nivel}`} title={EXPLICA.probabilidad}>
+          <small>Probabilidad</small>
+          <b className="mono">{prob}</b>
+          <p>{p.probabilidad.justificacion}</p>
+        </div>
+        <div className={`punto ${p.impacto.nivel === 'sin datos' ? 'n-sin' : ''}`} title={EXPLICA.impacto}>
+          <small>Impacto turístico</small>
+          <b>{p.impacto.nivel === 'sin datos' ? 'Sin datos' : p.impacto.nivel[0].toUpperCase() + p.impacto.nivel.slice(1)}</b>
+          <p>{p.impacto.motivo}</p>
+        </div>
+      </div>
+      <p className="note" style={{ margin: '4px 0 0' }}>Pasa el ratón por cada puntuación para ver cómo se calcula.</p>
+    </>
+  );
+}
+
+function Glosario() {
+  return (
+    <>
+      <Head icon="temas">Glosario del observatorio</Head>
+      <div className="drawer-b">
+        <p className="lead">El panel, la web pública y AVIA usan estas cuatro palabras siempre con el mismo significado. Van en orden: de la noticia a la recomendación.</p>
+        {TERMINOS.map((k) => {
+          const g = GLOSARIO[k];
+          return (
+            <div className="glosario-t" key={k}>
+              <div className="sect">{g.t}</div>
+              <p style={{ margin: 0 }}>{g.def}</p>
+              <p className="note" style={{ margin: '6px 0 0' }}><b>Ejemplo:</b> {g.ejemplo}</p>
+              <p className="note" style={{ margin: '2px 0 0' }}>{g.noEs}</p>
+            </div>
+          );
+        })}
+        <div className="sect" style={{ marginTop: 18 }}>Grado de certeza</div>
+        <p style={{ margin: 0 }}>Cada señal dice qué tipo de hecho es, con una de estas cuatro palabras. No es lo mismo que la fiabilidad (cuánto respaldo hay) ni que la probabilidad (si pasará).</p>
+        {NIVELES_CERTEZA.map((k) => (
+          <div className="glosario-t" key={k}>
+            <p style={{ margin: '8px 0 0' }}><span className={`tag cert cert-${k}`}>{CERTEZAS[k].t}</span> {CERTEZAS[k].def}</p>
+            <p className="note" style={{ margin: '2px 0 0' }}><b>Ejemplo:</b> {CERTEZAS[k].ejemplo}</p>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function PulsoExplica() {
+  const senales = useStore((s) => s.senales);
+  const fuentes = useStore((s) => s.fuentes);
+  const openDrawer = useStore((s) => s.openDrawer);
+  const p = calcularPulso(senales, fuentes);
+  const bloque = (titulo: string, valor: number, nivel: string, reglas: string[], i: 'riesgo' | 'oportunidad', n: number, suma: number) => (
+    <>
+      <div className="sect">{titulo}: {valor}/100 · {nivel}</div>
+      <ul className="pulso-r">{reglas.map((r) => <li key={r}>{r}</li>)}</ul>
+      <p className="note" style={{ margin: '6px 0 4px' }}>
+        <b>Ahora:</b> {n} {i === 'riesgo' ? 'riesgos' : 'oportunidades'} suman {suma.toLocaleString('es-BO', { maximumFractionDigits: 2 })} → 100 × {suma.toLocaleString('es-BO', { maximumFractionDigits: 2 })} ÷ ({n} + 2) = <b>{valor}</b>
+      </p>
+      {masPesan(p, i).length ? (
+        <ul className="pulso-r">
+          {masPesan(p, i).map((a) => (
+            <li key={a.id}><button className="linklike" onClick={() => openDrawer({ kind: 'senal', id: a.id })}>{a.id}</button> {a.titulo}: <b>{a.peso.toLocaleString('es-BO', { maximumFractionDigits: 2 })}</b> <small>({factoresTexto(a)})</small></li>
+          ))}
+        </ul>
+      ) : <p className="note" style={{ margin: 0 }}>Ninguna señal suma todavía.</p>}
+    </>
+  );
+  return (
+    <>
+      <Head icon="pulso">Cómo se calcula el Pulso</Head>
+      <div className="drawer-b">
+        <p className="lead">{PULSO_EXPLICA.que}</p>
+        {bloque('Atención a riesgos', p.riesgo, p.nivelRiesgo, PULSO_EXPLICA.riesgo, 'riesgo', p.sumas.nRiesgos, p.sumas.riesgo)}
+        {bloque('Oportunidad', p.oportunidad, p.nivelOportunidad, PULSO_EXPLICA.oportunidad, 'oportunidad', p.sumas.nOportunidades, p.sumas.oportunidad)}
+        <div className="sect">Índice y niveles</div>
+        <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.indice}</p>
+        <ul className="pulso-r">{PULSO_EXPLICA.niveles.map((n) => <li key={n}>{n}</li>)}</ul>
+        <p className="note" style={{ margin: '4px 0 0' }}><b>Nivel de vigilancia ahora:</b> {p.vigilancia}</p>
+        <div className="sect">Qué no entra y límites</div>
+        <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.noEntra}</p>
+        <p className="note" style={{ margin: 0 }}>{PULSO_EXPLICA.limites}</p>
       </div>
     </>
   );
@@ -416,6 +593,8 @@ export function Drawer() {
     case 'senal': body = <SenalDetalle key={drawer.id} id={drawer.id} />; break;
     case 'catalogo': body = <Catalogo />; break;
     case 'a11y': body = <A11y />; break;
+    case 'glosario': body = <Glosario />; break;
+    case 'pulso': body = <PulsoExplica />; break;
     case 'guardar': body = <GuardarTablero />; break;
     case 'nueva-fuente': body = <NuevaFuente />; break;
     case 'editar-fuente': body = <EditarFuente id={drawer.id} />; break;

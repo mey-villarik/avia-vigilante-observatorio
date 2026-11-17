@@ -446,6 +446,10 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .msg.u{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:4px}
 .msg.a{align-self:flex-start;background:var(--surface2);border:1px solid var(--line);border-bottom-left-radius:4px}
 .msg.sys{align-self:center;background:none;color:var(--faint);font-size:11.5px;padding:2px}
+.msg h4{margin:10px 0 4px;font-size:calc(12.5px * var(--fs));text-transform:uppercase;letter-spacing:.04em;color:var(--faint)}
+.msg h4:first-child{margin-top:2px}
+.msg ul{margin:0 0 6px;padding-left:18px}
+.msg:has(h4){white-space:normal}
 .msg .act{display:block;margin-top:6px;font-size:11.5px;color:var(--opp)}
 .chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 10px}
 .chip{border:1px solid var(--line2);background:none;border-radius:999px;padding:5px 10px;font-size:12px;color:var(--muted)}
@@ -543,3 +547,49 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
   background:var(--surface2);color:var(--ink);font-size:22px;line-height:1;cursor:pointer}
 .opp-cerrar:hover{background:var(--raise)}
 @media (max-width:640px){.opp-corta{min-height:0}.opp-ventana .ficha-detalle{padding:18px 16px}}
+/* Aprobación del analista (18_aprobacion_analista.sql) */
+.revisar-aviso{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:10px;background:var(--surface2);font-size:13px}
+.revisar-aviso.vencida{border-left-color:var(--crit)}
+
+/* Tres puntuaciones (22_puntuaciones.sql) */
+.puntos{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.punto{border:1px solid var(--line);border-left:4px solid var(--faint);border-radius:10px;padding:8px 10px;background:var(--surface2);cursor:help}
+.punto small{display:block;color:var(--faint);font-size:11.5px}
+.punto b{display:block;margin:2px 0 4px}
+.punto p,.punto ul{margin:0;font-size:12px;color:var(--ink-2,var(--faint))}
+.punto ul{padding-left:16px}
+.punto.n-alta{border-left-color:var(--ok)}
+.punto.n-media{border-left-color:var(--warn)}
+.punto.n-baja{border-left-color:var(--crit)}
+/* Grado de certeza (mejora 6): confirmado · convocado · posible · rumor */
+.tag.cert{font-weight:600}
+.tag.cert-confirmado{color:var(--ok);border-color:var(--ok)}
+.tag.cert-convocado{color:var(--mix);border-color:var(--mix)}
+.tag.cert-posible{color:var(--warn);border-color:var(--warn)}
+.tag.cert-rumor{color:var(--crit);border-color:var(--crit);border-style:dashed}
+.certeza{border:1px solid var(--line);border-left:4px solid var(--faint);border-radius:10px;padding:8px 10px;background:var(--surface2);margin:10px 0}
+.certeza small{display:block;color:var(--faint);font-size:11.5px}
+.certeza b{display:block;margin:2px 0 2px}
+.certeza p{margin:0 0 2px;font-size:12.5px}
+.certeza.cert-confirmado{border-left-color:var(--ok)}
+.certeza.cert-convocado{border-left-color:var(--mix)}
+.certeza.cert-posible{border-left-color:var(--warn)}
+.certeza.cert-rumor{border-left-color:var(--crit)}
+.punto.n-sin{border-left-style:dashed}
+/* Recomendaciones seguras (mejora 7) */
+.reco{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--surface2);margin:0 0 8px}
+.reco p{margin:0 0 4px;font-size:13px}
+.reco small{color:var(--faint);font-size:11.5px;margin-right:4px}
+.reco ul{margin:0 0 2px;padding-left:18px;font-size:13px}
+.reco.sinver{border-color:var(--crit);border-left-width:4px}
+.reco-aviso{color:var(--crit);font-weight:600}
+/* Síntesis del día en 3 bloques (mejora 8) */
+.sd-t{margin:0 0 8px;font-size:13px;color:var(--faint)}
+.sd-b{border-left:3px solid var(--line);padding:2px 0 2px 10px;margin:0 0 10px}
+.sd-b h4{margin:0 0 4px;font-size:13px;letter-spacing:.02em;text-transform:uppercase;color:var(--faint)}
+.sd-b ul{margin:0;padding-left:16px;font-size:13.5px}
+.sd-b li{margin:0 0 3px}
+.sd-l{color:var(--faint)}
+/* Explicación del Pulso (mejora 9) */
+.pulso-r{margin:0 0 4px;padding-left:18px;font-size:13px}
+.pulso-r li{margin:0 0 3px}

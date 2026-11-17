@@ -61,10 +61,10 @@ function FichaDetalle({ o, cerrar }: { o: Oportunidad; cerrar: () => void }) {
       {o.beneficiarios && o.beneficiarios.length > 0 && (
         <div className="actors" aria-label="A quién le sirve">{o.beneficiarios.map((a) => <span className="tag" key={a}>{a}</span>)}</div>
       )}
-      {o.accion && <div className="propose"><b>Siguiente paso</b>{o.accion}</div>}
+      {o.accion && <div className="propose"><b>Recomendación</b>{o.accion}</div>}
       {o.evidencias && o.evidencias.length > 0 && (
         <div className="evidencias">
-          <b>Evidencias ({o.evidencias.length})</b>
+          <b>Noticias que la respaldan ({o.evidencias.length})</b>
           <ul>
             {o.evidencias.map((e) => (
               <li key={e.id}>
@@ -177,7 +177,7 @@ export function Oportunidades() {
         <div>
           <div className="eyebrow">Oportunidades</div>
           <h1>Lo que se puede <em>aprovechar</em> ahora</h1>
-          <p className="sub">Cada oportunidad separa el <b>hecho</b> (lo que dice la fuente) de la <b>interpretación</b> (lo que podría aprovecharse), con a quién le sirve, el siguiente paso y las noticias que la respaldan. Ordenadas por plazo.</p>
+          <p className="sub">Cada oportunidad separa el <b>hecho</b> (lo que dice la fuente) de la <b>interpretación</b> (lo que podría aprovecharse), con a quién le sirve, la recomendación y las noticias que la respaldan. Ordenadas por plazo.</p>
         </div>
         <div className="head-actions">
           <button className="btn gold" onClick={() => openChat('Mirando todas las señales, ¿qué oportunidades nuevas propones que todavía no estén planteadas? Combina señales cuando tenga sentido.')}>

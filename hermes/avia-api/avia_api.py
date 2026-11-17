@@ -61,7 +61,7 @@ CLIENTE   = os.environ.get('VIGILANTE_CLIENTE', 'orbita-bolivia')
 API_KEY   = os.environ.get('AVIA_API_KEY', '')   # nginx inyecta este valor en el header
 PORT      = int(os.environ.get('AVIA_PORT', '8099'))
 
-_CTX_TTL  = 120   # segundos que se cachea el contexto de Supabase
+_CTX_TTL  = 60    # segundos que se cachea el contexto de Supabase (la web recarga antes de preguntar)
 _ctx_cache: dict = {}
 
 
@@ -93,6 +93,9 @@ async def _supabase_post(session: aiohttp.ClientSession, path: str,
         'apikey': SB_KEY,
         'Authorization': f'Bearer {jwt or SB_KEY}',
         'Content-Type': 'application/json',
+        # vigilante_bd() vive en el esquema «vigilante», no en «public» (sin esto Supabase responde 404 y el chat veía 0 señales)
+        'Content-Profile': 'vigilante',
+        'Accept-Profile': 'vigilante',
     }
     async with session.post(f'{SB_URL}{path}', json=body, headers=headers) as r:
         return await r.json()
@@ -105,7 +108,7 @@ async def _deepseek(session: aiohttp.ClientSession,
         headers={'Authorization': f'Bearer {LLM_KEY}',
                  'Content-Type': 'application/json'},
         json={'model': LLM_MODEL, 'messages': messages, 'max_tokens': max_tokens},
-        timeout=aiohttp.ClientTimeout(total=30),
+        timeout=aiohttp.ClientTimeout(total=60),
     ) as r:
         data = await r.json()
     return data['choices'][0]['message']['content']
@@ -131,6 +134,154 @@ async def _get_context(session: aiohttp.ClientSession, jwt: str | None) -> dict:
     return {}
 
 
+# ── Glosario único (igual que web/src/lib/glosario.ts y docs/glosario.md) ─────
+GLOSARIO = """GLOSARIO (usa estas palabras siempre con este significado):
+- Noticia: lo que publica una fuente, tal cual (nota, comunicado, norma, convocatoria), con enlace y fecha. Una sola noticia no es una conclusión.
+- Señal: un hecho que importa al turismo, armado a partir de una o varias noticias sobre lo mismo; tiene naturaleza (oportunidad, riesgo, mixta) y etapa. La mayoría se queda en el panel del equipo.
+- Alerta: una señal que una persona del equipo confirmó y publicó (web pública o Telegram). Solo las señales en estado «publicada» son alertas. Un escenario nunca es alerta.
+- Recomendación: lo que AVIA propone hacer ante una señal: acción concreta, para quién y qué falta comprobar. No es una orden ni un hecho.
+Grado de certeza (cada señal trae uno; usa solo estas cuatro palabras):
+- Confirmado: ya pasó o está pasando y lo respalda una fuente oficial, dos fuentes distintas o una persona del equipo.
+- Convocado: anunciado por quien lo organiza para una fecha futura (paro, bloqueo, feria, convocatoria). Está anunciado; no se sabe si ocurrirá.
+- Posible: hay indicios, pero nadie lo ha confirmado. Los escenarios siempre son «posible».
+- Rumor: sin fuente identificable o solo redes sin respaldo.
+No llames «alerta» a una señal sin publicar. La «alerta naranja/roja» del SENAMHI es el nombre del aviso de la fuente: cítalo como «aviso naranja del SENAMHI»."""
+
+
+SIN_DATOS = """¡ATENCIÓN! NO SE PUDIERON CARGAR LOS DATOS DEL OBSERVATORIO (error técnico, no «cero señales»).
+No digas que no hay señales, oportunidades ni riesgos. Di que ahora mismo no puedes consultar los datos del observatorio, que es un fallo técnico y que el panel puede mostrar información distinta. Los contadores de abajo NO son válidos: no los cites."""
+
+
+# ── Formato de las respuestas (mejora 3 de la PoC; ver docs/respuestas-avia.md) ──
+FORMATO = """CÓMO RESPONDER
+A) Pregunta simple (un número, abrir una vista, un dato puntual): 1 a 3 frases, sin bloques.
+B) Pregunta de análisis (situación, riesgos, oportunidades, una señal, un destino, un resumen): usa SIEMPRE estos bloques, en este orden, con estos títulos en markdown (#### Título):
+#### Hechos
+Lo que tiene certeza «confirmado» o «convocado» (regla 9). Cada hecho con su código (SEN-…), su certeza, la fuente y la fecha si están en los datos.
+#### Pendiente de verificar
+Lo que tiene certeza «posible» o «rumor». Di qué falta para confirmarlo (fuente oficial, segunda fuente o revisión de una persona).
+#### Interpretación
+Tu lectura de los hechos, marcada como interpretación («esto podría…»). Nunca la presentes como hecho.
+#### Impacto turístico
+A quién afecta (destinos, operadores, visitantes) y cómo. Si no hay datos para medirlo, dilo.
+#### Escenarios
+Qué podría pasar y bajo qué condición («si…, entonces…»). Son posibilidades, no predicciones seguras. Si no hay base para plantearlos, escribe «Sin datos suficientes para plantear escenarios».
+#### Recomendación
+Qué hacer, para quién, con quién verificarlo y qué falta saber antes de actuar (regla 10).
+
+REGLAS
+1. Un bloque sin contenido lleva «Sin datos» o «Nada pendiente»: no lo rellenes ni lo inventes, y no lo quites.
+2. No fuerces cantidades. Si te piden 5 y hay 2, di «Solo hay 2» y da esas 2. Nunca completes con señales repetidas, viejas o inventadas.
+3. Responde todas las partes de la pregunta. Si una parte no se puede responder con los datos, dilo en esa parte.
+4. No mezcles hechos con hipótesis en la misma frase. Ante la duda, va en «Pendiente de verificar».
+5. Usa solo los datos de este mensaje. Si algo no está, di «no lo tengo en los datos del observatorio».
+6. Termina la respuesta: no la cortes a mitad de un bloque; si falta espacio, acorta cada bloque.
+7. Puntuaciones: cada señal trae tres, siempre por su nombre y nunca un número suelto («0,95» no):
+   - Fiabilidad de la evidencia (0-100, la calcula la base por fuentes oficiales, fuentes distintas y revisión humana; cita su nivel y por qué).
+   - Probabilidad: solo si trae valor y justificación; si dice «sin datos», di «probabilidad: sin datos». No la estimes tú.
+   - Impacto turístico (alto/medio/bajo) con su motivo.
+   No las mezcles: una fuente muy fiable no hace que algo sea probable ni importante.
+8. Trazabilidad: en «Hechos», cada hecho lleva fuente, enlace y fecha de PUBLICACIÓN de la fuente
+   («SENAMHI, publicado 16/11 08:00, enlace»). Si la fuente no da fecha, di «la fuente no da fecha» y usa la
+   de recogida diciendo que es de recogida. Si la fecha es «sin distinguir», dilo así. Cuando importe, añade
+   cuándo la detectó AVIA y la última verificación de una persona; si no hay, «sin verificar por una persona».
+   Nunca inventes una fecha ni un enlace.
+9. Grado de certeza: cada hecho que cites lleva su certeza entre corchetes, con la palabra exacta que trae
+   la señal en «certeza»: [confirmado], [convocado], [posible] o [rumor]. No la subas nunca: un «posible» no
+   se cuenta como hecho y un «convocado» no es algo que ya pasó («la federación convocó un paro para el
+   jueves», no «hay paro»). En «Hechos» solo van confirmados y convocados; posibles y rumores van en
+   «Pendiente de verificar». Si la certeza trae «propuesto», AVIA la bajó por falta de fuentes: dilo.
+10. Recomendaciones seguras: usa «recomendacion_segura» de cada señal. Cada recomendación dice qué hacer,
+   para quién, con quién verificarlo («verificar_con») y «Falta saber:» con su lista; si la lista está vacía,
+   no la inventes. NUNCA digas que una ruta, vuelo, aeropuerto, paso o destino está habilitado, operativo,
+   transitable, abierto, normal o seguro, ni que «se puede viajar», salvo que una fuente oficial lo diga y
+   «dato_oficial» sea de las últimas 24 h; entonces cita la fuente y la hora («según la ABC, a las 08:00»).
+   Si trae «afirma_sin_verificar», no repitas lo que afirma: di que no está confirmado y con quién
+   comprobarlo. Ante la duda, recomienda comprobar antes de viajar o de avisar a los visitantes.
+11. Síntesis del día: si piden el resumen, la síntesis, el panorama o «qué pasa hoy» y abajo hay una SÍNTESIS DEL DÍA,
+   no uses los seis bloques: responde con EXACTAMENTE tres, con estos títulos y en este orden:
+   #### Qué pasa · #### Por qué importa · #### Qué vigilar
+   Cópialos de la síntesis (ya viene armada por la base con los mismos contadores del panel): no añadas hechos
+   que no estén, no cambies la certeza de ninguno y, si un bloque viene vacío, escribe «Sin novedades» en él.
+   Empieza con la línea de totales y la hora de los datos. No fuerces tres elementos por bloque si hay menos.
+12. El Pulso (índices «Atención a riesgos» y «Oportunidad» y el nivel de vigilancia) lo calcula el panel, no tú:
+   no tienes su valor y NO lo inventes ni lo estimes. Si preguntan cómo se calcula, explica sus reglas y
+   remite al botón «¿Cómo se calcula el Pulso?» del panel, que muestra la cuenta con los números de ahora:
+   mide lo serias que son las señales, no cuántas hay; cada riesgo pesa prioridad (alta 1, media 0,5, baja 0,2)
+   × respaldo (0,5 + 0,5 × fiabilidad de la evidencia) × etapa (confirmada o publicada 1, en verificación 0,85,
+   detectada o en análisis 0,7); cada oportunidad pesa valor (45 % relevancia, 25 % novedad, 30 % fiabilidad)
+   × etapa, y 0 si el plazo venció; índice = 100 × suma de pesos ÷ (señales + 2). Las mixtas y los escenarios
+   cuentan la mitad. Niveles: menos de 25 normal o bajo, 25-49 vigilancia o moderado, 50-74 atención o alto,
+   75 o más crítico o muy alto. Las fuentes caídas no entran en los índices."""
+
+
+# ── Contexto para el chat: misma lista y mismos números que el panel ─────────
+_MAX_SENALES = 40   # señales que se pasan al modelo; los totales van aparte en «contadores»
+_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'certeza', 'recomendacion_segura', 'puntuaciones', 'trazabilidad',
+           'deps', 'destinos', 'fecha_limite', 'evento_inicio', 'evento_fin', 'importancia', 'enlaces',
+           'detectada', 'ultima_noticia', 'revision', 'escenario', 'soluciones')
+
+
+def _compacta(x: dict) -> dict:
+    c = {k: x[k] for k in _CAMPOS if x.get(k) not in (None, '', [], {})}
+    t = c.get('trazabilidad')
+    if isinstance(t, dict):   # hasta 3 fuentes por señal, para no gastar tokens
+        c['trazabilidad'] = {**t, 'fuentes': [{k: f[k] for k in ('nombre', 'oficial', 'url', 'publicada', 'recogida', 'fecha', 'nota') if k in f}
+                                               for f in (t.get('fuentes') or [])[:3] if isinstance(f, dict)]}
+        c.pop('enlaces', None)
+    r = c.get('recomendacion_segura')
+    if isinstance(r, dict) and r.get('afirma_sin_verificar'):   # que el modelo no repita la frase sin verificar
+        c['recomendacion_segura'] = {k: v for k, v in r.items() if k != 'original'}
+        c.pop('soluciones', None)
+    return c
+
+
+def _sintesis_txt(s) -> str:
+    """La síntesis del día que armó la base (db/generico/26_sintesis_dia.sql), en texto para el prompt."""
+    if not isinstance(s, dict):
+        return ''
+    def lineas(items):
+        out = []
+        for i in items or []:
+            if not isinstance(i, dict):
+                continue
+            partes = [i.get('codigo'), f"[{i['certeza']}]" if i.get('certeza') else None, i.get('titulo'),
+                      i.get('texto') or i.get('motivo')]
+            out.append('- ' + ' '.join(str(p) for p in partes if p))
+        return '\n'.join(out) or 'Sin novedades'
+    return (f"SÍNTESIS DEL DÍA (armada por la base; úsala para el resumen del día):\nTotales: {s.get('totales', '')}\n"
+            f"Qué pasa:\n{lineas(s.get('que_pasa'))}\nPor qué importa:\n{lineas(s.get('por_que_importa'))}\n"
+            f"Qué vigilar:\n{lineas(s.get('que_vigilar'))}")
+
+
+def _contar(activas: list, ctx: dict) -> dict:
+    """Solo si la base aún no tiene el 21: mismas definiciones que vigilante.contadores()."""
+    n = lambda f: sum(1 for x in activas if f(x))
+    ver = ('confirmada', 'publicada'); pend = ('detectada', 'en_analisis', 'en_verificacion')
+    return {
+        'actualizado': ctx.get('generado'), 'senales_activas': len(activas),
+        'oportunidades': n(lambda x: x.get('naturaleza') == 'oportunidad'),
+        'riesgos': n(lambda x: x.get('naturaleza') == 'riesgo'),
+        'mixtas': n(lambda x: x.get('naturaleza') == 'mixta'),
+        'plazo_corto': '¿?', 'riesgos_altos': n(lambda x: x.get('naturaleza') == 'riesgo' and x.get('prioridad') == 'alta'),
+        'verificadas': n(lambda x: x.get('estado') in ver),
+        'verificadas_2_fuentes': n(lambda x: x.get('estado') in ver and len(x.get('enlaces') or []) >= 2),
+        'por_verificar': n(lambda x: x.get('estado') in pend),
+        'esperan_aprobacion': n(lambda x: x.get('estado') in pend and bool(x.get('revision'))),
+        'alertas_publicadas': n(lambda x: x.get('estado') == 'publicada'),
+        'noticias_24h': ctx.get('noticias_revisadas'),
+    }
+
+
+def _hora_bolivia(iso) -> str:
+    try:
+        from datetime import datetime, timedelta, timezone
+        t = datetime.fromisoformat(str(iso).replace('Z', '+00:00'))
+        return t.astimezone(timezone(timedelta(hours=-4))).strftime('%H:%M')
+    except Exception:
+        return '—'
+
+
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 
 async def handle_chat(request: web.Request) -> web.Response:
@@ -147,30 +298,58 @@ async def handle_chat(request: web.Request) -> web.Response:
 
     async with aiohttp.ClientSession() as session:
         ctx     = await _get_context(session, jwt)
-        # 10 señales recientes + las que el usuario nombre (SEN-xxxx), aunque sean antiguas
-        todas   = ctx.get('senales', []) or []
+        # Misma lista y mismos números que el panel (db/generico/21_contadores_unicos.sql):
+        # las señales activas son las visibles sin descartadas, y los totales salen de «contadores».
+        todas   = [x for x in (ctx.get('senales', []) or []) if isinstance(x, dict)]
+        activas = [x for x in todas if x.get('estado') != 'descartada']
         txt     = ' '.join(str(m.get('content', '')) for m in mensajes[-3:] if isinstance(m, dict))
         ids     = set(re.findall(r'SEN-\d+', txt))
-        pedidas = [x for x in todas if isinstance(x, dict) and any(str(v) in ids for v in x.values())]
-        senales = pedidas + [x for x in todas[:10] if x not in pedidas]
-        fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', None)][:5]
+        pedidas = [x for x in todas if str(x.get('id')) in ids]          # aunque esté descartada, si la nombran
+        senales = pedidas + [_compacta(x) for x in activas[:_MAX_SENALES] if x not in pedidas]
+        fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', 'OK', None)][:5]
+        sin_datos = not ctx
+        k       = ctx.get('contadores') or _contar(activas, ctx)
+        hora    = _hora_bolivia(k.get('actualizado') or ctx.get('generado'))
 
         system = f"""Eres AVIA, el asistente inteligente del Observatorio Turístico de Bolivia (ORBITA).
 Ayudas al usuario ({rol}) a entender las señales de vigilancia y oportunidades turísticas.
 Responde siempre en español, de forma concisa y útil.
 
-SEÑALES ACTIVAS RECIENTES ({len(senales)}):
+{GLOSARIO}
+
+{FORMATO}
+
+{SIN_DATOS if sin_datos else ''}
+DATOS ACTUALIZADOS A LAS {hora} (hora de Bolivia). Son los mismos números que muestra el panel.
+CONTADORES (usa estos números tal cual; no cuentes tú la lista):
+- Señales activas: {k.get('senales_activas')} (sin descartadas)
+- Oportunidades: {k.get('oportunidades')} · Riesgos: {k.get('riesgos')} · Mixtas: {k.get('mixtas')}
+- Oportunidades con plazo en menos de 15 días: {k.get('plazo_corto')}
+- Riesgos de prioridad alta: {k.get('riesgos_altos')}
+- Verificadas (confirmadas o publicadas): {k.get('verificadas')} ({k.get('verificadas_2_fuentes')} con 2 o más fuentes)
+- Por verificar: {k.get('por_verificar')} ({k.get('esperan_aprobacion')} esperan aprobación de un analista)
+- Alertas publicadas: {k.get('alertas_publicadas')}
+- Noticias revisadas en 24 h: {k.get('noticias_24h')}
+
+Cuando des un número total, cita la hora: «según los datos actualizados a las {hora}».
+{"La lista de abajo solo trae " + str(len(senales)) + " de las " + str(k.get('senales_activas')) + " señales activas: para totales, usa los contadores." if len(activas) > _MAX_SENALES else ""}
+
+{_sintesis_txt(ctx.get('sintesis_dia'))}
+
+SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}
 
 {("FUENTES CON PROBLEMAS: " + json.dumps(fuentes, ensure_ascii=False)) if fuentes else ""}
 
 Puedes devolver comandos para mover la interfaz. En ese caso responde con un JSON:
 {{"texto": "tu respuesta", "comandos": [{{"tipo": "abrir", "vista": "senales"}}]}}
-Si no hay comandos, responde solo con texto plano."""
+Si no hay comandos, responde solo con el texto (markdown, sin JSON)."""
 
         try:
-            resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=400)
+            resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=1100)
             resp = resp.strip()
+            if resp.startswith('```'):
+                resp = re.sub(r'^```(?:json)?\s*|\s*```$', '', resp).strip()
             # El modelo a veces devuelve JSON con comandos
             if resp.startswith('{'):
                 try:
@@ -202,16 +381,20 @@ async def handle_analisis(request: web.Request) -> web.Response:
 
     prompt = f"""Eres AVIA, analista del Observatorio Turístico de Bolivia.
 Genera un análisis de tipo "{tipo}" para "{territorio}".
+
+{GLOSARIO}
 {f"Pregunta específica: {pregunta}" if pregunta else ""}
 
 SEÑALES ({len(senales)}):
 {json.dumps(senales[:30], ensure_ascii=False)}
 
-Responde en markdown conciso para un funcionario de turismo. Máximo 400 palabras."""
+{FORMATO}
+
+Es siempre una pregunta de análisis: usa los seis bloques. Markdown conciso para un funcionario de turismo, máximo 500 palabras."""
 
     async with aiohttp.ClientSession() as session:
         try:
-            texto = await _deepseek(session, [{'role': 'user', 'content': prompt}], max_tokens=800)
+            texto = await _deepseek(session, [{'role': 'user', 'content': prompt}], max_tokens=1400)
             return web.json_response({'texto': texto})
         except Exception as e:
             return web.json_response({'texto': f'Error en el análisis: {e}'}, status=500)

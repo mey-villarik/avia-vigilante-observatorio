@@ -13,17 +13,21 @@ import {
 import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
-import { leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
+import { decidirSenal, leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
-  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
+  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
+import { contar, type Contadores } from './lib/contadores';
+import { sintesisDe } from './lib/sintesis';
 
 export type Drawer =
   | { kind: 'fuente'; id: string }
   | { kind: 'senal'; id: string }
   | { kind: 'catalogo' }
   | { kind: 'a11y' }
+  | { kind: 'glosario' }
+  | { kind: 'pulso' }
   | { kind: 'guardar' }
   | { kind: 'nueva-fuente' }
   | { kind: 'editar-fuente'; id: string }
@@ -35,6 +39,8 @@ export interface ChatMsg { id: number; role: 'a' | 'u'; text: string; act?: stri
 
 export interface Analisis { type: TipoAnalisis; scope: 'all' | 'oportunidad' | 'riesgo'; dep: string; text: string; q: string }
 export interface SigFilter {
+  /** solo las que esperan aprobación, primero las que vencen antes */
+  revisar?: boolean;
   nat: 'all' | 'oportunidad' | 'riesgo' | 'mixta'; dep: string; q: string;
   /** recientes = últimos 7 días, plazos abiertos y lo pendiente; todo = todo lo guardado */
   periodo: 'recientes' | 'todo';
@@ -73,6 +79,8 @@ interface State {
   ventanaHoras: number | null;
   noticiasRevisadas: number | null;
   sintesis: { frase: string; texto: string } | null;
+  /** síntesis del día de la base (26); null = se arma aquí con las mismas reglas */
+  sintesisDia: SintesisDia | null;
   temas: Tema[];
   serie: Serie;
   fuentes: Fuente[];
@@ -85,6 +93,8 @@ interface State {
   candidatas: Candidata[];
   /** oportunidades guardadas en la base: hecho, interpretación, beneficiarios, acción y evidencias (15) */
   oportunidades: Oportunidad[];
+  /** contadores de la base (vigilante.contadores, 21); null = calcularlos aquí con las mismas reglas */
+  contadores: Contadores | null;
   tick: number;
   // capas
   drawer: Drawer | null;
@@ -129,6 +139,8 @@ interface Actions {
   /** el equipo valida o descarta una oportunidad propuesta */
   decideOpportunity: (id: number, estado: EstadoOportunidad) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
+  /** el analista aprueba (y se publica) o rechaza una señal que espera revisión */
+  decideReview: (id: string, aprobar: boolean, note?: string) => Promise<void>;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
   /** carga vigilante.json del VPS; si falla, deja los datos que hubiera */
@@ -220,9 +232,11 @@ export const useStore = create<Store>()((set, get) => {
     cargando: false,
     errorDatos: null,
     generado: null,
+    contadores: null,
     ventanaHoras: null,
     noticiasRevisadas: null,
     sintesis: null,
+    sintesisDia: null,
     temas: TEMAS_DEMO,
     serie: SERIE_DEMO,
     fuentes: FUENTES_DEMO.map((f) => ({ ...f })),
@@ -491,17 +505,50 @@ export const useStore = create<Store>()((set, get) => {
         sla: ['confirmada', 'publicada', 'descartada'].includes(to) ? null : s.sla,
         revisionVencida: ['confirmada', 'publicada', 'descartada'].includes(to) ? false : s.revisionVencida,
       };
-      set({ senales: get().senales.map((x) => (x.id === id ? updated : x)) });
+      // los contadores de la base ya no valen hasta recargar: mientras, se cuentan aquí con las mismas reglas
+      set({ senales: get().senales.map((x) => (x.id === id ? updated : x)), contadores: null, sintesisDia: null });
       logEvent({ t: 0, k: 'check', w: `${quien} movió ${id} a «${STL[to]}»`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
       get().toast(`${id} → ${STL[to]}`);
       if (conBd) {
-        moverSenal(id, to, note).catch((e: unknown) => {
+        moverSenal(id, to, note).then(() => get().loadRemote(true)).catch((e: unknown) => {
           // no se guardó: se deshace en pantalla
           set({ senales: get().senales.map((x) => (x.id === id ? s : x)) });
           get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
         });
       }
       return true;
+    },
+    decideReview: async (id, aprobar, note = '') => {
+      const { role } = get();
+      const s = get().senales.find((x) => x.id === id);
+      if (!s || role === 'visor') return;
+      const quien = get().perfil?.nombre ?? ROLE_NAME[role];
+      const fin: Etapa = !aprobar ? 'descartada' : s.escenario ? 'confirmada' : 'publicada';
+      const poner = (to: Etapa, nota: string) => set({
+        contadores: null, sintesisDia: null,
+        senales: get().senales.map((x) => (x.id === id ? {
+          ...x, estado: to, sla: null, revisionVencida: false,
+          historial: [{ de: x.estado, a: to, quien, cuando: clock(0), nota }, ...(x.historial ?? [])],
+        } : x)),
+      });
+      const conBd = Boolean(get().perfil) && get().origen === 'vps';
+      if (!conBd) {
+        poner(fin, note);
+        logEvent({ t: 0, k: 'check', w: `${quien} ${aprobar ? 'aprobó' : 'rechazó'} ${id}`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
+        get().toast(aprobar ? (s.escenario ? `${id} aprobada (es un escenario: no se publica).` : `${id} aprobada y publicada.`) : `${id} rechazada.`);
+        return;
+      }
+      try {
+        const r = await decidirSenal(id, aprobar, note);
+        if (r.ok) {
+          poner(r.estado === 'confirmada_publicada' ? 'publicada' : r.estado, note);
+          logEvent({ t: 0, k: 'check', w: `${quien} ${aprobar ? 'aprobó' : 'rechazó'} ${id}`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
+        }
+        get().toast(`${id}: ${r.mensaje}`);
+        void get().loadRemote(true);
+      } catch (e) {
+        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+      }
     },
     addEvaluatedSignal: (r) => {
       const id = 'SEN-' + String(422 + get().senales.length).padStart(4, '0');
@@ -514,7 +561,7 @@ export const useStore = create<Store>()((set, get) => {
         fuentes: [], corr: 0, min: 0, importancia: r.importancia || '',
         soluciones: (r.acciones?.length ? r.acciones : ['Verificar']).map((t) => ({ t, d: '' })),
       };
-      set({ senales: [s, ...get().senales] });
+      set({ senales: [s, ...get().senales], contadores: null, sintesisDia: null });
       get().toast(`${id} añadida como detectada.`);
       return id;
     },
@@ -578,9 +625,9 @@ export const useStore = create<Store>()((set, get) => {
         set({
           origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
-          temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis,
+          temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis, sintesisDia: d.sintesisDia,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
-          oportunidades: d.oportunidades ?? [], candidatas,
+          oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });
         if (primera) get().toast(`Datos reales del Vigilante: ${d.senales.length} señales, ${d.fuentes.length} fuentes.`);
         else if (!quiet) get().toast('Datos actualizados.');
@@ -612,6 +659,23 @@ export const useStore = create<Store>()((set, get) => {
 });
 
 // Selectores derivados
+/** Los contadores que muestra el panel: los de la base si están; si no, las mismas reglas aquí */
+export function useContadores(): Contadores {
+  const base = useStore((s) => s.contadores);
+  const senales = useStore((s) => s.senales);
+  const noticias = useStore((s) => s.noticiasRevisadas ?? s.serie.det[s.serie.det.length - 1] ?? 0);
+  return base ?? contar(senales, noticias);
+}
+
+/** La síntesis del día: la de la base si llegó; si no, las mismas reglas aquí */
+export function useSintesisDia(): SintesisDia {
+  const base = useStore((s) => s.sintesisDia);
+  const senales = useStore((s) => s.senales);
+  const fuentes = useStore((s) => s.fuentes);
+  const k = useContadores();
+  return base ?? sintesisDe(senales, fuentes, k);
+}
+
 export const activeSignals = (s: Senal[]) => s.filter((x) => x.estado !== 'descartada');
 export const pendingDecision = (s: Senal[]) => s.filter((x) => ['detectada', 'en_verificacion'].includes(x.estado));
 export function countStates(fuentes: Fuente[]): Record<EstadoFuente, number> {
