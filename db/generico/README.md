@@ -33,6 +33,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_recomendaciones.sql` | Prueba del 25. Termina en `ROLLBACK`. |
 | `26_sintesis_dia.sql` | Síntesis del día en 3 bloques (qué pasa, por qué importa, qué vigilar) armada por la base con las mismas señales que los contadores; parámetro `sintesis_max`. Ver `docs/sintesis-dia.md`. |
 | `99_prueba_sintesis.sql` | Prueba del 26. Termina en `ROLLBACK`. |
+| `27_comparacion_dia.sql` | Cambios desde ayer: señales nuevas, las que subieron o bajaron de certeza y las resueltas en 24 h. Crea `certeza_registro` y la tarea de pg_cron `vigilante-certezas` (cada 15 min). Ver `docs/comparacion-dia.md`. |
+| `99_prueba_comparacion.sql` | Prueba del 27. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

@@ -589,6 +589,11 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .sd-b h4{margin:0 0 4px;font-size:13px;letter-spacing:.02em;text-transform:uppercase;color:var(--faint)}
 .sd-b ul{margin:0;padding-left:16px;font-size:13.5px}
 .sd-b li{margin:0 0 3px}
+.cambios-ayer{border-left-color:var(--opp)}
+.ca-l{display:flex;flex-wrap:wrap;gap:6px;margin:0;font-size:13px}
+.ca-l span{padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--ink)}
+.ca-l .ca-s{color:var(--ok)}
+.ca-l .ca-b{color:var(--risk)}
 .sd-l{color:var(--faint)}
 /* Explicación del Pulso (mejora 9) */
 .pulso-r{margin:0 0 4px;padding-left:18px;font-size:13px}

@@ -130,6 +130,18 @@ export interface SintesisDia {
   que_vigilar: ItemSintesis[];
 }
 
+/** Cambios desde ayer (db/generico/27_comparacion_dia.sql) */
+export interface ComparacionDia {
+  generado?: string;
+  /** false = aún no hay 24 h de registro de certezas: subieron/bajaron van vacías */
+  comparable?: boolean;
+  conteos: { nuevas: number; subieron: number; bajaron: number; resueltas: number };
+  senales_nuevas: { codigo: string; titulo: string; certeza?: NivelCerteza; naturaleza?: Naturaleza }[];
+  subieron_certeza: { codigo: string; titulo: string; antes: NivelCerteza; ahora: NivelCerteza }[];
+  bajaron_certeza: { codigo: string; titulo: string; antes: NivelCerteza; ahora: NivelCerteza }[];
+  resueltas: { codigo: string; titulo: string; como: 'cerrada' | 'descartada' | 'terminada' }[];
+}
+
 /** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */
 export interface Trazabilidad {
   /** cuándo AVIA creó la señal */

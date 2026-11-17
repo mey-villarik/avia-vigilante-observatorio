@@ -15,7 +15,7 @@ import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { decidirSenal, leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
-  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, SintesisDia, Tema, TipoAnalisis, VistaId,
+  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
 import { contar, type Contadores } from './lib/contadores';
@@ -81,6 +81,8 @@ interface State {
   sintesis: { frase: string; texto: string } | null;
   /** síntesis del día de la base (26); null = se arma aquí con las mismas reglas */
   sintesisDia: SintesisDia | null;
+  /** cambios desde ayer de la base (27); null = no se muestran */
+  comparacionDia: ComparacionDia | null;
   temas: Tema[];
   serie: Serie;
   fuentes: Fuente[];
@@ -237,6 +239,7 @@ export const useStore = create<Store>()((set, get) => {
     noticiasRevisadas: null,
     sintesis: null,
     sintesisDia: null,
+    comparacionDia: null,
     temas: TEMAS_DEMO,
     serie: SERIE_DEMO,
     fuentes: FUENTES_DEMO.map((f) => ({ ...f })),
@@ -625,7 +628,7 @@ export const useStore = create<Store>()((set, get) => {
         set({
           origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
-          temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis, sintesisDia: d.sintesisDia,
+          temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
           oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });

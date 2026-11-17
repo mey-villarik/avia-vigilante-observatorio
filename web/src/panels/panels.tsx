@@ -18,6 +18,29 @@ import { CatBars, Empty, EventsList, Histo, LineChart, NatPill, SigList, StPill 
 /** noticias leídas: la cifra del VPS, o el último punto de la serie */
 const PRIO = { alta: 0, media: 1, baja: 2 } as const;
 
+/** «Cambios desde ayer» (db/generico/27_comparacion_dia.sql): solo los conteos; si todo es 0, no se muestra */
+function CambiosAyer() {
+  const c = useStore((s) => s.comparacionDia);
+  if (!c) return null;
+  const { nuevas, subieron, bajaron, resueltas } = c.conteos;
+  if (!nuevas && !subieron && !bajaron && !resueltas) return null;
+  const n = (v: number, uno: string, varios: string) => `${v} ${v === 1 ? uno : varios}`;
+  const titulos = (l: { titulo: string }[]) => l.map((x) => x.titulo).join(' · ') || undefined;
+  const partes = [
+    nuevas ? <span key="n" className="ca-n" title={titulos(c.senales_nuevas)}>{n(nuevas, 'señal nueva', 'señales nuevas')}</span> : null,
+    subieron ? <span key="s" className="ca-s" title={titulos(c.subieron_certeza)}>{n(subieron, 'subió de certeza', 'subieron de certeza')}</span> : null,
+    bajaron ? <span key="b" className="ca-b" title={titulos(c.bajaron_certeza)}>{n(bajaron, 'bajó de certeza', 'bajaron de certeza')}</span> : null,
+    resueltas ? <span key="r" className="ca-r" title={titulos(c.resueltas)}>{n(resueltas, 'resuelta', 'resueltas')}</span> : null,
+  ].filter(Boolean);
+  return (
+    <section className="sd-b cambios-ayer" aria-label="Cambios desde ayer">
+      <h4>Cambios desde ayer</h4>
+      <p className="ca-l">{partes}</p>
+      {c.comparable === false && <p className="note" style={{ margin: 0 }}>Aún no hay 24 h de registro: la subida o bajada de certeza se verá a partir de mañana.</p>}
+    </section>
+  );
+}
+
 function Sintesis() {
   const k = useContadores();
   const sd = useSintesisDia();
@@ -40,6 +63,7 @@ function Sintesis() {
   return (
     <div className="synth">
       <p className="sd-t">{sd.totales}</p>
+      <CambiosAyer />
       <Bloque t="Qué pasa" l={sd.que_pasa} vacio="Sin novedades confirmadas ni convocadas." />
       <Bloque t="Por qué importa" l={sd.por_que_importa} vacio="Sin datos: no hay hechos que valorar." />
       <Bloque t="Qué vigilar" l={sd.que_vigilar} vacio="Nada pendiente de vigilar." />
