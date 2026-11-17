@@ -9,6 +9,7 @@ import { Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
+import { GLOSARIO, TERMINOS } from '../lib/glosario';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -141,12 +142,12 @@ function SenalDetalle({ id }: { id: string }) {
   const evid = s.fuentes.map((f) => fuentes.find((x) => x.id === f)).filter((x): x is Fuente => Boolean(x));
 
   const decide = (to: Etapa) => {
-    const n = ((sol != null ? 'Acción: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
+    const n = ((sol != null ? 'Recomendación: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
     closeDrawer();
     moveSignal(s.id, to, n);
   };
   const revisar = (aprobar: boolean) => {
-    const n = ((sol != null ? 'Acción: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
+    const n = ((sol != null ? 'Recomendación: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
     closeDrawer();
     void decideReview(s.id, aprobar, n);
   };
@@ -177,7 +178,7 @@ function SenalDetalle({ id }: { id: string }) {
         {s.actualizacion && <><div className="sect">Última actualización</div><p style={{ margin: 0 }}>{s.actualizacion}</p></>}
         <div className="sect">Por qué importa al turismo</div>
         <p style={{ margin: 0 }}>{s.importancia}</p>
-        <div className="sect">Evidencia y corroboración</div>
+        <div className="sect">Noticias que la sostienen</div>
         {evid.map((f) => <div className="evi" key={f.id}><Icon name="shield" /><span>{f.nombre}<small>{f.url}</small></span></div>)}
         {(s.enlaces ?? []).map((e) => (
           <div className="evi" key={e.url}>
@@ -186,7 +187,7 @@ function SenalDetalle({ id }: { id: string }) {
           </div>
         ))}
         {s.corr < 2 && <div className="evi pend"><Icon name="riesgo" /><span>Falta una segunda fuente independiente<small>AVIA sigue buscando corroboración</small></span></div>}
-        <div className="sect">Soluciones y acciones que propone AVIA</div>
+        <div className="sect">Recomendaciones de AVIA</div>
         {s.soluciones.map((o, i) => (
           <label className="sol" key={i}>
             <input type="radio" name="sol" checked={sol === i} onChange={() => setSol(i)} />
@@ -256,6 +257,28 @@ function Catalogo() {
         </div>
         <div className="sect">Escalable</div>
         <p className="note" style={{ margin: 0 }}>Cada panel es un módulo independiente que lee la misma base de señales. Añadir uno nuevo (por ejemplo, ocupación hotelera o vuelos) no cambia los demás.</p>
+      </div>
+    </>
+  );
+}
+
+function Glosario() {
+  return (
+    <>
+      <Head icon="temas">Glosario del observatorio</Head>
+      <div className="drawer-b">
+        <p className="lead">El panel, la web pública y AVIA usan estas cuatro palabras siempre con el mismo significado. Van en orden: de la noticia a la recomendación.</p>
+        {TERMINOS.map((k) => {
+          const g = GLOSARIO[k];
+          return (
+            <div className="glosario-t" key={k}>
+              <div className="sect">{g.t}</div>
+              <p style={{ margin: 0 }}>{g.def}</p>
+              <p className="note" style={{ margin: '6px 0 0' }}><b>Ejemplo:</b> {g.ejemplo}</p>
+              <p className="note" style={{ margin: '2px 0 0' }}>{g.noEs}</p>
+            </div>
+          );
+        })}
       </div>
     </>
   );
@@ -435,6 +458,7 @@ export function Drawer() {
     case 'senal': body = <SenalDetalle key={drawer.id} id={drawer.id} />; break;
     case 'catalogo': body = <Catalogo />; break;
     case 'a11y': body = <A11y />; break;
+    case 'glosario': body = <Glosario />; break;
     case 'guardar': body = <GuardarTablero />; break;
     case 'nueva-fuente': body = <NuevaFuente />; break;
     case 'editar-fuente': body = <EditarFuente id={drawer.id} />; break;

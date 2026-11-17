@@ -41,6 +41,7 @@ function Sintesis() {
       </div>
       <p className="note actualizado" title="Los mismos números que recibe AVIA (vigilante.contadores)">
         Datos actualizados a las {horaBolivia(k.actualizado)} (hora de Bolivia){real ? '' : ' · datos de ejemplo'}
+        {' · '}<button className="linklike" onClick={() => useStore.getState().openDrawer({ kind: 'glosario' })}>¿Qué es noticia, señal, alerta y recomendación?</button>
       </p>
     </div>
   );

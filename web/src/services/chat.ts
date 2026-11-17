@@ -4,8 +4,9 @@ import { DEPS, PANELS, STATE_TXT, STL } from '../data/demo';
 import { activeSignals, conProblema, useStore } from '../store';
 import { ROLE_NAME, norm } from '../lib/util';
 import { aviaConectado, remoto, type Comando } from './avia';
+import { GLOSARIO, TERMINOS } from '../lib/glosario';
 
-const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te propongo oportunidades y soluciones.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
+const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te doy recomendaciones. Una señal solo es alerta cuando una persona del equipo la publica.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
 
 export const CHIPS = ['¿Qué oportunidades cierran pronto?', '¿Qué fuentes fallan?', 'Riesgos en La Paz', 'Añade el mapa al tablero', 'Haz un resumen para el ministerio'];
 
@@ -53,15 +54,25 @@ function localReply(q: string): { text: string; act?: string } {
       act: 'Abrí la vista Fuentes',
     };
   }
+  const termino = TERMINOS.find((k) => new RegExp(`que es (una |un )?${norm(GLOSARIO[k].t)}|diferencia`).test(t));
+  if (termino || /glosario/.test(t)) {
+    const l = termino && !/diferencia/.test(t) ? [termino] : TERMINOS;
+    st.openDrawer({ kind: 'glosario' });
+    return { text: l.map((k) => `• ${GLOSARIO[k].t}: ${GLOSARIO[k].def}`).join('\n'), act: 'Abrí el glosario' };
+  }
   const dep = DEPS.find((d) => t.includes(norm(d)));
   const act = activeSignals(st.senales);
-  if (/riesgo|peligro|alerta/.test(t)) {
+  if (/alerta/.test(t)) {
+    const l = act.filter((s) => s.estado === 'publicada' && (!dep || s.deps.includes(dep)));
+    return { text: l.length ? `Alertas publicadas${dep ? ' en ' + dep : ''} (señales que el equipo confirmó y publicó):\n` + l.map((s) => `• ${s.id} ${s.titulo} (${s.naturaleza})`).join('\n') : `No hay alertas publicadas${dep ? ' en ' + dep : ''}. Puede haber señales en verificación: pregúntame por riesgos u oportunidades.` };
+  }
+  if (/riesgo|peligro/.test(t)) {
     const l = act.filter((s) => s.naturaleza === 'riesgo' && (!dep || s.deps.includes(dep)));
-    return { text: l.length ? `Riesgos${dep ? ' en ' + dep : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo} (${STL[s.estado]}). Verificar: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : `No hay riesgos activos${dep ? ' en ' + dep : ''}.` };
+    return { text: l.length ? `Riesgos${dep ? ' en ' + dep : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo} (${STL[s.estado]}). Recomendación: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : `No hay riesgos activos${dep ? ' en ' + dep : ''}.` };
   }
   if (/oportunidad|plazo|cierra|fondo|convocatoria/.test(t)) {
     const l = act.filter((s) => s.naturaleza !== 'riesgo' && (!dep || s.deps.includes(dep))).sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999)).slice(0, 4);
-    return { text: l.length ? 'Oportunidades por plazo:\n' + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Siguiente paso: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
+    return { text: l.length ? 'Oportunidades por plazo:\n' + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Recomendación: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
   }
   if (/resumen|sintesis|ministerio|informe/.test(t) && st.origen === 'vps') {
     const r = act.filter((x) => x.naturaleza === 'riesgo').sort((a, b) => ({ alta: 0, media: 1, baja: 2 })[a.prioridad] - ({ alta: 0, media: 1, baja: 2 })[b.prioridad]).slice(0, 2);

@@ -131,6 +131,15 @@ async def _get_context(session: aiohttp.ClientSession, jwt: str | None) -> dict:
     return {}
 
 
+# ── Glosario único (igual que web/src/lib/glosario.ts y docs/glosario.md) ─────
+GLOSARIO = """GLOSARIO (usa estas palabras siempre con este significado):
+- Noticia: lo que publica una fuente, tal cual (nota, comunicado, norma, convocatoria), con enlace y fecha. Una sola noticia no es una conclusión.
+- Señal: un hecho que importa al turismo, armado a partir de una o varias noticias sobre lo mismo; tiene naturaleza (oportunidad, riesgo, mixta) y etapa. La mayoría se queda en el panel del equipo.
+- Alerta: una señal que una persona del equipo confirmó y publicó (web pública o Telegram). Solo las señales en estado «publicada» son alertas. Un escenario nunca es alerta.
+- Recomendación: lo que AVIA propone hacer ante una señal: acción concreta, para quién y qué falta comprobar. No es una orden ni un hecho.
+No llames «alerta» a una señal sin publicar. La «alerta naranja/roja» del SENAMHI es el nombre del aviso de la fuente: cítalo como «aviso naranja del SENAMHI»."""
+
+
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
 _MAX_SENALES = 40   # señales que se pasan al modelo; los totales van aparte en «contadores»
 _CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'conf', 'rel', 'nov',
@@ -202,6 +211,8 @@ async def handle_chat(request: web.Request) -> web.Response:
 Ayudas al usuario ({rol}) a entender las señales de vigilancia y oportunidades turísticas.
 Responde siempre en español, de forma concisa y útil.
 
+{GLOSARIO}
+
 DATOS ACTUALIZADOS A LAS {hora} (hora de Bolivia). Son los mismos números que muestra el panel.
 CONTADORES (usa estos números tal cual; no cuentes tú la lista):
 - Señales activas: {k.get('senales_activas')} (sin descartadas)
@@ -259,6 +270,8 @@ async def handle_analisis(request: web.Request) -> web.Response:
 
     prompt = f"""Eres AVIA, analista del Observatorio Turístico de Bolivia.
 Genera un análisis de tipo "{tipo}" para "{territorio}".
+
+{GLOSARIO}
 {f"Pregunta específica: {pregunta}" if pregunta else ""}
 
 SEÑALES ({len(senales)}):

@@ -25,6 +25,7 @@ export type Drawer =
   | { kind: 'senal'; id: string }
   | { kind: 'catalogo' }
   | { kind: 'a11y' }
+  | { kind: 'glosario' }
   | { kind: 'guardar' }
   | { kind: 'nueva-fuente' }
   | { kind: 'editar-fuente'; id: string }

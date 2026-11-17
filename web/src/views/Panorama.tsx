@@ -87,7 +87,7 @@ export function Panorama() {
         <div>
           <div className="eyebrow">Inteligencia turística · hoy</div>
           <h1>Lo que <em>cambia</em> en el turismo de Bolivia</h1>
-          <p className="sub">El Vigilante lee {nFuentes} fuentes, junta noticias dispersas, las verifica y valora su importancia para el turismo. Aquí ves el resultado; arrastra, quita o añade paneles a tu gusto.</p>
+          <p className="sub">El Vigilante lee {nFuentes} fuentes, junta las noticias en señales, las verifica, publica alertas cuando una persona las aprueba y propone recomendaciones. Aquí ves el resultado; arrastra, quita o añade paneles a tu gusto.</p>
         </div>
         <div className="head-actions">
           <span className="updated">{generado ? `Datos generados ${clock(-(Date.now() - Date.parse(generado)) / 60000)}` : `Última comprobación ${clock(-1)}`}</span>

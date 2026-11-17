@@ -70,10 +70,10 @@ export const EVENTOS_DEMO: Evento[] = [
 
 
 export const PANELS: Record<PanelId, PanelDef> = {
- sintesis:{t:'Síntesis del día',i:'sintesis',d:'Lo más importante en una frase y cuatro cifras.',w:8},
+ sintesis:{t:'Síntesis del día',i:'sintesis',d:'Lo más importante del día y las cifras clave.',w:8},
  pulso:{t:'Pulso del observatorio',i:'pulso',d:'Índices de atención y de oportunidad.',w:4},
  fuentes:{t:'Estado de las fuentes',i:'fuentes',d:'Cada fuente vigilada con su estado y sus últimas 24 comprobaciones.',w:8},
- cadena:{t:'Cadena del conocimiento',i:'cadena',d:'De noticia dispersa a acción propuesta.',w:4},
+ cadena:{t:'Cadena del conocimiento',i:'cadena',d:'De la noticia a la señal, la alerta y la recomendación.',w:4},
  oportunidades:{t:'Oportunidades abiertas',i:'oportunidades',d:'Las oportunidades con mejor puntuación y su plazo.',w:6},
  riesgos:{t:'Riesgos activos',i:'riesgo',d:'Riesgos confirmados o en verificación.',w:6},
  mapa:{t:'Mapa por departamento',i:'mapa',d:'Esquema de Bolivia con señales por departamento.',w:5},
