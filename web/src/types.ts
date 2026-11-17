@@ -74,7 +74,7 @@ export interface Puntuaciones {
   /** 0-1 solo si el modelo la justificó; si no, valor null y nivel «sin datos» */
   probabilidad: { valor: number | null; nivel: 'alta' | 'media' | 'baja' | 'sin datos'; justificacion: string };
   /** impacto turístico con su motivo */
-  impacto: { nivel: 'alto' | 'medio' | 'bajo' | 'sin datos'; motivo: string; origen: 'modelo' | 'relevancia' | 'ninguno' };
+  impacto: { nivel: 'alto' | 'medio' | 'bajo' | 'sin datos'; motivo: string; origen: 'modelo' | 'relevancia' | 'prioridad' | 'ninguno' };
 }
 
 export interface Senal {

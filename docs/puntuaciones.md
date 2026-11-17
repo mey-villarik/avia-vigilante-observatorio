@@ -41,4 +41,4 @@ Ejemplo: aviso del SENAMHI (oficial) + una nota de prensa, confirmado por el ana
 2. Comprobar: `SELECT codigo, vigilante.puntuaciones(id) FROM vigilante.signals ORDER BY created_at DESC LIMIT 5;`
 3. VPS: `git pull` en `/root/avia-repo` y copiar `hermes/analizador/analizador.py` y `prompt_clasificador.md` a `/root/avia/` **después de comparar con `diff`** por si hay cambios locales; igual con `avia_api.py`. Reiniciar `avia-api` y desplegar la web.
 
-Las señales ya guardadas tienen fiabilidad desde el primer momento (sale de sus noticias); impacto lo deducen de su relevancia y la probabilidad queda «sin datos» hasta que el analizador las vuelva a clasificar.
+Las señales ya guardadas tienen fiabilidad desde el primer momento (sale de sus noticias). Las clasificadas antes del 22 no tienen relevancia, así que su impacto se deduce de su prioridad (alta → alto, media → medio, baja → bajo) y el motivo lo dice. Su probabilidad queda «sin datos»: el analizador no vuelve a clasificar noticias ya procesadas, solo las nuevas traen impacto y probabilidad del modelo.

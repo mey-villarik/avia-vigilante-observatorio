@@ -13,8 +13,8 @@
 --   · probabilidad (0-1, la da el MODELO solo si la justifica): ¿qué tan probable es que pase o
 --       siga pasando? Sin justificación → «sin datos». Nunca se inventa.
 --   · impacto turístico (alto / medio / bajo, del MODELO con motivo): ¿cuánto afecta al turismo?
---       Si el modelo no lo dio, se deduce de su relevancia (1-10: ≥7 alto, 4-6 medio, <4 bajo)
---       y se dice así en el motivo.
+--       Si el modelo no lo dio, se deduce de su relevancia (1-10: ≥7 alto, 4-6 medio, <4 bajo) o,
+--       en señales antiguas sin relevancia, de su prioridad (alta → alto…), y se dice en el motivo.
 -- vigilante_bd() las devuelve en cada señal («puntuaciones»); el panel y AVIA las muestran
 -- con su nombre. La «confianza» antigua sigue guardada pero ya no se muestra sola.
 --
@@ -74,7 +74,13 @@ BEGIN
   ELSE
     v_rel := CASE WHEN (m ->> 'relevancia') ~ '^\d+(\.\d+)?$' THEN (m ->> 'relevancia')::numeric
                   WHEN s.puntaje IS NOT NULL THEN s.puntaje / 10 END;
-    v_imp := CASE WHEN v_rel IS NULL
+    v_imp := CASE WHEN v_rel IS NULL AND s.prioridad IS NOT NULL
+                  -- señales clasificadas antes del 22 (clasificador-1.1 no daba relevancia): se usa su prioridad
+                  THEN jsonb_build_object('nivel', CASE s.prioridad WHEN 'alta' THEN 'alto' WHEN 'media' THEN 'medio' ELSE 'bajo' END,
+                                          'motivo', 'Deducido de la prioridad que dio AVIA (' || s.prioridad || ')'
+                                                    || coalesce(': ' || nullif(array_to_string(s.motivos_prioridad, ', '), ''), ''),
+                                          'origen', 'prioridad')
+                  WHEN v_rel IS NULL
                   THEN jsonb_build_object('nivel', 'sin datos', 'motivo', 'AVIA no valoró el impacto de esta señal', 'origen', 'ninguno')
                   ELSE jsonb_build_object('nivel', CASE WHEN v_rel >= 7 THEN 'alto' WHEN v_rel >= 4 THEN 'medio' ELSE 'bajo' END,
                                           'motivo', 'Deducido de la relevancia turística que dio AVIA (' || round(v_rel, 1) || '/10)',

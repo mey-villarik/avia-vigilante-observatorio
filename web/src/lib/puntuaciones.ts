@@ -33,7 +33,7 @@ export function puntuacionesDe(s: Senal): Puntuaciones {
     },
     probabilidad: { valor: null, nivel: 'sin datos', justificacion: 'No hay datos para estimar si pasará; no se inventa' },
     impacto: rel == null
-      ? { nivel: 'sin datos', motivo: 'AVIA no valoró el impacto de esta señal', origen: 'ninguno' }
+      ? { nivel: s.prioridad === 'alta' ? 'alto' : s.prioridad === 'media' ? 'medio' : 'bajo', motivo: `Deducido de la prioridad que dio AVIA (${s.prioridad})`, origen: 'prioridad' }
       : { nivel: rel >= 7 ? 'alto' : rel >= 4 ? 'medio' : 'bajo', motivo: `Deducido de la relevancia turística que dio AVIA (${rel}/10)`, origen: 'relevancia' },
   };
 }

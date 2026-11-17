@@ -12,7 +12,7 @@ SELECT c, x.cod, x.nom, x.tipo::vigilante.tipo_fuente, x.url, '{eventos}', 'rss'
 
 --  P-1 oficial + prensa, confirmada, con probabilidad e impacto justificados → fiabilidad 90 alta
 --  P-2 solo prensa, detectada, probabilidad SIN justificación, relevancia 5   → fiabilidad 15 baja, prob «sin datos», impacto medio deducido
---  P-3 sin noticias ni nada                                                 → fiabilidad 0, todo «sin datos»
+--  P-3 sin noticias ni relevancia (señal antigua)                            → fiabilidad 0, impacto deducido de la prioridad
 INSERT INTO vigilante.signals (cliente_id, codigo, titulo, resumen, naturaleza, categoria, estado, salida_modelo)
 SELECT c, x.cod, 'Señal ' || x.cod, 'Resumen', 'oportunidad', 'eventos', x.est::vigilante.estado_senal, x.m::jsonb FROM ids, (VALUES
   ('P-1', 'confirmada', '{"probabilidad": {"valor": 0.8, "justificacion": "El organizador confirmó fecha y sede"}, "impacto": {"nivel": "alto", "motivo": "Feria nacional con 20 000 visitantes"}}'),
@@ -37,7 +37,7 @@ BEGIN
   IF (p2 #>> '{fiabilidad,valor}')::int <> 15 OR p2 #>> '{fiabilidad,nivel}' <> 'baja' THEN RAISE EXCEPTION 'P-2 fiabilidad: %', p2 -> 'fiabilidad'; END IF;
   IF p2 #>> '{probabilidad,nivel}' <> 'sin datos' OR (p2 #> '{probabilidad,valor}') <> 'null'::jsonb THEN RAISE EXCEPTION 'P-2 sin justificación no debe tener probabilidad: %', p2 -> 'probabilidad'; END IF;
   IF p2 #>> '{impacto,nivel}' <> 'medio' OR p2 #>> '{impacto,origen}' <> 'relevancia' THEN RAISE EXCEPTION 'P-2 impacto: %', p2 -> 'impacto'; END IF;
-  IF (p3 #>> '{fiabilidad,valor}')::int <> 0 OR p3 #>> '{impacto,nivel}' <> 'sin datos' THEN RAISE EXCEPTION 'P-3: %', p3; END IF;
+  IF (p3 #>> '{fiabilidad,valor}')::int <> 0 OR p3 #>> '{impacto,origen}' <> 'prioridad' THEN RAISE EXCEPTION 'P-3: %', p3; END IF;
   IF NOT EXISTS (SELECT 1 FROM ids, jsonb_array_elements(vigilante._vigilante_json(c) -> 'senales') e WHERE e ->> 'id' = 'P-1' AND e ? 'puntuaciones') THEN
     RAISE EXCEPTION 'vigilante.json no lleva puntuaciones';
   END IF;
