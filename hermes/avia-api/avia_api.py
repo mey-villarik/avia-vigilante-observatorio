@@ -93,6 +93,9 @@ async def _supabase_post(session: aiohttp.ClientSession, path: str,
         'apikey': SB_KEY,
         'Authorization': f'Bearer {jwt or SB_KEY}',
         'Content-Type': 'application/json',
+        # vigilante_bd() vive en el esquema «vigilante», no en «public» (sin esto Supabase responde 404 y el chat veía 0 señales)
+        'Content-Profile': 'vigilante',
+        'Accept-Profile': 'vigilante',
     }
     async with session.post(f'{SB_URL}{path}', json=body, headers=headers) as r:
         return await r.json()
@@ -138,6 +141,10 @@ GLOSARIO = """GLOSARIO (usa estas palabras siempre con este significado):
 - Alerta: una señal que una persona del equipo confirmó y publicó (web pública o Telegram). Solo las señales en estado «publicada» son alertas. Un escenario nunca es alerta.
 - Recomendación: lo que AVIA propone hacer ante una señal: acción concreta, para quién y qué falta comprobar. No es una orden ni un hecho.
 No llames «alerta» a una señal sin publicar. La «alerta naranja/roja» del SENAMHI es el nombre del aviso de la fuente: cítalo como «aviso naranja del SENAMHI»."""
+
+
+SIN_DATOS = """¡ATENCIÓN! NO SE PUDIERON CARGAR LOS DATOS DEL OBSERVATORIO (error técnico, no «cero señales»).
+No digas que no hay señales, oportunidades ni riesgos. Di que ahora mismo no puedes consultar los datos del observatorio, que es un fallo técnico y que el panel puede mostrar información distinta. Los contadores de abajo NO son válidos: no los cites."""
 
 
 # ── Formato de las respuestas (mejora 3 de la PoC; ver docs/respuestas-avia.md) ──
@@ -230,6 +237,7 @@ async def handle_chat(request: web.Request) -> web.Response:
         pedidas = [x for x in todas if str(x.get('id')) in ids]          # aunque esté descartada, si la nombran
         senales = pedidas + [_compacta(x) for x in activas[:_MAX_SENALES] if x not in pedidas]
         fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', 'OK', None)][:5]
+        sin_datos = not ctx
         k       = ctx.get('contadores') or _contar(activas, ctx)
         hora    = _hora_bolivia(k.get('actualizado') or ctx.get('generado'))
 
@@ -241,6 +249,7 @@ Responde siempre en español, de forma concisa y útil.
 
 {FORMATO}
 
+{SIN_DATOS if sin_datos else ''}
 DATOS ACTUALIZADOS A LAS {hora} (hora de Bolivia). Son los mismos números que muestra el panel.
 CONTADORES (usa estos números tal cual; no cuentes tú la lista):
 - Señales activas: {k.get('senales_activas')} (sin descartadas)
