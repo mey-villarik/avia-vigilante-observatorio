@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { Evaluacion, TipoAnalisis } from '../types';
-import { CATS, DEPS } from '../data/demo';
+import { DEPS, catName } from '../data/demo';
 import { activeSignals, canDecide, useStore, type Analisis as AnalisisState } from '../store';
 import { Icon } from '../components/Icon';
 import { CatBars, Empty, NatPill } from '../components/common';
@@ -21,7 +21,7 @@ function EvalCard({ r }: { r: Evaluacion }) {
     <>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <NatPill n={nat} />
-        <span className="tag">{CATS[r.categoria as keyof typeof CATS] || r.categoria || '—'}</span>
+        <span className="tag">{catName(r.categoria)}</span>
         {(r.departamentos || []).map((d) => <span className="tag" key={d}>{d}</span>)}
       </div>
       <h3>{r.titulo || 'Noticia evaluada'}</h3>

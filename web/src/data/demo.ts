@@ -100,5 +100,33 @@ export const VIEWS: [VistaId, string, string][] = [
   ['bitacora', 'Bitácora', 'bitacora'],
 ];
 
-/** nombre visible de una categoría o canal; si no se reconoce, el texto tal cual */
-export const catName = (c: string): string => (CATS as Record<string, string>)[c] ?? c;
+const sinTildes = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+/** códigos que llegan de la base o de las fuentes con otra forma, sin tilde o en plural */
+const CAT_ALIAS: Record<string, string> = {
+  financiamiento: 'financiacion', mercados: 'mercado', evento: 'eventos', vias: 'vial',
+};
+/** palabras sueltas que llegan sin tilde y no son categorías del catálogo */
+const CON_TILDE: Record<string, string> = {
+  politica: 'Política', estadisticas: 'Estadísticas', pais: 'País', regulacion: 'Regulación',
+  inversion: 'Inversión', economia: 'Economía', aerolineas: 'Aerolíneas', informacion: 'Información',
+};
+
+/** nombre visible de una categoría o canal: «financiacion» → «Financiación».
+ *  Si no se reconoce, el texto con la primera letra en mayúscula. */
+export function catName(c?: string | null): string {
+  if (!c) return '—';
+  const k = sinTildes(c);
+  const cats = CATS as Record<string, string>;
+  const id = k in cats ? k : CAT_ALIAS[k];
+  if (id) return cats[id];
+  if (CON_TILDE[k]) return CON_TILDE[k];
+  return c.charAt(0).toUpperCase() + c.slice(1);
+}
+
+/** Etiqueta de la categoría de una alerta: el nombre de la base solo si es un nombre de verdad
+ *  (las categorías creadas al vuelo guardan el código como nombre, p. ej. «financiacion»). */
+export function etiquetaCategoria(codigo?: string | null, nombre?: string | null): string {
+  if (nombre && sinTildes(nombre) !== sinTildes(codigo ?? '')) return nombre;
+  return catName(codigo || nombre);
+}

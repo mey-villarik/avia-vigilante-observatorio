@@ -506,7 +506,7 @@ function NuevaFuente({ editar }: { editar?: Fuente }) {
     setBusy(false);
   };
   const canales = Object.entries(CATS) as [string, string][];
-  if (!canales.some(([k]) => k === f.canal)) canales.push([f.canal, f.canal]);
+  if (!canales.some(([k]) => k === f.canal)) canales.push([f.canal, catName(f.canal)]);
   const metodos = METODOS.some(([k]) => k === f.metodo) ? METODOS : [...METODOS, [f.metodo, f.metodo] as [string, string]];
   const freqs = FRECUENCIAS.some(([k]) => k === f.freq) ? FRECUENCIAS : [...FRECUENCIAS, [f.freq, `${f.freq} min`] as [number, string]].sort((x, y) => x[0] - y[0]);
   return (
