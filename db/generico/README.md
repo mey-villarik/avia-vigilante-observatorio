@@ -21,6 +21,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `20_reparar_fuentes.sql` | Repara Gaceta Oficial (espera 90 s, reintento, respaldo Google News), Conoce Bolivia (nueva dirección `conocebolivia.produccion.gob.bo`) y SENAMHI (sin Apify: tabla de avisos leída directamente). Necesita el recolector 1.2.0. Ver `docs/reparar-fuentes.md`. |
 | `18_aprobacion_analista.sql` | Aprobación del analista: plazo de 1 hora, nada se publica sin aprobación, aprobar/rechazar en un clic y botones en un grupo privado de Telegram. Ver `docs/aprobacion-analista.md`. |
 | `99_prueba_aprobacion.sql` | Prueba del 18. Termina en `ROLLBACK`. |
+| `21_contadores_unicos.sql` | Panel y AVIA cuentan lo mismo: una sola lista visible (`senales_visibles`) y un solo conteo con hora (`contadores`). Ver `docs/contadores.md`. |
+| `99_prueba_contadores.sql` | Prueba del 21. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

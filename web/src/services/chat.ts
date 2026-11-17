@@ -106,6 +106,10 @@ export async function sendChat(txt: string) {
     return;
   }
 
+  // panel y AVIA leen la misma base: si los datos del panel tienen más de 1 minuto, se recargan a la vez
+  // para que los números de la pantalla y los de la respuesta sean del mismo momento
+  if (st.origen === 'vps' && (!st.generado || Date.now() - Date.parse(st.generado) > 60000)) void st.loadRemote(true);
+
   ctl = new AbortController();
   const historial = useStore.getState().chat
     .filter((m) => m.id !== bubble)

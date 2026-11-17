@@ -12,6 +12,7 @@ import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
 import type { Oportunidad } from './recolector';
 import { fechaVencida, vigente } from '../lib/vigencia';
+import type { Contadores } from '../lib/contadores';
 
 const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
 /** URL pública de respaldo; vacía = desactivada */
@@ -41,6 +42,10 @@ interface JSenal {
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
   version: number;
+  /** «base» cuando sale de vigilante_bd(): la base ya filtró lo vigente */
+  origen?: string;
+  /** desde el 21: los contadores calculados en la base (fuente única para panel y AVIA) */
+  contadores?: Contadores | null;
   generado?: string;
   construido?: string;
   ventana_horas?: number;
@@ -66,6 +71,8 @@ export interface DatosVps {
   ventanaHoras: number | null;
   noticiasRevisadas: number | null;
   oportunidades?: Oportunidad[];
+  /** contadores de la base; null si el archivo no los trae (antes del 21 o vigilante.json antiguo) */
+  contadores: Contadores | null;
 }
 
 // ───────── Normalización ─────────
@@ -146,11 +153,14 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
 
   // Solo lo vigente (lib/vigencia.ts): con fechas, hasta el último día; sin fechas, 24 h desde la última noticia.
   // Una ficha de oportunidad vencida se va con su señal.
-  const oportunidades = (j.oportunidades ?? []).filter((o) => !fechaVencida(o.plazo_hasta, ahora));
+  // Si el archivo trae los contadores de la base (21), la base ya decidió qué se ve: no se vuelve a
+  // filtrar aquí, así panel y AVIA trabajan con la misma lista. Las «cerradas» nunca se muestran.
+  const deLaBase = Boolean(j.contadores);
+  const oportunidades = deLaBase ? (j.oportunidades ?? []) : (j.oportunidades ?? []).filter((o) => !fechaVencida(o.plazo_hasta, ahora));
   const senalesDeVencidas = new Set((j.oportunidades ?? []).filter((o) => o.senal && fechaVencida(o.plazo_hasta, ahora)).map((o) => o.senal!));
-  const vigentes = (j.senales ?? []).filter((s) =>
+  const vigentes = (j.senales ?? []).filter((s) => s.estado !== 'cerrada' && (deLaBase || (
     vigente([s.fecha_limite, s.evento_inicio, s.evento_fin], s.ultima_noticia ?? s.detectada, ahora)
-    && !(s.naturaleza !== 'riesgo' && senalesDeVencidas.has(s.id)));
+    && !(s.naturaleza !== 'riesgo' && senalesDeVencidas.has(s.id)))));
 
   const senales: Senal[] = vigentes.map((s) => {
     const enlaces = (s.enlaces ?? []).filter((e) => e && e.url);
@@ -205,6 +215,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     ventanaHoras: j.ventana_horas ?? null,
     oportunidades,
     noticiasRevisadas: j.noticias_revisadas ?? null,
+    contadores: j.contadores ?? null,
   };
 }
 

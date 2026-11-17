@@ -61,7 +61,7 @@ CLIENTE   = os.environ.get('VIGILANTE_CLIENTE', 'orbita-bolivia')
 API_KEY   = os.environ.get('AVIA_API_KEY', '')   # nginx inyecta este valor en el header
 PORT      = int(os.environ.get('AVIA_PORT', '8099'))
 
-_CTX_TTL  = 120   # segundos que se cachea el contexto de Supabase
+_CTX_TTL  = 60    # segundos que se cachea el contexto de Supabase (la web recarga antes de preguntar)
 _ctx_cache: dict = {}
 
 
@@ -131,6 +131,45 @@ async def _get_context(session: aiohttp.ClientSession, jwt: str | None) -> dict:
     return {}
 
 
+# ── Contexto para el chat: misma lista y mismos números que el panel ─────────
+_MAX_SENALES = 40   # señales que se pasan al modelo; los totales van aparte en «contadores»
+_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'conf', 'rel', 'nov',
+           'deps', 'destinos', 'fecha_limite', 'evento_inicio', 'evento_fin', 'importancia', 'enlaces',
+           'detectada', 'ultima_noticia', 'revision', 'escenario', 'soluciones')
+
+
+def _compacta(x: dict) -> dict:
+    return {k: x[k] for k in _CAMPOS if x.get(k) not in (None, '', [], {})}
+
+
+def _contar(activas: list, ctx: dict) -> dict:
+    """Solo si la base aún no tiene el 21: mismas definiciones que vigilante.contadores()."""
+    n = lambda f: sum(1 for x in activas if f(x))
+    ver = ('confirmada', 'publicada'); pend = ('detectada', 'en_analisis', 'en_verificacion')
+    return {
+        'actualizado': ctx.get('generado'), 'senales_activas': len(activas),
+        'oportunidades': n(lambda x: x.get('naturaleza') == 'oportunidad'),
+        'riesgos': n(lambda x: x.get('naturaleza') == 'riesgo'),
+        'mixtas': n(lambda x: x.get('naturaleza') == 'mixta'),
+        'plazo_corto': '¿?', 'riesgos_altos': n(lambda x: x.get('naturaleza') == 'riesgo' and x.get('prioridad') == 'alta'),
+        'verificadas': n(lambda x: x.get('estado') in ver),
+        'verificadas_2_fuentes': n(lambda x: x.get('estado') in ver and len(x.get('enlaces') or []) >= 2),
+        'por_verificar': n(lambda x: x.get('estado') in pend),
+        'esperan_aprobacion': n(lambda x: x.get('estado') in pend and bool(x.get('revision'))),
+        'alertas_publicadas': n(lambda x: x.get('estado') == 'publicada'),
+        'noticias_24h': ctx.get('noticias_revisadas'),
+    }
+
+
+def _hora_bolivia(iso) -> str:
+    try:
+        from datetime import datetime, timedelta, timezone
+        t = datetime.fromisoformat(str(iso).replace('Z', '+00:00'))
+        return t.astimezone(timezone(timedelta(hours=-4))).strftime('%H:%M')
+    except Exception:
+        return '—'
+
+
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 
 async def handle_chat(request: web.Request) -> web.Response:
@@ -147,19 +186,37 @@ async def handle_chat(request: web.Request) -> web.Response:
 
     async with aiohttp.ClientSession() as session:
         ctx     = await _get_context(session, jwt)
-        # 10 señales recientes + las que el usuario nombre (SEN-xxxx), aunque sean antiguas
-        todas   = ctx.get('senales', []) or []
+        # Misma lista y mismos números que el panel (db/generico/21_contadores_unicos.sql):
+        # las señales activas son las visibles sin descartadas, y los totales salen de «contadores».
+        todas   = [x for x in (ctx.get('senales', []) or []) if isinstance(x, dict)]
+        activas = [x for x in todas if x.get('estado') != 'descartada']
         txt     = ' '.join(str(m.get('content', '')) for m in mensajes[-3:] if isinstance(m, dict))
         ids     = set(re.findall(r'SEN-\d+', txt))
-        pedidas = [x for x in todas if isinstance(x, dict) and any(str(v) in ids for v in x.values())]
-        senales = pedidas + [x for x in todas[:10] if x not in pedidas]
-        fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', None)][:5]
+        pedidas = [x for x in todas if str(x.get('id')) in ids]          # aunque esté descartada, si la nombran
+        senales = pedidas + [_compacta(x) for x in activas[:_MAX_SENALES] if x not in pedidas]
+        fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', 'OK', None)][:5]
+        k       = ctx.get('contadores') or _contar(activas, ctx)
+        hora    = _hora_bolivia(k.get('actualizado') or ctx.get('generado'))
 
         system = f"""Eres AVIA, el asistente inteligente del Observatorio Turístico de Bolivia (ORBITA).
 Ayudas al usuario ({rol}) a entender las señales de vigilancia y oportunidades turísticas.
 Responde siempre en español, de forma concisa y útil.
 
-SEÑALES ACTIVAS RECIENTES ({len(senales)}):
+DATOS ACTUALIZADOS A LAS {hora} (hora de Bolivia). Son los mismos números que muestra el panel.
+CONTADORES (usa estos números tal cual; no cuentes tú la lista):
+- Señales activas: {k.get('senales_activas')} (sin descartadas)
+- Oportunidades: {k.get('oportunidades')} · Riesgos: {k.get('riesgos')} · Mixtas: {k.get('mixtas')}
+- Oportunidades con plazo en menos de 15 días: {k.get('plazo_corto')}
+- Riesgos de prioridad alta: {k.get('riesgos_altos')}
+- Verificadas (confirmadas o publicadas): {k.get('verificadas')} ({k.get('verificadas_2_fuentes')} con 2 o más fuentes)
+- Por verificar: {k.get('por_verificar')} ({k.get('esperan_aprobacion')} esperan aprobación de un analista)
+- Alertas publicadas: {k.get('alertas_publicadas')}
+- Noticias revisadas en 24 h: {k.get('noticias_24h')}
+
+Cuando des un número total, cita la hora: «según los datos actualizados a las {hora}».
+{"La lista de abajo solo trae " + str(len(senales)) + " de las " + str(k.get('senales_activas')) + " señales activas: para totales, usa los contadores." if len(activas) > _MAX_SENALES else ""}
+
+SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}
 
 {("FUENTES CON PROBLEMAS: " + json.dumps(fuentes, ensure_ascii=False)) if fuentes else ""}

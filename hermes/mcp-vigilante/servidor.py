@@ -190,6 +190,11 @@ HERRAMIENTAS = [
                     'eventos de los próximos 60 días, impulso por territorio (menciones de 7 días frente a la media semanal '
                     'anterior) y temas que aparecen en varias fuentes. Úsalas para el radar diario de oportunidades.',
      'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'metricas_oportunidades', 'args': lambda a: {}},
+    {'name': 'contadores',
+     'description': 'Los totales del panel con definiciones fijas y la hora del cálculo (señales activas, oportunidades, '
+                    'riesgos, mixtas, verificadas, por verificar, alertas publicadas, noticias en 24 h). Usa SIEMPRE estos '
+                    'números para dar totales y cita la hora: son los mismos que ve la persona en el panel.',
+     'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'contadores_cliente', 'args': lambda a: {}},
     {'name': 'alertas_tempranas',
      'description': 'Lo que una regla marca para mirar ya: aviso oficial con palabra de alerta, mismo hecho en 3 o más '
                     'fuentes en 6 horas, plazo que cierra en 5 días, territorio con el doble de menciones de lo normal.',

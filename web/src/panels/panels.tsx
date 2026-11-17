@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
-import { activeSignals, canDecide, pendingDecision, useStore } from '../store';
+import { activeSignals, canDecide, pendingDecision, useContadores, useStore } from '../store';
+import { horaBolivia } from '../lib/contadores';
 import { plazoTexto, scoreOf } from '../lib/util';
 import { calcularPulso, posicionVigilancia } from '../lib/pulso';
 import { leerVotos, type VotoPublicacion } from '../services/senales';
@@ -12,44 +13,35 @@ import { Icon } from '../components/Icon';
 import { CatBars, Empty, EventsList, Histo, LineChart, NatPill, SigList, StPill } from '../components/common';
 
 /** noticias leídas: la cifra del VPS, o el último punto de la serie */
-function useNoticias(): number {
-  const n = useStore((s) => s.noticiasRevisadas);
-  const det = useStore((s) => s.serie.det);
-  return n ?? det[det.length - 1] ?? 0;
-}
 const PRIO = { alta: 0, media: 1, baja: 2 } as const;
 
 function Sintesis() {
-  const a = activeSignals(useStore((s) => s.senales));
+  const k = useContadores();
   const sintesis = useStore((s) => s.sintesis);
   const real = useStore((s) => s.origen === 'vps');
   const ventana = useStore((s) => s.ventanaHoras);
-  const noticias = useNoticias();
-  const opps = a.filter((s) => s.naturaleza === 'oportunidad');
-  const riesgos = a.filter((s) => s.naturaleza === 'riesgo');
-  const ver = a.filter((s) => ['confirmada', 'publicada'].includes(s.estado));
-  const cortas = opps.filter((s) => s.plazo != null && s.plazo < 15).length;
-  const altas = riesgos.filter((s) => s.prioridad === 'alta').length;
-  const multi = ver.filter((s) => s.corr >= 2).length;
   return (
     <div className="synth">
       {real ? (
         <>
           {sintesis?.frase && <blockquote>{sintesis.frase}</blockquote>}
-          <p>AVIA revisó <b>{noticias} noticias</b> y las juntó en <b>{a.length} señales</b>{ventana ? <> en las últimas <b>{ventana} h</b></> : null}. {sintesis?.texto}</p>
+          <p>AVIA revisó <b>{k.noticias_24h} noticias</b> y las juntó en <b>{k.senales_activas} señales</b>{ventana ? <> en las últimas <b>{ventana} h</b></> : null}. {sintesis?.texto}</p>
         </>
       ) : (
         <>
           <blockquote>Semana de oportunidades con un frente de lluvias que vigilar en Yungas.</blockquote>
-          <p>AVIA juntó <b>{noticias} noticias</b> en <b>{a.length} señales</b>. Destacan el fondo de CAF para turismo comunitario (cierra en <b>12 días</b>) y la nueva frecuencia aérea a Santa Cruz. El riesgo principal es la alerta naranja en Yungas y Rurrenabaque, que se cruza con una restricción vial aún sin confirmar.</p>
+          <p>AVIA juntó <b>{k.noticias_24h} noticias</b> en <b>{k.senales_activas} señales</b>. Destacan el fondo de CAF para turismo comunitario (cierra en <b>12 días</b>) y la nueva frecuencia aérea a Santa Cruz. El riesgo principal es la alerta naranja en Yungas y Rurrenabaque, que se cruza con una restricción vial aún sin confirmar.</p>
         </>
       )}
       <div className="kpis">
-        <div className="kpi"><small>Señales activas</small><b className="num">{a.length}</b><em>{ventana ? `en ${ventana} h` : 'sin descartadas'}</em></div>
-        <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{opps.length}</b><em>{cortas} con plazo &lt; 15 días</em></div>
-        <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{riesgos.length}</b><em>{altas} de prioridad alta</em></div>
-        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{ver.length}</b><em>{multi} con 2 o más fuentes</em></div>
+        <div className="kpi"><small>Señales activas</small><b className="num">{k.senales_activas}</b><em>sin descartadas</em></div>
+        <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{k.oportunidades}</b><em>{k.plazo_corto} con plazo &lt; 15 días{k.mixtas ? ` · ${k.mixtas} mixtas aparte` : ''}</em></div>
+        <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{k.riesgos}</b><em>{k.riesgos_altos} de prioridad alta</em></div>
+        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{k.verificadas}</b><em>{k.verificadas_2_fuentes} con 2 o más fuentes</em></div>
       </div>
+      <p className="note actualizado" title="Los mismos números que recibe AVIA (vigilante.contadores)">
+        Datos actualizados a las {horaBolivia(k.actualizado)} (hora de Bolivia){real ? '' : ' · datos de ejemplo'}
+      </p>
     </div>
   );
 }
@@ -118,14 +110,13 @@ function FuentesMatrix() {
 }
 
 function Cadena() {
-  const a = useStore((s) => s.senales);
-  const noticias = useNoticias();
+  const k = useContadores();
   const steps: [string, number, string, string][] = [
-    ['senales', noticias, 'Noticias leídas', 'var(--accent)'],
-    ['temas', a.length, 'Señales agrupadas', 'var(--mix)'],
-    ['shield', a.filter((s) => s.corr >= 2).length, 'Corroboradas', 'var(--ok)'],
-    ['oportunidades', a.filter((s) => s.naturaleza !== 'riesgo').length, 'Valoradas para turismo', 'var(--opp)'],
-    ['decision', a.filter((s) => s.estado === 'publicada').length, 'Acciones propuestas', 'var(--risk)'],
+    ['senales', k.noticias_24h, 'Noticias leídas (24 h)', 'var(--accent)'],
+    ['temas', k.senales_activas, 'Señales activas', 'var(--mix)'],
+    ['shield', k.verificadas, 'Verificadas', 'var(--ok)'],
+    ['oportunidades', k.oportunidades + k.mixtas, 'Oportunidades y mixtas', 'var(--opp)'],
+    ['decision', k.alertas_publicadas, 'Alertas publicadas', 'var(--risk)'],
   ];
   return (
     <>

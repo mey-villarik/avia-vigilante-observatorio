@@ -18,6 +18,7 @@ import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
+import { contar, type Contadores } from './lib/contadores';
 
 export type Drawer =
   | { kind: 'fuente'; id: string }
@@ -87,6 +88,8 @@ interface State {
   candidatas: Candidata[];
   /** oportunidades guardadas en la base: hecho, interpretación, beneficiarios, acción y evidencias (15) */
   oportunidades: Oportunidad[];
+  /** contadores de la base (vigilante.contadores, 21); null = calcularlos aquí con las mismas reglas */
+  contadores: Contadores | null;
   tick: number;
   // capas
   drawer: Drawer | null;
@@ -224,6 +227,7 @@ export const useStore = create<Store>()((set, get) => {
     cargando: false,
     errorDatos: null,
     generado: null,
+    contadores: null,
     ventanaHoras: null,
     noticiasRevisadas: null,
     sintesis: null,
@@ -495,11 +499,12 @@ export const useStore = create<Store>()((set, get) => {
         sla: ['confirmada', 'publicada', 'descartada'].includes(to) ? null : s.sla,
         revisionVencida: ['confirmada', 'publicada', 'descartada'].includes(to) ? false : s.revisionVencida,
       };
-      set({ senales: get().senales.map((x) => (x.id === id ? updated : x)) });
+      // los contadores de la base ya no valen hasta recargar: mientras, se cuentan aquí con las mismas reglas
+      set({ senales: get().senales.map((x) => (x.id === id ? updated : x)), contadores: null });
       logEvent({ t: 0, k: 'check', w: `${quien} movió ${id} a «${STL[to]}»`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
       get().toast(`${id} → ${STL[to]}`);
       if (conBd) {
-        moverSenal(id, to, note).catch((e: unknown) => {
+        moverSenal(id, to, note).then(() => get().loadRemote(true)).catch((e: unknown) => {
           // no se guardó: se deshace en pantalla
           set({ senales: get().senales.map((x) => (x.id === id ? s : x)) });
           get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
@@ -514,6 +519,7 @@ export const useStore = create<Store>()((set, get) => {
       const quien = get().perfil?.nombre ?? ROLE_NAME[role];
       const fin: Etapa = !aprobar ? 'descartada' : s.escenario ? 'confirmada' : 'publicada';
       const poner = (to: Etapa, nota: string) => set({
+        contadores: null,
         senales: get().senales.map((x) => (x.id === id ? {
           ...x, estado: to, sla: null, revisionVencida: false,
           historial: [{ de: x.estado, a: to, quien, cuando: clock(0), nota }, ...(x.historial ?? [])],
@@ -533,7 +539,7 @@ export const useStore = create<Store>()((set, get) => {
           logEvent({ t: 0, k: 'check', w: `${quien} ${aprobar ? 'aprobó' : 'rechazó'} ${id}`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
         }
         get().toast(`${id}: ${r.mensaje}`);
-        if (!r.ok) void get().loadRemote(true);
+        void get().loadRemote(true);
       } catch (e) {
         get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -549,7 +555,7 @@ export const useStore = create<Store>()((set, get) => {
         fuentes: [], corr: 0, min: 0, importancia: r.importancia || '',
         soluciones: (r.acciones?.length ? r.acciones : ['Verificar']).map((t) => ({ t, d: '' })),
       };
-      set({ senales: [s, ...get().senales] });
+      set({ senales: [s, ...get().senales], contadores: null });
       get().toast(`${id} añadida como detectada.`);
       return id;
     },
@@ -615,7 +621,7 @@ export const useStore = create<Store>()((set, get) => {
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
           temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
-          oportunidades: d.oportunidades ?? [], candidatas,
+          oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });
         if (primera) get().toast(`Datos reales del Vigilante: ${d.senales.length} señales, ${d.fuentes.length} fuentes.`);
         else if (!quiet) get().toast('Datos actualizados.');
@@ -647,6 +653,14 @@ export const useStore = create<Store>()((set, get) => {
 });
 
 // Selectores derivados
+/** Los contadores que muestra el panel: los de la base si están; si no, las mismas reglas aquí */
+export function useContadores(): Contadores {
+  const base = useStore((s) => s.contadores);
+  const senales = useStore((s) => s.senales);
+  const noticias = useStore((s) => s.noticiasRevisadas ?? s.serie.det[s.serie.det.length - 1] ?? 0);
+  return base ?? contar(senales, noticias);
+}
+
 export const activeSignals = (s: Senal[]) => s.filter((x) => x.estado !== 'descartada');
 export const pendingDecision = (s: Senal[]) => s.filter((x) => ['detectada', 'en_verificacion'].includes(x.estado));
 export function countStates(fuentes: Fuente[]): Record<EstadoFuente, number> {
