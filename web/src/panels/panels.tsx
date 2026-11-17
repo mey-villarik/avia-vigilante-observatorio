@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
-import { activeSignals, canDecide, pendingDecision, useContadores, useStore } from '../store';
+import { activeSignals, canDecide, pendingDecision, useContadores, useSintesisDia, useStore } from '../store';
+import { CERTEZAS } from '../lib/certeza';
+import type { ItemSintesis } from '../types';
 import { horaBolivia } from '../lib/contadores';
 import { puntuacionesDe } from '../lib/puntuaciones';
 import { plazoTexto, scoreOf } from '../lib/util';
@@ -18,22 +20,29 @@ const PRIO = { alta: 0, media: 1, baja: 2 } as const;
 
 function Sintesis() {
   const k = useContadores();
-  const sintesis = useStore((s) => s.sintesis);
+  const sd = useSintesisDia();
   const real = useStore((s) => s.origen === 'vps');
-  const ventana = useStore((s) => s.ventanaHoras);
+  const abrir = (codigo?: string) => { if (codigo) useStore.getState().openDrawer({ kind: 'senal', id: codigo }); };
+  const Item = ({ i }: { i: ItemSintesis }) => (
+    <li>
+      {i.certeza && <span className={`tag cert cert-${i.certeza}`}>{CERTEZAS[i.certeza].t}</span>}{' '}
+      {i.codigo ? <button className="linklike" onClick={() => abrir(i.codigo)}>{i.titulo}</button> : null}
+      {i.codigo ? ': ' : ''}{i.texto ?? i.motivo}
+      {i.lugares ? <small className="sd-l"> · {i.lugares}</small> : null}
+    </li>
+  );
+  const Bloque = ({ t, l, vacio }: { t: string; l: ItemSintesis[]; vacio: string }) => (
+    <section className="sd-b">
+      <h4>{t}</h4>
+      {l.length ? <ul>{l.map((i, n) => <Item key={`${i.codigo ?? i.tipo}-${n}`} i={i} />)}</ul> : <p className="note" style={{ margin: 0 }}>{vacio}</p>}
+    </section>
+  );
   return (
     <div className="synth">
-      {real ? (
-        <>
-          {sintesis?.frase && <blockquote>{sintesis.frase}</blockquote>}
-          <p>AVIA revisó <b>{k.noticias_24h} noticias</b> y las juntó en <b>{k.senales_activas} señales</b>{ventana ? <> en las últimas <b>{ventana} h</b></> : null}. {sintesis?.texto}</p>
-        </>
-      ) : (
-        <>
-          <blockquote>Semana de oportunidades con un frente de lluvias que vigilar en Yungas.</blockquote>
-          <p>AVIA juntó <b>{k.noticias_24h} noticias</b> en <b>{k.senales_activas} señales</b>. Destacan el fondo de CAF para turismo comunitario (cierra en <b>12 días</b>) y la nueva frecuencia aérea a Santa Cruz. El riesgo principal es la alerta naranja en Yungas y Rurrenabaque, que se cruza con una restricción vial aún sin confirmar.</p>
-        </>
-      )}
+      <p className="sd-t">{sd.totales}</p>
+      <Bloque t="Qué pasa" l={sd.que_pasa} vacio="Sin novedades confirmadas ni convocadas." />
+      <Bloque t="Por qué importa" l={sd.por_que_importa} vacio="Sin datos: no hay hechos que valorar." />
+      <Bloque t="Qué vigilar" l={sd.que_vigilar} vacio="Nada pendiente de vigilar." />
       <div className="kpis">
         <div className="kpi"><small>Señales activas</small><b className="num">{k.senales_activas}</b><em>sin descartadas</em></div>
         <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{k.oportunidades}</b><em>{k.plazo_corto} con plazo &lt; 15 días{k.mixtas ? ` · ${k.mixtas} mixtas aparte` : ''}</em></div>

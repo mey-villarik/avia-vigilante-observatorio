@@ -15,10 +15,11 @@ import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { decidirSenal, leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
 import type {
-  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, Tema, TipoAnalisis, VistaId,
+  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
 import { contar, type Contadores } from './lib/contadores';
+import { sintesisDe } from './lib/sintesis';
 
 export type Drawer =
   | { kind: 'fuente'; id: string }
@@ -77,6 +78,8 @@ interface State {
   ventanaHoras: number | null;
   noticiasRevisadas: number | null;
   sintesis: { frase: string; texto: string } | null;
+  /** síntesis del día de la base (26); null = se arma aquí con las mismas reglas */
+  sintesisDia: SintesisDia | null;
   temas: Tema[];
   serie: Serie;
   fuentes: Fuente[];
@@ -232,6 +235,7 @@ export const useStore = create<Store>()((set, get) => {
     ventanaHoras: null,
     noticiasRevisadas: null,
     sintesis: null,
+    sintesisDia: null,
     temas: TEMAS_DEMO,
     serie: SERIE_DEMO,
     fuentes: FUENTES_DEMO.map((f) => ({ ...f })),
@@ -501,7 +505,7 @@ export const useStore = create<Store>()((set, get) => {
         revisionVencida: ['confirmada', 'publicada', 'descartada'].includes(to) ? false : s.revisionVencida,
       };
       // los contadores de la base ya no valen hasta recargar: mientras, se cuentan aquí con las mismas reglas
-      set({ senales: get().senales.map((x) => (x.id === id ? updated : x)), contadores: null });
+      set({ senales: get().senales.map((x) => (x.id === id ? updated : x)), contadores: null, sintesisDia: null });
       logEvent({ t: 0, k: 'check', w: `${quien} movió ${id} a «${STL[to]}»`, d: s.titulo + (note ? ' · Nota: ' + note : '') });
       get().toast(`${id} → ${STL[to]}`);
       if (conBd) {
@@ -520,7 +524,7 @@ export const useStore = create<Store>()((set, get) => {
       const quien = get().perfil?.nombre ?? ROLE_NAME[role];
       const fin: Etapa = !aprobar ? 'descartada' : s.escenario ? 'confirmada' : 'publicada';
       const poner = (to: Etapa, nota: string) => set({
-        contadores: null,
+        contadores: null, sintesisDia: null,
         senales: get().senales.map((x) => (x.id === id ? {
           ...x, estado: to, sla: null, revisionVencida: false,
           historial: [{ de: x.estado, a: to, quien, cuando: clock(0), nota }, ...(x.historial ?? [])],
@@ -556,7 +560,7 @@ export const useStore = create<Store>()((set, get) => {
         fuentes: [], corr: 0, min: 0, importancia: r.importancia || '',
         soluciones: (r.acciones?.length ? r.acciones : ['Verificar']).map((t) => ({ t, d: '' })),
       };
-      set({ senales: [s, ...get().senales], contadores: null });
+      set({ senales: [s, ...get().senales], contadores: null, sintesisDia: null });
       get().toast(`${id} añadida como detectada.`);
       return id;
     },
@@ -620,7 +624,7 @@ export const useStore = create<Store>()((set, get) => {
         set({
           origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
-          temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis,
+          temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis, sintesisDia: d.sintesisDia,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
           oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });
@@ -660,6 +664,15 @@ export function useContadores(): Contadores {
   const senales = useStore((s) => s.senales);
   const noticias = useStore((s) => s.noticiasRevisadas ?? s.serie.det[s.serie.det.length - 1] ?? 0);
   return base ?? contar(senales, noticias);
+}
+
+/** La síntesis del día: la de la base si llegó; si no, las mismas reglas aquí */
+export function useSintesisDia(): SintesisDia {
+  const base = useStore((s) => s.sintesisDia);
+  const senales = useStore((s) => s.senales);
+  const fuentes = useStore((s) => s.fuentes);
+  const k = useContadores();
+  return base ?? sintesisDe(senales, fuentes, k);
 }
 
 export const activeSignals = (s: Senal[]) => s.filter((x) => x.estado !== 'descartada');

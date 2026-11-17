@@ -31,6 +31,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_certeza.sql` | Prueba del 24 (8 casos). Termina en `ROLLBACK`. |
 | `25_recomendaciones_seguras.sql` | Recomendación segura por señal: para quién, con quién verificar (parámetro `verificar_con`), qué falta saber y aviso cuando da algo por habilitado u operativo sin dato oficial de las últimas 24 h. Ver `docs/recomendaciones-seguras.md`. |
 | `99_prueba_recomendaciones.sql` | Prueba del 25. Termina en `ROLLBACK`. |
+| `26_sintesis_dia.sql` | Síntesis del día en 3 bloques (qué pasa, por qué importa, qué vigilar) armada por la base con las mismas señales que los contadores; parámetro `sintesis_max`. Ver `docs/sintesis-dia.md`. |
+| `99_prueba_sintesis.sql` | Prueba del 26. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

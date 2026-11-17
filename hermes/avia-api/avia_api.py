@@ -197,7 +197,13 @@ REGLAS
    transitable, abierto, normal o seguro, ni que «se puede viajar», salvo que una fuente oficial lo diga y
    «dato_oficial» sea de las últimas 24 h; entonces cita la fuente y la hora («según la ABC, a las 08:00»).
    Si trae «afirma_sin_verificar», no repitas lo que afirma: di que no está confirmado y con quién
-   comprobarlo. Ante la duda, recomienda comprobar antes de viajar o de avisar a los visitantes."""
+   comprobarlo. Ante la duda, recomienda comprobar antes de viajar o de avisar a los visitantes.
+11. Síntesis del día: si piden el resumen, la síntesis, el panorama o «qué pasa hoy» y abajo hay una SÍNTESIS DEL DÍA,
+   no uses los seis bloques: responde con EXACTAMENTE tres, con estos títulos y en este orden:
+   #### Qué pasa · #### Por qué importa · #### Qué vigilar
+   Cópialos de la síntesis (ya viene armada por la base con los mismos contadores del panel): no añadas hechos
+   que no estén, no cambies la certeza de ninguno y, si un bloque viene vacío, escribe «Sin novedades» en él.
+   Empieza con la línea de totales y la hora de los datos. No fuerces tres elementos por bloque si hay menos."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
@@ -219,6 +225,24 @@ def _compacta(x: dict) -> dict:
         c['recomendacion_segura'] = {k: v for k, v in r.items() if k != 'original'}
         c.pop('soluciones', None)
     return c
+
+
+def _sintesis_txt(s) -> str:
+    """La síntesis del día que armó la base (db/generico/26_sintesis_dia.sql), en texto para el prompt."""
+    if not isinstance(s, dict):
+        return ''
+    def lineas(items):
+        out = []
+        for i in items or []:
+            if not isinstance(i, dict):
+                continue
+            partes = [i.get('codigo'), f"[{i['certeza']}]" if i.get('certeza') else None, i.get('titulo'),
+                      i.get('texto') or i.get('motivo')]
+            out.append('- ' + ' '.join(str(p) for p in partes if p))
+        return '\n'.join(out) or 'Sin novedades'
+    return (f"SÍNTESIS DEL DÍA (armada por la base; úsala para el resumen del día):\nTotales: {s.get('totales', '')}\n"
+            f"Qué pasa:\n{lineas(s.get('que_pasa'))}\nPor qué importa:\n{lineas(s.get('por_que_importa'))}\n"
+            f"Qué vigilar:\n{lineas(s.get('que_vigilar'))}")
 
 
 def _contar(activas: list, ctx: dict) -> dict:
@@ -300,6 +324,8 @@ CONTADORES (usa estos números tal cual; no cuentes tú la lista):
 
 Cuando des un número total, cita la hora: «según los datos actualizados a las {hora}».
 {"La lista de abajo solo trae " + str(len(senales)) + " de las " + str(k.get('senales_activas')) + " señales activas: para totales, usa los contadores." if len(activas) > _MAX_SENALES else ""}
+
+{_sintesis_txt(ctx.get('sintesis_dia'))}
 
 SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}

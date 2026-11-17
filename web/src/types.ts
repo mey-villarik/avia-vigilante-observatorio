@@ -106,6 +106,30 @@ export interface RecomendacionSegura {
   dato_oficial?: string;
 }
 
+/** Síntesis del día en 3 bloques (db/generico/26_sintesis_dia.sql) */
+export interface ItemSintesis {
+  codigo?: string;
+  titulo?: string;
+  texto?: string;
+  /** solo en «qué pasa» */
+  certeza?: NivelCerteza;
+  naturaleza?: Naturaleza;
+  lugares?: string;
+  impacto?: string;
+  motivo?: string;
+  para_quien?: string;
+  /** solo en «qué vigilar» */
+  tipo?: 'sin_confirmar' | 'convocado' | 'plazo' | 'recomendacion_sin_verificar' | 'revision_vencida' | 'fuentes';
+}
+export interface SintesisDia {
+  generado?: string;
+  /** una línea con los totales (los mismos contadores del panel) */
+  totales: string;
+  que_pasa: ItemSintesis[];
+  por_que_importa: ItemSintesis[];
+  que_vigilar: ItemSintesis[];
+}
+
 /** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */
 export interface Trazabilidad {
   /** cuándo AVIA creó la señal */

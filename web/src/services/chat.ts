@@ -8,6 +8,8 @@ import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { CERTEZAS, NIVELES_CERTEZA, certezaDe } from '../lib/certeza';
 import { recoCorta, recoTexto } from '../lib/recomendacion';
+import { sintesisDe, sintesisTexto } from '../lib/sintesis';
+import { contar } from '../lib/contadores';
 
 const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te doy recomendaciones. Una señal solo es alerta cuando una persona del equipo la publica.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
 
@@ -121,7 +123,10 @@ function localReply(q: string): { text: string; act?: string } {
   }
   if (/resumen|sintesis|ministerio|informe|situacion|panorama/.test(t)) {
     const l = act.filter((x) => !dep || x.deps.includes(dep));
-    return { text: `Resumen${dep ? ' de ' + dep : ''}: ${l.length} señales activas${st.origen === 'vps' ? '' : ' (datos de ejemplo)'}.\n` + (st.sintesis?.frase ? st.sintesis.frase + '\n' : '') + bloques(l) };
+    if (dep) return { text: `Resumen de ${dep}: ${l.length} señales activas${st.origen === 'vps' ? '' : ' (datos de ejemplo)'}.\n` + bloques(l) };
+    // el resumen del día va siempre en 3 bloques (mejora 8): qué pasa, por qué importa, qué vigilar
+    const sd = st.sintesisDia ?? sintesisDe(st.senales, st.fuentes, st.contadores ?? contar(st.senales, st.noticiasRevisadas ?? 0));
+    return { text: `Resumen del día${st.origen === 'vps' ? '' : ' (datos de ejemplo)'}:\n` + sintesisTexto(sd) };
   }
   const m = q.match(/SEN-\d{4}/i);
   const s = m && st.senales.find((x) => x.id === m[0].toUpperCase());
