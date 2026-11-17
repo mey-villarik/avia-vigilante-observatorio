@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../store';
 import { aviaConectado } from '../services/avia';
 import { CHIPS, sendChat, useChat } from '../services/chat';
+import { Markdown } from './Markdown';
 
 const Avatar = () => (
   <svg className="av" viewBox="0 0 32 32" aria-hidden="true">
@@ -71,7 +72,7 @@ export function Chat() {
         </div>
       </div>
       <div className="chat-log" ref={log} aria-live="polite">
-        {msgs.map((m) => <div key={m.id} className={`msg ${m.role}`}>{m.text}{m.act && <span className="act">{m.act}</span>}</div>)}
+        {msgs.map((m) => <div key={m.id} className={`msg ${m.role}`}>{m.role === 'a' && /^#{1,4}\s|\n#{1,4}\s|\*\*/.test(m.text) ? <Markdown text={m.text} /> : m.text}{m.act && <span className="act">{m.act}</span>}</div>)}
       </div>
       <div className="chips">
         {showChips && CHIPS.map((c) => <button key={c} className="chip" onClick={() => void sendChat(c)}>{c}</button>)}

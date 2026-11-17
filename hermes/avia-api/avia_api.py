@@ -105,7 +105,7 @@ async def _deepseek(session: aiohttp.ClientSession,
         headers={'Authorization': f'Bearer {LLM_KEY}',
                  'Content-Type': 'application/json'},
         json={'model': LLM_MODEL, 'messages': messages, 'max_tokens': max_tokens},
-        timeout=aiohttp.ClientTimeout(total=30),
+        timeout=aiohttp.ClientTimeout(total=60),
     ) as r:
         data = await r.json()
     return data['choices'][0]['message']['content']
@@ -138,6 +138,32 @@ GLOSARIO = """GLOSARIO (usa estas palabras siempre con este significado):
 - Alerta: una señal que una persona del equipo confirmó y publicó (web pública o Telegram). Solo las señales en estado «publicada» son alertas. Un escenario nunca es alerta.
 - Recomendación: lo que AVIA propone hacer ante una señal: acción concreta, para quién y qué falta comprobar. No es una orden ni un hecho.
 No llames «alerta» a una señal sin publicar. La «alerta naranja/roja» del SENAMHI es el nombre del aviso de la fuente: cítalo como «aviso naranja del SENAMHI»."""
+
+
+# ── Formato de las respuestas (mejora 3 de la PoC; ver docs/respuestas-avia.md) ──
+FORMATO = """CÓMO RESPONDER
+A) Pregunta simple (un número, abrir una vista, un dato puntual): 1 a 3 frases, sin bloques.
+B) Pregunta de análisis (situación, riesgos, oportunidades, una señal, un destino, un resumen): usa SIEMPRE estos bloques, en este orden, con estos títulos en markdown (#### Título):
+#### Hechos
+Solo lo que dicen las noticias o las señales confirmadas/publicadas. Cada hecho con su código (SEN-…), la fuente y la fecha si están en los datos.
+#### Pendiente de verificar
+Lo que solo cuenta una fuente no oficial o está en etapa detectada, en análisis o en verificación. Di qué falta para confirmarlo.
+#### Interpretación
+Tu lectura de los hechos, marcada como interpretación («esto podría…»). Nunca la presentes como hecho.
+#### Impacto turístico
+A quién afecta (destinos, operadores, visitantes) y cómo. Si no hay datos para medirlo, dilo.
+#### Escenarios
+Qué podría pasar y bajo qué condición («si…, entonces…»). Son posibilidades, no predicciones seguras. Si no hay base para plantearlos, escribe «Sin datos suficientes para plantear escenarios».
+#### Recomendación
+Qué hacer, para quién y qué falta comprobar antes.
+
+REGLAS
+1. Un bloque sin contenido lleva «Sin datos» o «Nada pendiente»: no lo rellenes ni lo inventes, y no lo quites.
+2. No fuerces cantidades. Si te piden 5 y hay 2, di «Solo hay 2» y da esas 2. Nunca completes con señales repetidas, viejas o inventadas.
+3. Responde todas las partes de la pregunta. Si una parte no se puede responder con los datos, dilo en esa parte.
+4. No mezcles hechos con hipótesis en la misma frase. Ante la duda, va en «Pendiente de verificar».
+5. Usa solo los datos de este mensaje. Si algo no está, di «no lo tengo en los datos del observatorio».
+6. Termina la respuesta: no la cortes a mitad de un bloque; si falta espacio, acorta cada bloque."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
@@ -213,6 +239,8 @@ Responde siempre en español, de forma concisa y útil.
 
 {GLOSARIO}
 
+{FORMATO}
+
 DATOS ACTUALIZADOS A LAS {hora} (hora de Bolivia). Son los mismos números que muestra el panel.
 CONTADORES (usa estos números tal cual; no cuentes tú la lista):
 - Señales activas: {k.get('senales_activas')} (sin descartadas)
@@ -234,11 +262,13 @@ SEÑALES ACTIVAS ({len(senales)}):
 
 Puedes devolver comandos para mover la interfaz. En ese caso responde con un JSON:
 {{"texto": "tu respuesta", "comandos": [{{"tipo": "abrir", "vista": "senales"}}]}}
-Si no hay comandos, responde solo con texto plano."""
+Si no hay comandos, responde solo con el texto (markdown, sin JSON)."""
 
         try:
-            resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=400)
+            resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=1100)
             resp = resp.strip()
+            if resp.startswith('```'):
+                resp = re.sub(r'^```(?:json)?\s*|\s*```$', '', resp).strip()
             # El modelo a veces devuelve JSON con comandos
             if resp.startswith('{'):
                 try:
@@ -277,11 +307,13 @@ Genera un análisis de tipo "{tipo}" para "{territorio}".
 SEÑALES ({len(senales)}):
 {json.dumps(senales[:30], ensure_ascii=False)}
 
-Responde en markdown conciso para un funcionario de turismo. Máximo 400 palabras."""
+{FORMATO}
+
+Es siempre una pregunta de análisis: usa los seis bloques. Markdown conciso para un funcionario de turismo, máximo 500 palabras."""
 
     async with aiohttp.ClientSession() as session:
         try:
-            texto = await _deepseek(session, [{'role': 'user', 'content': prompt}], max_tokens=800)
+            texto = await _deepseek(session, [{'role': 'user', 'content': prompt}], max_tokens=1400)
             return web.json_response({'texto': texto})
         except Exception as e:
             return web.json_response({'texto': f'Error en el análisis: {e}'}, status=500)

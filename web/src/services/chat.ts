@@ -1,5 +1,5 @@
 // Lógica del chat "Pregunta a AVIA": abrir, enviar y aplicar las órdenes que devuelve AVIA.
-import type { PanelId, VistaId } from '../types';
+import type { Etapa, PanelId, Senal, VistaId } from '../types';
 import { DEPS, PANELS, STATE_TXT, STL } from '../data/demo';
 import { activeSignals, conProblema, useStore } from '../store';
 import { ROLE_NAME, norm } from '../lib/util';
@@ -27,6 +27,40 @@ export function aplicarComando(c: Comando): string | null {
     return ok ? 'Tablero actualizado' : null;
   }
   return null;
+}
+
+const POR_VERIFICAR: Etapa[] = ['detectada', 'en_analisis', 'en_verificacion'];
+const PRIO_N = { alta: 0, media: 1, baja: 2 } as const;
+const fuenteDe = (s: Senal) => {
+  const e = s.enlaces?.[0];
+  return e ? ` (${e.nombre || 'fuente'}${e.fecha ? ', ' + e.fecha : ''})` : '';
+};
+
+/** Respuesta por bloques (mejora 3 de la PoC): hechos, pendiente, interpretación, impacto, escenarios, recomendación.
+ *  Mismo formato que pide el prompt de avia_api.py. Un bloque vacío lo dice; nunca se rellena. */
+export function bloques(lista: Senal[]): string {
+  const orden = [...lista].sort((a, b) => PRIO_N[a.prioridad] - PRIO_N[b.prioridad]);
+  const reales = orden.filter((s) => !s.escenario);
+  const hechos = reales.filter((s) => s.estado === 'confirmada' || s.estado === 'publicada');
+  const pend = reales.filter((s) => POR_VERIFICAR.includes(s.estado));
+  const esc = orden.filter((s) => s.escenario);
+  const lugares = [...new Set(reales.flatMap((s) => [...s.deps, ...s.destinos]))];
+  const linea = (s: Senal) => `- ${s.id} ${s.titulo}${fuenteDe(s)}`;
+  const top = (hechos[0] ?? pend[0]);
+  return [
+    '#### Hechos',
+    hechos.length ? hechos.map(linea).join('\n') : 'Sin datos: ninguna señal está confirmada todavía.',
+    '#### Pendiente de verificar',
+    pend.length ? pend.map((s) => `${linea(s)}: falta ${s.corr < 2 ? 'una segunda fuente independiente' : 'la revisión de una persona'}`).join('\n') : 'Nada pendiente.',
+    '#### Interpretación',
+    top?.importancia ? `AVIA interpreta (no es un hecho): ${top.importancia}` : 'Sin datos.',
+    '#### Impacto turístico',
+    lugares.length ? `Afecta a ${lugares.slice(0, 8).join(', ')}${lugares.length > 8 ? ` y ${lugares.length - 8} lugares más` : ''}. ${reales.filter((s) => s.naturaleza === 'riesgo').length} riesgo(s) y ${reales.filter((s) => s.naturaleza !== 'riesgo').length} oportunidad(es) o mixta(s).` : 'Sin datos para medirlo.',
+    '#### Escenarios',
+    esc.length ? esc.map((s) => `- Escenario (no es un hecho): ${s.id} ${s.titulo}`).join('\n') : 'Sin datos suficientes para plantear escenarios.',
+    '#### Recomendación',
+    top ? `${top.soluciones[0].t}${POR_VERIFICAR.includes(top.estado) ? ' (antes, confirmar la señal ' + top.id + ')' : ''}.` : 'Sin datos.',
+  ].join('\n');
 }
 
 /** Respuestas por reglas cuando no hay backend de AVIA */
@@ -68,32 +102,20 @@ function localReply(q: string): { text: string; act?: string } {
   }
   if (/riesgo|peligro/.test(t)) {
     const l = act.filter((s) => s.naturaleza === 'riesgo' && (!dep || s.deps.includes(dep)));
-    return { text: l.length ? `Riesgos${dep ? ' en ' + dep : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo} (${STL[s.estado]}). Recomendación: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : `No hay riesgos activos${dep ? ' en ' + dep : ''}.` };
+    return { text: l.length ? `Hay ${l.length} riesgo${l.length === 1 ? '' : 's'} activo${l.length === 1 ? '' : 's'}${dep ? ' en ' + dep : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo} (${STL[s.estado]}). Recomendación: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : `No hay riesgos activos${dep ? ' en ' + dep : ''}.` };
   }
   if (/oportunidad|plazo|cierra|fondo|convocatoria/.test(t)) {
-    const l = act.filter((s) => s.naturaleza !== 'riesgo' && (!dep || s.deps.includes(dep))).sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999)).slice(0, 4);
-    return { text: l.length ? 'Oportunidades por plazo:\n' + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Recomendación: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
+    const todas = act.filter((s) => s.naturaleza !== 'riesgo' && (!dep || s.deps.includes(dep))).sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999));
+    const l = todas.slice(0, 4);
+    return { text: l.length ? `Hay ${todas.length} oportunidades${todas.length > l.length ? `; estas son las ${l.length} con el plazo más cercano` : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Recomendación: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
   }
-  if (/resumen|sintesis|ministerio|informe/.test(t) && st.origen === 'vps') {
-    const r = act.filter((x) => x.naturaleza === 'riesgo').sort((a, b) => ({ alta: 0, media: 1, baja: 2 })[a.prioridad] - ({ alta: 0, media: 1, baja: 2 })[b.prioridad]).slice(0, 2);
-    const o = act.filter((x) => x.naturaleza !== 'riesgo').sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999)).slice(0, 3);
-    const ver = act.filter((x) => ['detectada', 'en_verificacion'].includes(x.estado)).slice(0, 3);
-    return {
-      text: [
-        `Resumen: ${act.length} señales activas.`,
-        st.sintesis?.frase ?? '',
-        r.length ? 'Lo urgente:\n' + r.map((x) => `• ${x.id} ${x.titulo}`).join('\n') : '',
-        o.length ? 'Mejores oportunidades:\n' + o.map((x) => `• ${x.id} ${x.titulo}${x.plazo != null ? ` — ${x.plazo} días` : ''}`).join('\n') : '',
-        ver.length ? 'Falta verificar:\n' + ver.map((x) => `• ${x.id} ${x.titulo}`).join('\n') : '',
-      ].filter(Boolean).join('\n\n'),
-    };
-  }
-  if (/resumen|sintesis|ministerio|informe/.test(t)) {
-    return { text: `Resumen (datos de ejemplo): ${act.length} señales activas. Lo más urgente es la alerta naranja en Yungas y Rurrenabaque (SEN-0418). Las mejores oportunidades son el fondo de CAF para turismo comunitario, que cierra en 12 días (SEN-0417), y la nueva frecuencia aérea a Santa Cruz (SEN-0413). Falta confirmar la señal de dengue con el Ministerio de Salud (SEN-0415).` };
+  if (/resumen|sintesis|ministerio|informe|situacion|panorama/.test(t)) {
+    const l = act.filter((x) => !dep || x.deps.includes(dep));
+    return { text: `Resumen${dep ? ' de ' + dep : ''}: ${l.length} señales activas${st.origen === 'vps' ? '' : ' (datos de ejemplo)'}.\n` + (st.sintesis?.frase ? st.sintesis.frase + '\n' : '') + bloques(l) };
   }
   const m = q.match(/SEN-\d{4}/i);
   const s = m && st.senales.find((x) => x.id === m[0].toUpperCase());
-  if (s) { st.openDrawer({ kind: 'senal', id: s.id }); return { text: `${s.id}: ${s.titulo}. ${s.importancia}`, act: 'Abrí la señal' }; }
+  if (s) { st.openDrawer({ kind: 'senal', id: s.id }); return { text: `${s.id}: ${s.titulo}\n` + bloques([s]), act: 'Abrí la señal' }; }
   if (dep) {
     const l = act.filter((x) => x.deps.includes(dep));
     return { text: `${dep} tiene ${l.length} señales:\n` + l.map((x) => `• ${x.id} ${x.titulo} (${x.naturaleza})`).join('\n') };
