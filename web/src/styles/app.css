@@ -590,3 +590,6 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .sd-b ul{margin:0;padding-left:16px;font-size:13.5px}
 .sd-b li{margin:0 0 3px}
 .sd-l{color:var(--faint)}
+/* Explicación del Pulso (mejora 9) */
+.pulso-r{margin:0 0 4px;padding-left:18px;font-size:13px}
+.pulso-r li{margin:0 0 3px}

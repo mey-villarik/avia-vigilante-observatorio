@@ -203,7 +203,16 @@ REGLAS
    #### Qué pasa · #### Por qué importa · #### Qué vigilar
    Cópialos de la síntesis (ya viene armada por la base con los mismos contadores del panel): no añadas hechos
    que no estén, no cambies la certeza de ninguno y, si un bloque viene vacío, escribe «Sin novedades» en él.
-   Empieza con la línea de totales y la hora de los datos. No fuerces tres elementos por bloque si hay menos."""
+   Empieza con la línea de totales y la hora de los datos. No fuerces tres elementos por bloque si hay menos.
+12. El Pulso (índices «Atención a riesgos» y «Oportunidad» y el nivel de vigilancia) lo calcula el panel, no tú:
+   no tienes su valor y NO lo inventes ni lo estimes. Si preguntan cómo se calcula, explica sus reglas y
+   remite al botón «¿Cómo se calcula el Pulso?» del panel, que muestra la cuenta con los números de ahora:
+   mide lo serias que son las señales, no cuántas hay; cada riesgo pesa prioridad (alta 1, media 0,5, baja 0,2)
+   × respaldo (0,5 + 0,5 × fiabilidad de la evidencia) × etapa (confirmada o publicada 1, en verificación 0,85,
+   detectada o en análisis 0,7); cada oportunidad pesa valor (45 % relevancia, 25 % novedad, 30 % fiabilidad)
+   × etapa, y 0 si el plazo venció; índice = 100 × suma de pesos ÷ (señales + 2). Las mixtas y los escenarios
+   cuentan la mitad. Niveles: menos de 25 normal o bajo, 25-49 vigilancia o moderado, 50-74 atención o alto,
+   75 o más crítico o muy alto. Las fuentes caídas no entran en los índices."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────

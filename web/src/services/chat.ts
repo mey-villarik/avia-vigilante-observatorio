@@ -9,6 +9,7 @@ import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { CERTEZAS, NIVELES_CERTEZA, certezaDe } from '../lib/certeza';
 import { recoCorta, recoTexto } from '../lib/recomendacion';
 import { sintesisDe, sintesisTexto } from '../lib/sintesis';
+import { calcularPulso, pulsoTexto } from '../lib/pulso';
 import { contar } from '../lib/contadores';
 
 const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te doy recomendaciones. Una señal solo es alerta cuando una persona del equipo la publica.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
@@ -145,6 +146,14 @@ export async function sendChat(txt: string) {
   st.pushChat({ role: 'u', text: txt });
   st.setChatBusy(true);
   const bubble = st.pushChat({ role: 'a', text: 'Pensando…' });
+
+  // el Pulso lo calcula el panel: la explicación sale de las mismas cuentas, con los números de ahora
+  if (/\bpulso\b|nivel de vigilancia|indice de riesgo|indice de oportunidad/.test(norm(txt))) {
+    st.openDrawer({ kind: 'pulso' });
+    useStore.getState().updateChat(bubble, { text: pulsoTexto(calcularPulso(st.senales, st.fuentes)), act: 'Abrí la explicación del Pulso' });
+    useStore.getState().setChatBusy(false);
+    return;
+  }
 
   if (!aviaConectado) {
     await new Promise((r) => setTimeout(r, 350));

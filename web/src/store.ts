@@ -27,6 +27,7 @@ export type Drawer =
   | { kind: 'catalogo' }
   | { kind: 'a11y' }
   | { kind: 'glosario' }
+  | { kind: 'pulso' }
   | { kind: 'guardar' }
   | { kind: 'nueva-fuente' }
   | { kind: 'editar-fuente'; id: string }

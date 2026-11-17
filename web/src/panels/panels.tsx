@@ -94,8 +94,9 @@ function Pulso() {
         <div className="scale-l">{niveles.map((n) => <span key={n} className={n === p.vigilancia ? 'on' : undefined}>{n}</span>)}</div>
       </div>
       <p className="note" style={{ margin: '10px 0 0' }}>
+        <button className="linklike" onClick={() => useStore.getState().openDrawer({ kind: 'pulso' })}>¿Cómo se calcula el Pulso?</button>{' '}
         {real ? <>Calculado con las {d.activas} señales activas{ventana ? ` de las últimas ${ventana} h` : ''}</> : <>Datos de ejemplo</>}.
-        {' '}Los índices miden lo serias que son las señales, no cuántas hay: los riesgos según prioridad, confianza y si ya están verificados; las oportunidades según su puntuación y si el plazo sigue abierto.
+        {' '}Los índices miden lo serias que son las señales, no cuántas hay: los riesgos según prioridad, fiabilidad de la evidencia y si ya están verificados; las oportunidades según su relevancia, novedad y fiabilidad, y si el plazo sigue abierto.
         {d.revisionVencida ? <> <b>{d.revisionVencida} con la revisión vencida.</b></> : null}
         {d.fuentesTotal ? <> Fuentes leyendo bien: {d.fuentesOk} de {d.fuentesTotal}{d.fuentesOk < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
       </p>

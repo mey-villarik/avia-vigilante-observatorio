@@ -14,6 +14,7 @@ import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 import { afirmaOperativo, recoDe } from '../lib/recomendacion';
+import { EXPLICA as PULSO_EXPLICA, calcularPulso, factoresTexto, masPesan } from '../lib/pulso';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -378,6 +379,46 @@ function Glosario() {
   );
 }
 
+function PulsoExplica() {
+  const senales = useStore((s) => s.senales);
+  const fuentes = useStore((s) => s.fuentes);
+  const openDrawer = useStore((s) => s.openDrawer);
+  const p = calcularPulso(senales, fuentes);
+  const bloque = (titulo: string, valor: number, nivel: string, reglas: string[], i: 'riesgo' | 'oportunidad', n: number, suma: number) => (
+    <>
+      <div className="sect">{titulo}: {valor}/100 · {nivel}</div>
+      <ul className="pulso-r">{reglas.map((r) => <li key={r}>{r}</li>)}</ul>
+      <p className="note" style={{ margin: '6px 0 4px' }}>
+        <b>Ahora:</b> {n} {i === 'riesgo' ? 'riesgos' : 'oportunidades'} suman {suma.toLocaleString('es-BO', { maximumFractionDigits: 2 })} → 100 × {suma.toLocaleString('es-BO', { maximumFractionDigits: 2 })} ÷ ({n} + 2) = <b>{valor}</b>
+      </p>
+      {masPesan(p, i).length ? (
+        <ul className="pulso-r">
+          {masPesan(p, i).map((a) => (
+            <li key={a.id}><button className="linklike" onClick={() => openDrawer({ kind: 'senal', id: a.id })}>{a.id}</button> {a.titulo}: <b>{a.peso.toLocaleString('es-BO', { maximumFractionDigits: 2 })}</b> <small>({factoresTexto(a)})</small></li>
+          ))}
+        </ul>
+      ) : <p className="note" style={{ margin: 0 }}>Ninguna señal suma todavía.</p>}
+    </>
+  );
+  return (
+    <>
+      <Head icon="pulso">Cómo se calcula el Pulso</Head>
+      <div className="drawer-b">
+        <p className="lead">{PULSO_EXPLICA.que}</p>
+        {bloque('Atención a riesgos', p.riesgo, p.nivelRiesgo, PULSO_EXPLICA.riesgo, 'riesgo', p.sumas.nRiesgos, p.sumas.riesgo)}
+        {bloque('Oportunidad', p.oportunidad, p.nivelOportunidad, PULSO_EXPLICA.oportunidad, 'oportunidad', p.sumas.nOportunidades, p.sumas.oportunidad)}
+        <div className="sect">Índice y niveles</div>
+        <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.indice}</p>
+        <ul className="pulso-r">{PULSO_EXPLICA.niveles.map((n) => <li key={n}>{n}</li>)}</ul>
+        <p className="note" style={{ margin: '4px 0 0' }}><b>Nivel de vigilancia ahora:</b> {p.vigilancia}</p>
+        <div className="sect">Qué no entra y límites</div>
+        <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.noEntra}</p>
+        <p className="note" style={{ margin: 0 }}>{PULSO_EXPLICA.limites}</p>
+      </div>
+    </>
+  );
+}
+
 function A11y() {
   const theme = useStore((s) => s.theme);
   const fs = useStore((s) => s.fs);
@@ -553,6 +594,7 @@ export function Drawer() {
     case 'catalogo': body = <Catalogo />; break;
     case 'a11y': body = <A11y />; break;
     case 'glosario': body = <Glosario />; break;
+    case 'pulso': body = <PulsoExplica />; break;
     case 'guardar': body = <GuardarTablero />; break;
     case 'nueva-fuente': body = <NuevaFuente />; break;
     case 'editar-fuente': body = <EditarFuente id={drawer.id} />; break;
