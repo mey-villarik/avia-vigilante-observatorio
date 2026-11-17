@@ -175,18 +175,29 @@ REGLAS
    - Fiabilidad de la evidencia (0-100, la calcula la base por fuentes oficiales, fuentes distintas y revisión humana; cita su nivel y por qué).
    - Probabilidad: solo si trae valor y justificación; si dice «sin datos», di «probabilidad: sin datos». No la estimes tú.
    - Impacto turístico (alto/medio/bajo) con su motivo.
-   No las mezcles: una fuente muy fiable no hace que algo sea probable ni importante."""
+   No las mezcles: una fuente muy fiable no hace que algo sea probable ni importante.
+8. Trazabilidad: en «Hechos», cada hecho lleva fuente, enlace y fecha de PUBLICACIÓN de la fuente
+   («SENAMHI, publicado 16/11 08:00, enlace»). Si la fuente no da fecha, di «la fuente no da fecha» y usa la
+   de recogida diciendo que es de recogida. Si la fecha es «sin distinguir», dilo así. Cuando importe, añade
+   cuándo la detectó AVIA y la última verificación de una persona; si no hay, «sin verificar por una persona».
+   Nunca inventes una fecha ni un enlace."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
 _MAX_SENALES = 40   # señales que se pasan al modelo; los totales van aparte en «contadores»
-_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'puntuaciones',
+_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'puntuaciones', 'trazabilidad',
            'deps', 'destinos', 'fecha_limite', 'evento_inicio', 'evento_fin', 'importancia', 'enlaces',
            'detectada', 'ultima_noticia', 'revision', 'escenario', 'soluciones')
 
 
 def _compacta(x: dict) -> dict:
-    return {k: x[k] for k in _CAMPOS if x.get(k) not in (None, '', [], {})}
+    c = {k: x[k] for k in _CAMPOS if x.get(k) not in (None, '', [], {})}
+    t = c.get('trazabilidad')
+    if isinstance(t, dict):   # hasta 3 fuentes por señal, para no gastar tokens
+        c['trazabilidad'] = {**t, 'fuentes': [{k: f[k] for k in ('nombre', 'oficial', 'url', 'publicada', 'recogida', 'fecha', 'nota') if k in f}
+                                               for f in (t.get('fuentes') or [])[:3] if isinstance(f, dict)]}
+        c.pop('enlaces', None)
+    return c
 
 
 def _contar(activas: list, ctx: dict) -> dict:

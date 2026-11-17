@@ -77,6 +77,25 @@ export interface Puntuaciones {
   impacto: { nivel: 'alto' | 'medio' | 'bajo' | 'sin datos'; motivo: string; origen: 'modelo' | 'relevancia' | 'prioridad' | 'ninguno' };
 }
 
+/** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */
+export interface Trazabilidad {
+  /** cuándo AVIA creó la señal */
+  detectada: string | null;
+  /** noticias que la sostienen: la oficial primero */
+  fuentes: { nombre: string; tipo?: string; oficial?: boolean; url?: string; titulo?: string;
+    /** fecha que da la fuente; ausente si no la da */
+    publicada?: string; recogida?: string;
+    /** vigilante.json antiguo: una sola fecha sin saber de qué */
+    fecha?: string; nota?: string }[];
+  noticias: number;
+  primera_publicacion?: string | null;
+  ultima_noticia?: string | null;
+  /** última vez que AVIA volvió a leer alguna de esas fuentes */
+  fuente_comprobada?: string | null;
+  /** última decisión de una persona; null = sin verificar por una persona */
+  ultima_verificacion: { cuando: string | null; cuandoTexto?: string; quien: string; estado: string } | null;
+}
+
 export interface Senal {
   id: string;
   titulo: string;
@@ -115,6 +134,8 @@ export interface Senal {
   enlaces?: Enlace[];
   /** próxima revisión prevista, AAAA-MM-DD */
   revision?: string;
+  /** fuente, enlace, fechas y última verificación (desde el 23) */
+  traza?: Trazabilidad;
   /** fiabilidad, probabilidad e impacto (desde el 22) */
   puntos?: Puntuaciones;
   /** última actualización de la señal en texto */

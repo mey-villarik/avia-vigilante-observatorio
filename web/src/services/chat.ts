@@ -5,6 +5,7 @@ import { activeSignals, conProblema, useStore } from '../store';
 import { ROLE_NAME, norm } from '../lib/util';
 import { aviaConectado, remoto, type Comando } from './avia';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
+import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 
 const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te doy recomendaciones. Una señal solo es alerta cuando una persona del equipo la publica.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
 
@@ -32,8 +33,10 @@ export function aplicarComando(c: Comando): string | null {
 const POR_VERIFICAR: Etapa[] = ['detectada', 'en_analisis', 'en_verificacion'];
 const PRIO_N = { alta: 0, media: 1, baja: 2 } as const;
 const fuenteDe = (s: Senal) => {
-  const e = s.enlaces?.[0];
-  return e ? ` (${e.nombre || 'fuente'}${e.fecha ? ', ' + e.fecha : ''})` : '';
+  const f = trazaDe(s).fuentes[0];
+  if (!f) return ' (sin fuente enlazada)';
+  const fecha = f.fecha ? `fecha ${fechaBolivia(f.fecha)} sin distinguir` : f.publicada ? `publicado ${fechaBolivia(f.publicada)}` : 'la fuente no da fecha';
+  return ` (${f.nombre}, ${fecha}${f.url ? ', ' + f.url : ''})`;
 };
 
 /** Respuesta por bloques (mejora 3 de la PoC): hechos, pendiente, interpretación, impacto, escenarios, recomendación.

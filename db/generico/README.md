@@ -25,6 +25,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_contadores.sql` | Prueba del 21. Termina en `ROLLBACK`. |
 | `22_puntuaciones.sql` | Tres puntuaciones por señal: fiabilidad de la evidencia (base), probabilidad (solo justificada) e impacto turístico. Ver `docs/puntuaciones.md`. |
 | `99_prueba_puntuaciones.sql` | Prueba del 22. Termina en `ROLLBACK`. |
+| `23_trazabilidad.sql` | Trazabilidad por señal: fuente, enlace, fecha de publicación y de recogida, detección, fuente comprobada y última verificación de una persona. Ver `docs/trazabilidad.md`. |
+| `99_prueba_trazabilidad.sql` | Prueba del 23. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

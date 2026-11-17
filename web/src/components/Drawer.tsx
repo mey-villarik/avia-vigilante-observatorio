@@ -11,6 +11,7 @@ import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
+import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -131,7 +132,6 @@ function FuenteDetalle({ id }: { id: string }) {
 
 function SenalDetalle({ id }: { id: string }) {
   const s = useStore((st) => st.senales.find((x) => x.id === id));
-  const fuentes = useStore((st) => st.fuentes);
   const role = useStore((st) => st.role);
   const enBd = useStore((st) => st.enBd);
   const real = useStore((st) => st.origen === 'vps');
@@ -140,7 +140,6 @@ function SenalDetalle({ id }: { id: string }) {
   const [sol, setSol] = useState<number | null>(null);
   const [note, setNote] = useState('');
   if (!s) return null;
-  const evid = s.fuentes.map((f) => fuentes.find((x) => x.id === f)).filter((x): x is Fuente => Boolean(x));
 
   const decide = (to: Etapa) => {
     const n = ((sol != null ? 'Recomendación: ' + s.soluciones[sol].t + '. ' : '') + note).trim();
@@ -178,15 +177,7 @@ function SenalDetalle({ id }: { id: string }) {
         {s.actualizacion && <><div className="sect">Última actualización</div><p style={{ margin: 0 }}>{s.actualizacion}</p></>}
         <div className="sect">Por qué importa al turismo</div>
         <p style={{ margin: 0 }}>{s.importancia}</p>
-        <div className="sect">Noticias que la sostienen</div>
-        {evid.map((f) => <div className="evi" key={f.id}><Icon name="shield" /><span>{f.nombre}<small>{f.url}</small></span></div>)}
-        {(s.enlaces ?? []).map((e) => (
-          <div className="evi" key={e.url}>
-            <Icon name="link" />
-            <span><a href={e.url} target="_blank" rel="noopener noreferrer">{e.nombre || e.url}</a><small>{e.fecha ? e.fecha + ' · ' : ''}{hostOf(e.url)}</small></span>
-          </div>
-        ))}
-        {s.corr < 2 && <div className="evi pend"><Icon name="riesgo" /><span>Falta una segunda fuente independiente<small>AVIA sigue buscando corroboración</small></span></div>}
+        <Traza s={s} />
         <div className="sect">Recomendaciones de AVIA</div>
         {s.soluciones.map((o, i) => (
           <label className="sol" key={i}>
@@ -258,6 +249,43 @@ function Catalogo() {
         <div className="sect">Escalable</div>
         <p className="note" style={{ margin: 0 }}>Cada panel es un módulo independiente que lee la misma base de señales. Añadir uno nuevo (por ejemplo, ocupación hotelera o vuelos) no cambia los demás.</p>
       </div>
+    </>
+  );
+}
+
+const ESTADO_TXT: Record<string, string> = { en_verificacion: 'pidió verificación', confirmada: 'confirmó', publicada: 'publicó', descartada: 'descartó' };
+
+function Traza({ s }: { s: Parameters<typeof trazaDe>[0] }) {
+  const t = trazaDe(s);
+  const v = t.ultima_verificacion;
+  return (
+    <>
+      <div className="sect">Trazabilidad</div>
+      <div className="dl traza">
+        <div><small>Detectada por AVIA</small><b>{fechaBolivia(t.detectada)}</b></div>
+        {t.ultima_noticia ? <div><small>Última noticia recogida</small><b>{fechaBolivia(t.ultima_noticia)}</b></div> : null}
+        {t.fuente_comprobada ? <div><small>Fuente comprobada por última vez</small><b>{fechaBolivia(t.fuente_comprobada)}</b></div> : null}
+        <div><small>Última verificación de una persona</small>
+          <b>{v ? `${v.cuando ? fechaBolivia(v.cuando) : v.cuandoTexto ?? ''} · ${v.quien} ${ESTADO_TXT[v.estado] ?? v.estado}` : 'Sin verificar por una persona'}</b></div>
+      </div>
+      <div className="sect" style={{ fontSize: 12 }}>Noticias que la sostienen ({t.fuentes.length})</div>
+      {t.fuentes.map((f, i) => (
+        <div className="evi" key={(f.url ?? f.nombre) + i}>
+          <Icon name={f.oficial ? 'shield' : 'link'} />
+          <span>
+            {f.url ? <a href={f.url} target="_blank" rel="noopener noreferrer">{f.titulo || f.nombre}</a> : (f.titulo || f.nombre)}
+            {f.oficial && <span className="tag" style={{ marginLeft: 6 }}>Oficial</span>}
+            <small>
+              {f.nombre}{f.url ? ' · ' + hostOf(f.url) : ''}
+              {f.fecha
+                ? ` · Fecha ${fechaBolivia(f.fecha)} (sin distinguir publicación o recogida)`
+                : <> · Publicada: {f.publicada ? fechaBolivia(f.publicada) : 'la fuente no da fecha'}{f.recogida ? ` · Recogida: ${fechaBolivia(f.recogida)}` : ''}</>}
+            </small>
+          </span>
+        </div>
+      ))}
+      {!t.fuentes.length && <div className="evi pend"><Icon name="riesgo" /><span>Sin noticias enlazadas<small>No se puede comprobar de dónde sale: trátala como no verificada</small></span></div>}
+      {s.corr < 2 && t.fuentes.length < 2 && <div className="evi pend"><Icon name="riesgo" /><span>Falta una segunda fuente independiente<small>AVIA sigue buscando corroboración</small></span></div>}
     </>
   );
 }
