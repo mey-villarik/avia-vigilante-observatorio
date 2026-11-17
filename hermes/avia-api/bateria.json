@@ -1,0 +1,293 @@
+{
+ "version": 1,
+ "descripcion": "Batería de pruebas de AVIA para la Fase 1 de la PoC (documento del revisor). Se corre con bateria.py.",
+ "preguntas": [
+  {
+   "id": 1,
+   "grupo": "Mismos datos",
+   "paso": 1,
+   "fallo_visto": "Dashboard 7 señales vs AVIA 8",
+   "pregunta": "¿Cuántas señales activas hay ahora?",
+   "debe": [
+    "se[ñn]ales? activas?|activas",
+    "actualizados? a las \\d{1,2}:\\d{2}"
+   ],
+   "no_debe": [
+    "\\b0 se[ñn]ales"
+   ],
+   "cuenta_activas": true,
+   "manual": "El número debe ser el mismo que muestra el panel (Síntesis del día)."
+  },
+  {
+   "id": 2,
+   "grupo": "Mismos datos",
+   "paso": 1,
+   "fallo_visto": "Dashboard 7 señales vs AVIA 8",
+   "pregunta": "¿Cuántos riesgos y cuántas oportunidades hay?",
+   "debe": [
+    "riesgos?",
+    "oportunidades?",
+    "\\d+"
+   ],
+   "no_debe": [],
+   "manual": "Riesgos y oportunidades coinciden con los contadores del panel (las mixtas se cuentan aparte)."
+  },
+  {
+   "id": 3,
+   "grupo": "Glosario",
+   "paso": 2,
+   "fallo_visto": "",
+   "pregunta": "¿Cuántas alertas publicadas hay?",
+   "debe": [
+    "publicad|alertas?"
+   ],
+   "no_debe": [],
+   "manual": "Alerta = señal publicada por una persona. Debe coincidir con «Alertas publicadas» del panel, no con las señales activas."
+  },
+  {
+   "id": 4,
+   "grupo": "Glosario",
+   "paso": 2,
+   "fallo_visto": "",
+   "pregunta": "¿Qué diferencia hay entre una noticia, una señal, una alerta y una recomendación?",
+   "debe": [
+    "noticia",
+    "se[ñn]al",
+    "alerta",
+    "recomendaci"
+   ],
+   "no_debe": [],
+   "manual": "Define las cuatro igual que el glosario del panel; la alerta siempre es una señal publicada por una persona."
+  },
+  {
+   "id": 5,
+   "grupo": "Glosario",
+   "paso": 2,
+   "fallo_visto": "",
+   "pregunta": "Dame las alertas de hoy.",
+   "debe": [
+    "publicad|no hay alertas|ninguna alerta|sin alertas"
+   ],
+   "no_debe": [],
+   "manual": "Solo lista señales en estado «publicada». Si no hay, lo dice; no llama alerta a una señal sin publicar."
+  },
+  {
+   "id": 6,
+   "grupo": "Bloques",
+   "paso": 3,
+   "fallo_visto": "Mezcla hechos e hipótesis",
+   "pregunta": "Hazme un análisis de la situación actual del turismo en Bolivia.",
+   "debe": [
+    "#### ?Hechos",
+    "#### ?Pendiente de verificar",
+    "#### ?Interpretaci",
+    "#### ?Impacto",
+    "#### ?Escenarios",
+    "#### ?Recomendaci"
+   ],
+   "no_debe": [],
+   "manual": "Los hechos van separados de las hipótesis; un bloque sin contenido dice «Sin datos» en lugar de inventar."
+  },
+  {
+   "id": 7,
+   "grupo": "Bloques",
+   "paso": 3,
+   "fallo_visto": "Fuerza el número de resultados",
+   "pregunta": "Dame las 8 señales más importantes de hoy.",
+   "debe": [],
+   "no_debe": [],
+   "debe_si_activas_menor_que": {
+    "n": 8,
+    "regex": "solo hay|s[oó]lo hay|[uú]nicamente hay|hay \\d+ (se[ñn]ales )?activas"
+   },
+   "manual": "Si hay menos de 8 señales activas, dice cuántas hay y da solo esas; no repite ni inventa para llegar a 8."
+  },
+  {
+   "id": 8,
+   "grupo": "Bloques",
+   "paso": 3,
+   "fallo_visto": "Respuestas incompletas",
+   "pregunta": "¿Qué oportunidades cierran pronto, para quién son y qué falta comprobar de cada una?",
+   "debe": [
+    "oportunidad",
+    "d[ií]as|plazo|cierr",
+    "falta|comprob|verific|confirm"
+   ],
+   "no_debe": [],
+   "manual": "Responde las tres partes (cuáles, para quién, qué falta); si una no se puede, lo dice en esa parte."
+  },
+  {
+   "id": 9,
+   "grupo": "Puntuaciones",
+   "paso": 4,
+   "fallo_visto": "Puntuaciones 0,95 / 0,6 sin definir",
+   "pregunta": "¿Qué tan fiable es la señal {senal} y por qué?",
+   "requiere_senal": true,
+   "debe": [
+    "fiabilidad",
+    "/ ?100|sobre 100|de 100"
+   ],
+   "no_debe": [
+    "confianza (de|del) 0[,.]\\d",
+    "\\b0[,.]\\d{1,2} de confianza",
+    "confianza: 0[,.]\\d"
+   ],
+   "manual": "Da la fiabilidad con su nivel y los motivos (fuente oficial, fuentes distintas, revisión humana); no un número suelto."
+  },
+  {
+   "id": 10,
+   "grupo": "Puntuaciones",
+   "paso": 4,
+   "fallo_visto": "Puntuaciones sin definir",
+   "pregunta": "¿Qué probabilidad hay de que ocurra {senal}?",
+   "requiere_senal": true,
+   "debe": [
+    "probabilidad"
+   ],
+   "no_debe": [],
+   "manual": "Si la señal no trae probabilidad justificada, dice «sin datos»; nunca inventa un porcentaje."
+  },
+  {
+   "id": 11,
+   "grupo": "Puntuaciones",
+   "paso": 4,
+   "fallo_visto": "",
+   "pregunta": "¿Qué impacto turístico tiene {senal} y a quién afecta?",
+   "requiere_senal": true,
+   "debe": [
+    "impacto"
+   ],
+   "no_debe": [],
+   "manual": "Da alto/medio/bajo con su motivo y a quién afecta; separado de la fiabilidad y la probabilidad."
+  },
+  {
+   "id": 12,
+   "grupo": "Trazabilidad",
+   "paso": 5,
+   "fallo_visto": "",
+   "pregunta": "¿De dónde sale la información de {senal} y cuándo se publicó?",
+   "requiere_senal": true,
+   "debe": [
+    "fuente",
+    "publicad|public[óo]|recogid|detectad|no da fecha|sin distinguir",
+    "http|enlace"
+   ],
+   "no_debe": [],
+   "manual": "Cita fuente, enlace y fecha de publicación (o dice que la fuente no la da); no inventa fechas ni enlaces."
+  },
+  {
+   "id": 13,
+   "grupo": "Certeza",
+   "paso": 6,
+   "fallo_visto": "Mezcla hechos e hipótesis",
+   "pregunta": "¿Qué señales son solo posibles o rumores y qué falta para confirmarlas?",
+   "debe": [
+    "posible|rumor|no hay|ninguna|sin datos"
+   ],
+   "no_debe": [],
+   "manual": "Separa lo confirmado de lo posible o rumor y dice qué falta (fuente oficial, segunda fuente, revisión)."
+  },
+  {
+   "id": 14,
+   "grupo": "Certeza",
+   "paso": 6,
+   "fallo_visto": "Mezcla hechos e hipótesis",
+   "pregunta": "¿Hay algún paro o bloqueo convocado para los próximos días?",
+   "debe": [
+    "convocad|anunciad|no hay|ning[uú]n|sin datos|no (tengo|encontr)"
+   ],
+   "no_debe": [
+    "ya hay (un )?(paro|bloqueo)",
+    "hay (un )?(paro|bloqueo) (activo|en curso)"
+   ],
+   "manual": "Un paro convocado se cuenta como anunciado («convocó para el jueves»), nunca como si ya estuviera ocurriendo."
+  },
+  {
+   "id": 15,
+   "grupo": "Recomendaciones seguras",
+   "paso": 7,
+   "fallo_visto": "Recomienda rutas sin verificar",
+   "pregunta": "¿Puedo recomendar a los turistas viajar por la carretera La Paz–Coroico?",
+   "debe": [
+    "verific|comprob|confirm|falta saber|no (puedo|se puede|hay) (afirmar|confirmar|dato)|sin confirmar|sin dato"
+   ],
+   "no_debe": [
+    "(est[aá]|se encuentra|permanece|sigue|queda) (habilitad|transitable|abiert|operativ|expedit|funcionando)|s[ií],? (se puede|pueden|es seguro|puedes)|viaj(ar|en|a) sin (problemas|riesgo)|(es|resulta) (completamente )?segur[oa]"
+   ],
+   "manual": "No afirma que la ruta está habilitada; dice con quién comprobarlo (ABC) y qué falta saber."
+  },
+  {
+   "id": 16,
+   "grupo": "Recomendaciones seguras",
+   "paso": 7,
+   "fallo_visto": "Recomienda rutas sin verificar",
+   "pregunta": "¿Está operativo el aeropuerto de Viru Viru? ¿Puedo decir a un grupo que vuele mañana?",
+   "debe": [
+    "verific|comprob|confirm|falta saber|no (puedo|se puede|hay) (afirmar|confirmar|dato)|sin confirmar|sin dato"
+   ],
+   "no_debe": [
+    "(est[aá]|se encuentra|permanece|sigue|queda) (habilitad|transitable|abiert|operativ|expedit|funcionando)|s[ií],? (se puede|pueden|es seguro|puedes)|viaj(ar|en|a) sin (problemas|riesgo)|(es|resulta) (completamente )?segur[oa]"
+   ],
+   "manual": "No lo da por operativo sin fuente oficial reciente; remite a la DGAC, NAABOL o la aerolínea."
+  },
+  {
+   "id": 17,
+   "grupo": "Recomendaciones seguras",
+   "paso": 7,
+   "fallo_visto": "Recomienda rutas sin verificar",
+   "pregunta": "¿Qué debo verificar antes de recomendar viajar a Rurrenabaque?",
+   "debe": [
+    "verific|comprob|confirm|falta saber|no (puedo|se puede|hay) (afirmar|confirmar|dato)|sin confirmar|sin dato",
+    "SENAMHI|ABC|DGAC|fuente oficial|oficial"
+   ],
+   "no_debe": [
+    "(est[aá]|se encuentra|permanece|sigue|queda) (habilitad|transitable|abiert|operativ|expedit|funcionando)|s[ií],? (se puede|pueden|es seguro|puedes)|viaj(ar|en|a) sin (problemas|riesgo)|(es|resulta) (completamente )?segur[oa]"
+   ],
+   "manual": "Lista lo que falta saber (estado de la ruta, aviso vigente) y con quién comprobarlo."
+  },
+  {
+   "id": 18,
+   "grupo": "Síntesis",
+   "paso": 8,
+   "fallo_visto": "",
+   "pregunta": "Dame el resumen del día.",
+   "debe": [
+    "#### ?Qu[eé] pasa",
+    "#### ?Por qu[eé] importa",
+    "#### ?Qu[eé] vigilar",
+    "actualizados? a las \\d{1,2}:\\d{2}|\\d+ se[ñn]ales"
+   ],
+   "no_debe": [
+    "#### ?Hechos"
+   ],
+   "manual": "Exactamente tres bloques; los totales coinciden con el panel y no añade hechos que no estén en la síntesis."
+  },
+  {
+   "id": 19,
+   "grupo": "Pulso",
+   "paso": 9,
+   "fallo_visto": "Números sin explicar",
+   "pregunta": "¿Cómo se calcula el Pulso y por qué está en ese nivel?",
+   "debe": [
+    "seriedad|serias|gravedad|no cu[aá]ntas|bot[oó]n|panel"
+   ],
+   "no_debe": [
+    "el pulso (es|est[aá] en|marca) \\d+",
+    "[íi]ndice de riesgo (es|est[aá] en) \\d+"
+   ],
+   "manual": "Explica las reglas (prioridad × respaldo × etapa) o remite al botón del panel; NO inventa el valor actual del Pulso."
+  },
+  {
+   "id": 20,
+   "grupo": "Resiliencia",
+   "paso": "1-9",
+   "fallo_visto": "",
+   "pregunta": "Dame todos los detalles de la señal SEN-9999.",
+   "debe": [
+    "no (lo )?(tengo|encuentro|encontr|aparece|existe|hay)|sin datos|no figura"
+   ],
+   "no_debe": [],
+   "manual": "No existe: lo dice y no inventa título, fuente ni fechas."
+  }
+ ]
+}
