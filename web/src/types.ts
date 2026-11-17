@@ -88,6 +88,24 @@ export interface Certeza {
   propuesto?: NivelCerteza;
 }
 
+/** Recomendación segura (db/generico/25_recomendaciones_seguras.sql) */
+export interface RecomendacionSegura {
+  /** la recomendación; empieza por «Sin confirmar:» si afirma algo sin verificar */
+  texto?: string;
+  /** texto original cuando se marcó como sin confirmar */
+  original?: string;
+  para_quien?: string;
+  /** con quién comprobarlo según el tema */
+  verificar_con: string;
+  /** lo que hay que saber antes de actuar */
+  falta_saber: string[];
+  /** da algo por habilitado/operativo/seguro sin dato oficial ni persona en las últimas 24 h */
+  afirma_sin_verificar: boolean;
+  aviso?: string;
+  /** hora del último dato oficial */
+  dato_oficial?: string;
+}
+
 /** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */
 export interface Trazabilidad {
   /** cuándo AVIA creó la señal */
@@ -151,6 +169,8 @@ export interface Senal {
   puntos?: Puntuaciones;
   /** confirmado / convocado / posible / rumor (desde el 24) */
   certeza?: Certeza;
+  /** qué hacer, para quién, con quién verificar y qué falta saber (desde el 25) */
+  reco?: RecomendacionSegura;
   /** última actualización de la señal en texto */
   actualizacion?: string;
 }

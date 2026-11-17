@@ -13,6 +13,7 @@ import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
+import { afirmaOperativo, recoDe } from '../lib/recomendacion';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -181,10 +182,11 @@ function SenalDetalle({ id }: { id: string }) {
         <p style={{ margin: 0 }}>{s.importancia}</p>
         <Traza s={s} />
         <div className="sect">Recomendaciones de AVIA</div>
+        <Reco s={s} />
         {s.soluciones.map((o, i) => (
           <label className="sol" key={i}>
             <input type="radio" name="sol" checked={sol === i} onChange={() => setSol(i)} />
-            <span><b>{o.t}</b><small>{o.d}</small></span>
+            <span><b>{afirmaOperativo(o.t) && recoDe(s).afirma_sin_verificar ? 'Sin confirmar: ' : ''}{o.t}</b><small>{o.d}</small></span>
           </label>
         ))}
         {canDecide(role) ? (
@@ -289,6 +291,20 @@ function Traza({ s }: { s: Parameters<typeof trazaDe>[0] }) {
       {!t.fuentes.length && <div className="evi pend"><Icon name="riesgo" /><span>Sin noticias enlazadas<small>No se puede comprobar de dónde sale: trátala como no verificada</small></span></div>}
       {s.corr < 2 && t.fuentes.length < 2 && <div className="evi pend"><Icon name="riesgo" /><span>Falta una segunda fuente independiente<small>AVIA sigue buscando corroboración</small></span></div>}
     </>
+  );
+}
+
+function Reco({ s }: { s: Parameters<typeof recoDe>[0] }) {
+  const r = recoDe(s);
+  return (
+    <div className={`reco${r.afirma_sin_verificar ? ' sinver' : ''}`}>
+      {r.afirma_sin_verificar && <p className="reco-aviso"><Icon name="riesgo" /> {r.aviso}</p>}
+      {r.texto && !s.soluciones.some((o) => o.t === (r.original ?? r.texto)) && <p><b>{r.texto}</b></p>}
+      {r.para_quien && <p><small>Para</small> {r.para_quien}</p>}
+      <p><small>Verificar con</small> {r.verificar_con}{r.dato_oficial ? ` · último dato oficial: ${fechaBolivia(r.dato_oficial)}` : ''}</p>
+      <p><small>Falta saber</small></p>
+      {r.falta_saber.length ? <ul>{r.falta_saber.map((f) => <li key={f}>{f}</li>)}</ul> : <p className="note" style={{ margin: 0 }}>Nada pendiente según las fuentes.</p>}
+    </div>
   );
 }
 

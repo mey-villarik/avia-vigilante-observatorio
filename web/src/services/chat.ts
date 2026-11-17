@@ -1,5 +1,5 @@
 // Lógica del chat "Pregunta a AVIA": abrir, enviar y aplicar las órdenes que devuelve AVIA.
-import type { Etapa, PanelId, Senal, VistaId } from '../types';
+import type { PanelId, Senal, VistaId } from '../types';
 import { DEPS, PANELS, STATE_TXT, STL } from '../data/demo';
 import { activeSignals, conProblema, useStore } from '../store';
 import { ROLE_NAME, norm } from '../lib/util';
@@ -7,6 +7,7 @@ import { aviaConectado, remoto, type Comando } from './avia';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { CERTEZAS, NIVELES_CERTEZA, certezaDe } from '../lib/certeza';
+import { recoCorta, recoTexto } from '../lib/recomendacion';
 
 const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te doy recomendaciones. Una señal solo es alerta cuando una persona del equipo la publica.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
 
@@ -31,7 +32,6 @@ export function aplicarComando(c: Comando): string | null {
   return null;
 }
 
-const POR_VERIFICAR: Etapa[] = ['detectada', 'en_analisis', 'en_verificacion'];
 const PRIO_N = { alta: 0, media: 1, baja: 2 } as const;
 const fuenteDe = (s: Senal) => {
   const f = trazaDe(s).fuentes[0];
@@ -64,7 +64,7 @@ export function bloques(lista: Senal[]): string {
     '#### Escenarios',
     esc.length ? esc.map((s) => `- Escenario (no es un hecho): ${s.id} ${s.titulo}`).join('\n') : 'Sin datos suficientes para plantear escenarios.',
     '#### Recomendación',
-    top ? `${top.soluciones[0].t}${POR_VERIFICAR.includes(top.estado) ? ' (antes, confirmar la señal ' + top.id + ')' : ''}.` : 'Sin datos.',
+    top ? recoTexto(top) : 'Sin datos.',
   ].join('\n');
 }
 
@@ -112,12 +112,12 @@ function localReply(q: string): { text: string; act?: string } {
   }
   if (/riesgo|peligro/.test(t)) {
     const l = act.filter((s) => s.naturaleza === 'riesgo' && (!dep || s.deps.includes(dep)));
-    return { text: l.length ? `Hay ${l.length} riesgo${l.length === 1 ? '' : 's'} activo${l.length === 1 ? '' : 's'}${dep ? ' en ' + dep : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo} (${STL[s.estado]}). Recomendación: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : `No hay riesgos activos${dep ? ' en ' + dep : ''}.` };
+    return { text: l.length ? `Hay ${l.length} riesgo${l.length === 1 ? '' : 's'} activo${l.length === 1 ? '' : 's'}${dep ? ' en ' + dep : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo} (${STL[s.estado]}). Recomendación: ${recoCorta(s)}.`).join('\n') : `No hay riesgos activos${dep ? ' en ' + dep : ''}.` };
   }
   if (/oportunidad|plazo|cierra|fondo|convocatoria/.test(t)) {
     const todas = act.filter((s) => s.naturaleza !== 'riesgo' && (!dep || s.deps.includes(dep))).sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999));
     const l = todas.slice(0, 4);
-    return { text: l.length ? `Hay ${todas.length} oportunidades${todas.length > l.length ? `; estas son las ${l.length} con el plazo más cercano` : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Recomendación: ${s.soluciones[0].t.toLowerCase()}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
+    return { text: l.length ? `Hay ${todas.length} oportunidades${todas.length > l.length ? `; estas son las ${l.length} con el plazo más cercano` : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Recomendación: ${recoCorta(s)}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
   }
   if (/resumen|sintesis|ministerio|informe|situacion|panorama/.test(t)) {
     const l = act.filter((x) => !dep || x.deps.includes(dep));

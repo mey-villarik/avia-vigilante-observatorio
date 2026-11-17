@@ -6,7 +6,7 @@
 //    Deja VITE_DATA_URL vacío cuando Hermes ya suba al almacenamiento privado.
 // Si nada responde, la web sigue con los datos de ejemplo de src/data/demo.ts.
 import type {
-  CategoriaId, Certeza, Enlace, Puntuaciones, Trazabilidad, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
+  CategoriaId, Certeza, Enlace, RecomendacionSegura, Puntuaciones, Trazabilidad, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
 } from '../types';
 import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
@@ -44,6 +44,8 @@ interface JSenal {
   trazabilidad?: Trazabilidad | null;
   /** desde el 24: confirmado / convocado / posible / rumor */
   certeza?: Certeza | null;
+  /** desde el 25: qué hacer, con quién verificar y qué falta saber */
+  recomendacion_segura?: RecomendacionSegura | null;
 }
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
@@ -200,6 +202,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       puntos: s.puntuaciones ?? undefined,
       traza: s.trazabilidad ?? undefined,
       certeza: s.certeza ?? undefined,
+      reco: s.recomendacion_segura ?? undefined,
     };
   });
 

@@ -170,6 +170,14 @@ def limpiar(res: list, claves: set[int]) -> list[dict]:
         ce = x.get('certeza')
         if not (isinstance(ce, dict) and ce.get('nivel') in CERTEZAS and str(ce.get('motivo') or '').strip()):
             x.pop('certeza', None)
+        # mejora 7: qué falta saber (1 a 4 frases) y para quién; la base añade el resto en vigilante.recomendacion_segura
+        fs = x.get('falta_saber')
+        if isinstance(fs, list):
+            x['falta_saber'] = [str(f).strip()[:200] for f in fs if isinstance(f, str) and f.strip()][:4]
+        else:
+            x.pop('falta_saber', None)
+        if not (isinstance(x.get('para_quien'), str) and x['para_quien'].strip()):
+            x.pop('para_quien', None)
         op = x.get('oportunidad')
         if not (isinstance(op, dict) and op.get('hecho') and op.get('tipo')):
             x.pop('oportunidad', None)

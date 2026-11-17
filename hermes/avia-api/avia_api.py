@@ -167,7 +167,7 @@ A quién afecta (destinos, operadores, visitantes) y cómo. Si no hay datos para
 #### Escenarios
 Qué podría pasar y bajo qué condición («si…, entonces…»). Son posibilidades, no predicciones seguras. Si no hay base para plantearlos, escribe «Sin datos suficientes para plantear escenarios».
 #### Recomendación
-Qué hacer, para quién y qué falta comprobar antes.
+Qué hacer, para quién, con quién verificarlo y qué falta saber antes de actuar (regla 10).
 
 REGLAS
 1. Un bloque sin contenido lleva «Sin datos» o «Nada pendiente»: no lo rellenes ni lo inventes, y no lo quites.
@@ -190,12 +190,19 @@ REGLAS
    la señal en «certeza»: [confirmado], [convocado], [posible] o [rumor]. No la subas nunca: un «posible» no
    se cuenta como hecho y un «convocado» no es algo que ya pasó («la federación convocó un paro para el
    jueves», no «hay paro»). En «Hechos» solo van confirmados y convocados; posibles y rumores van en
-   «Pendiente de verificar». Si la certeza trae «propuesto», AVIA la bajó por falta de fuentes: dilo."""
+   «Pendiente de verificar». Si la certeza trae «propuesto», AVIA la bajó por falta de fuentes: dilo.
+10. Recomendaciones seguras: usa «recomendacion_segura» de cada señal. Cada recomendación dice qué hacer,
+   para quién, con quién verificarlo («verificar_con») y «Falta saber:» con su lista; si la lista está vacía,
+   no la inventes. NUNCA digas que una ruta, vuelo, aeropuerto, paso o destino está habilitado, operativo,
+   transitable, abierto, normal o seguro, ni que «se puede viajar», salvo que una fuente oficial lo diga y
+   «dato_oficial» sea de las últimas 24 h; entonces cita la fuente y la hora («según la ABC, a las 08:00»).
+   Si trae «afirma_sin_verificar», no repitas lo que afirma: di que no está confirmado y con quién
+   comprobarlo. Ante la duda, recomienda comprobar antes de viajar o de avisar a los visitantes."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
 _MAX_SENALES = 40   # señales que se pasan al modelo; los totales van aparte en «contadores»
-_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'certeza', 'puntuaciones', 'trazabilidad',
+_CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'certeza', 'recomendacion_segura', 'puntuaciones', 'trazabilidad',
            'deps', 'destinos', 'fecha_limite', 'evento_inicio', 'evento_fin', 'importancia', 'enlaces',
            'detectada', 'ultima_noticia', 'revision', 'escenario', 'soluciones')
 
@@ -207,6 +214,10 @@ def _compacta(x: dict) -> dict:
         c['trazabilidad'] = {**t, 'fuentes': [{k: f[k] for k in ('nombre', 'oficial', 'url', 'publicada', 'recogida', 'fecha', 'nota') if k in f}
                                                for f in (t.get('fuentes') or [])[:3] if isinstance(f, dict)]}
         c.pop('enlaces', None)
+    r = c.get('recomendacion_segura')
+    if isinstance(r, dict) and r.get('afirma_sin_verificar'):   # que el modelo no repita la frase sin verificar
+        c['recomendacion_segura'] = {k: v for k, v in r.items() if k != 'original'}
+        c.pop('soluciones', None)
     return c
 
 

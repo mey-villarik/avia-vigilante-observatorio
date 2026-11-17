@@ -29,6 +29,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_trazabilidad.sql` | Prueba del 23. Termina en `ROLLBACK`. |
 | `24_grado_certeza.sql` | Grado de certeza por señal: confirmado, convocado, posible o rumor, con motivo y origen (persona, modelo, modelo ajustado o reglas). `guardar_clasificacion` guarda la propuesta del modelo. Ver `docs/certeza.md`. |
 | `99_prueba_certeza.sql` | Prueba del 24 (8 casos). Termina en `ROLLBACK`. |
+| `25_recomendaciones_seguras.sql` | Recomendación segura por señal: para quién, con quién verificar (parámetro `verificar_con`), qué falta saber y aviso cuando da algo por habilitado u operativo sin dato oficial de las últimas 24 h. Ver `docs/recomendaciones-seguras.md`. |
+| `99_prueba_recomendaciones.sql` | Prueba del 25. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash

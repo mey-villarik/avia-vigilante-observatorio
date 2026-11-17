@@ -14,6 +14,7 @@ import { sesionActual } from './auth';
 import { puntuacionesDe } from '../lib/puntuaciones';
 import { trazaDe } from '../lib/trazabilidad';
 import { certezaDe } from '../lib/certeza';
+import { recoDe } from '../lib/recomendacion';
 
 const API = (import.meta.env.VITE_AVIA_API_URL as string | undefined)?.replace(/\/$/, '');
 export const aviaConectado = Boolean(API);
@@ -52,7 +53,8 @@ export const compact = (s: Senal) => ({
   departamentos: s.deps, destinos: s.destinos, estado: s.estado, prioridad: s.prioridad,
   certeza: certezaDe(s), puntuaciones: puntuacionesDe(s), fuentes: s.corr,
   trazabilidad: { ...trazaDe(s), fuentes: trazaDe(s).fuentes.slice(0, 3) }, plazo_dias: s.plazo ?? null,
-  importancia: s.importancia, acciones: s.soluciones.map((x) => x.t),
+  importancia: s.importancia, recomendacion_segura: (({ original: _o, ...r }) => r)(recoDe(s)),
+  acciones: recoDe(s).afirma_sin_verificar ? [] : s.soluciones.map((x) => x.t),
 });
 
 // ───────── Llamadas al backend ─────────
