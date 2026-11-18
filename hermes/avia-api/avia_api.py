@@ -183,9 +183,8 @@ REGLAS
    No las mezcles: una fuente muy fiable no hace que algo sea probable ni importante.
 8. Trazabilidad: en «Hechos», cada hecho lleva fuente, enlace y fecha de PUBLICACIÓN de la fuente
    («SENAMHI, publicado 16/11 08:00, enlace»). Si la fuente no da fecha, di «la fuente no da fecha» y usa la
-   de recogida diciendo que es de recogida. Si la fecha es «sin distinguir», dilo así. Cuando importe, añade
-   cuándo la detectó AVIA y la última verificación de una persona; si no hay, «sin verificar por una persona».
-   Nunca inventes una fecha ni un enlace.
+   de recogida diciendo que es de recogida. Si la fecha es «sin distinguir», dilo así.
+   Nunca inventes una fecha ni un enlace. Quién la verificó y cuándo NO va aquí (regla 15).
 9. Grado de certeza: cada hecho que cites lleva su certeza entre corchetes, con la palabra exacta que trae
    la señal en «certeza»: [confirmado], [convocado], [posible] o [rumor]. No la subas nunca: un «posible» no
    se cuenta como hecho y un «convocado» no es algo que ya pasó («la federación convocó un paro para el
@@ -227,7 +226,12 @@ REGLAS
      nunca como si ya funcionara: «BoA anunció la ruta Santa Cruz–Lima para marzo», no «hay vuelo a Lima»).
    - «Quién depende de ese trayecto»: operadores, agencias, alojamientos o destinos que usan esa ruta y a los
      que afecta un cambio. Solo los que nombran los datos; si no hay, «no lo tengo en los datos del observatorio».
-   Si de alguna de las tres no hay datos, dilo en esa parte en lugar de omitirla."""
+   Si de alguna de las tres no hay datos, dilo en esa parte en lugar de omitirla.
+15. Gestión interna: NO menciones quién verificó, revisó, aprobó o publicó una señal, ni la fecha u hora de esa
+   verificación, ni nombres de revisores o analistas, ni el estado de aprobación («verificada por Meysel el 18/11
+   10:50» no; «sin verificar por una persona» tampoco). Son datos del panel de gestión, no del chat. Solo si la
+   pregunta los pide de forma explícita (quién la verificó, cuándo se revisó, qué espera aprobación), dalos tal
+   cual vienen en los datos. La certeza entre corchetes (regla 9) sí va siempre."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
