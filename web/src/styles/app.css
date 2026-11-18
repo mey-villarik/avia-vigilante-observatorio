@@ -528,3 +528,19 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 /* Aprobación del analista (18_aprobacion_analista.sql) */
 .revisar-aviso{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:10px;background:var(--surface2);font-size:13px}
 .revisar-aviso.vencida{border-left-color:var(--crit)}
+/* Oportunidades: recuadros cortos y detalle en ventana flotante */
+.opp-grid{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+.opp-corta .ficha-acciones .btn{flex:1 1 auto;justify-content:center}
+.opp-corta{min-height:190px}
+.opp-corta-t{all:unset;cursor:pointer;font-family:var(--f-display);font-size:calc(19px * var(--fs));line-height:1.25;font-weight:500;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.opp-corta-t:hover{color:var(--accent)}
+.opp-corta-t:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.opp-ventana{padding:0;border:0;background:transparent;color:var(--ink);width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:visible}
+.opp-ventana::backdrop{background:rgba(5,12,20,.62);backdrop-filter:blur(2px)}
+.opp-ventana .ficha-detalle{max-height:calc(100vh - 48px);overflow-y:auto;padding:22px 24px;box-shadow:var(--shadow)}
+.opp-ventana .ficha-detalle .ot{font-size:calc(24px * var(--fs));margin-right:36px}
+.opp-cerrar{position:absolute;top:10px;right:10px;z-index:1;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
+  background:var(--surface2);color:var(--ink);font-size:22px;line-height:1;cursor:pointer}
+.opp-cerrar:hover{background:var(--raise)}
+@media (max-width:640px){.opp-corta{min-height:0}.opp-ventana .ficha-detalle{padding:18px 16px}}
