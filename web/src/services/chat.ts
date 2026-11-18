@@ -11,6 +11,7 @@ import { recoCorta, recoTexto } from '../lib/recomendacion';
 import { sintesisDe, sintesisTexto } from '../lib/sintesis';
 import { calcularPulso, pulsoTexto } from '../lib/pulso';
 import { contar } from '../lib/contadores';
+import { separarRespuesta } from '../lib/respuesta';
 
 const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te doy recomendaciones. Una señal solo es alerta cuando una persona del equipo la publica.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
 
@@ -171,11 +172,13 @@ export async function sendChat(txt: string) {
   const historial = useStore.getState().chat
     .filter((m) => m.id !== bubble)
     .slice(-10)
-    .map((m) => ({ role: m.role === 'u' ? 'user' as const : 'assistant' as const, content: m.text }));
+    .map((m) => ({ role: m.role === 'u' ? 'user' as const : 'assistant' as const, content: m.role === 'u' ? m.text : separarRespuesta(m.text).texto }));
   try {
     const res = await remoto.chat(historial, ROLE_NAME[st.role], ctl.signal);
-    const hechos = (res.comandos ?? []).map(aplicarComando).filter(Boolean);
-    useStore.getState().updateChat(bubble, { text: res.texto, act: hechos.length ? hechos.join(' · ') : undefined });
+    // solo se muestra «texto»; las órdenes se aplican sin enseñar el JSON
+    const limpia = separarRespuesta(res.texto, res.comandos ?? []);
+    const hechos = limpia.comandos.map(aplicarComando).filter(Boolean);
+    useStore.getState().updateChat(bubble, { text: limpia.texto, act: hechos.length ? hechos.join(' · ') : undefined });
   } catch (e) {
     const cancel = e instanceof DOMException && e.name === 'AbortError';
     useStore.getState().updateChat(bubble, { text: cancel ? 'Detenido.' : 'No pude responder ahora. Prueba otra vez en un momento.' });
