@@ -17,6 +17,8 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_tareas_programadas.sql` | Prueba del 16. Termina en `ROLLBACK`. |
 | `17_tareas_control.sql` | Borrado a los 6 meses que sí alcanza lo publicado, tareas que no se paran entre sí y `vigilante.estado_tareas()` para ver si corren. |
 | `99_prueba_tareas_control.sql` | Prueba del 17. Termina en `ROLLBACK`. |
+| `18_aprobacion_analista.sql` | Aprobación del analista: plazo de 1 hora, nada se publica sin aprobación, aprobar/rechazar en un clic y botones en un grupo privado de Telegram. Ver `docs/aprobacion-analista.md`. |
+| `99_prueba_aprobacion.sql` | Prueba del 18. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
 ```bash
