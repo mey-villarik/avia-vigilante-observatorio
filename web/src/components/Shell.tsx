@@ -6,6 +6,7 @@ import { accesoConfigurado, salir } from '../services/auth';
 import { ROLE_NAME } from '../lib/util';
 import { Icon } from './Icon';
 import { clock } from '../lib/util';
+import { useEventos } from '../services/eventos';
 
 export const BrandMark = () => (
   <svg className="brand-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true">
@@ -140,6 +141,7 @@ export function Topbar() {
               <span className="d" /><span>{cargando ? 'Conectando…' : live ? 'Ejemplo · simulación activa' : 'Ejemplo · simulación en pausa'}</span>
             </button>
           )}
+          <BotonEventos />
           <button className="icon-btn" aria-label="Buscar (Ctrl+K)" title="Buscar (Ctrl+K)" onClick={() => setSearchOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
           </button>
@@ -157,6 +159,22 @@ export function Topbar() {
       <div className="flag" aria-hidden="true"><i /><i /><i /></div>
       <div className="aguayo" aria-hidden="true" />
     </header>
+  );
+}
+
+/** Eventos compuestos abiertos (señales que coinciden en lugar y fecha). Solo con sesión de analista o administrador. */
+function BotonEventos() {
+  const eventos = useEventos((s) => s.eventos);
+  const disponible = useEventos((s) => s.disponible);
+  const perfil = useStore((s) => s.perfil);
+  if (!perfil || perfil.rol === 'visor' || !disponible) return null;
+  const altas = eventos.filter((e) => e.prioridad === 'alta').length;
+  return (
+    <button className={`pill ${altas ? 'st-CRIT' : eventos.length ? 'st-WARN' : 'st-UNKNOWN'}`}
+      title="Eventos: dos o más señales que coinciden en el mismo departamento y fechas"
+      onClick={() => useEventos.getState().setListaAbierta(true)}>
+      <span className="d" /><span>Eventos {eventos.length}</span>
+    </button>
   );
 }
 

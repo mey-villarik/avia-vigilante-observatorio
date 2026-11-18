@@ -6,6 +6,7 @@ import { Sidebar, Topbar, Toasts } from './components/Shell';
 import { Drawer } from './components/Drawer';
 import { Search } from './components/Search';
 import { Chat } from './components/Chat';
+import { AlertaEmergente, ListaEventos, useEventosEmergentes } from './components/Emergentes';
 import { Foot } from './components/common';
 import { useChat } from './services/chat';
 import { REFRESCO_MS } from './services/datos';
@@ -86,6 +87,7 @@ export default function App() {
   const view = useStore((s) => s.view);
   usePrefs();
   useDatosVps();
+  useEventosEmergentes();
   useLiveSimulation();
   useShortcuts();
   const Vista = VISTAS[view];
@@ -104,6 +106,8 @@ export default function App() {
       <Chat />
       <Drawer />
       <Search />
+      <ListaEventos />
+      <AlertaEmergente />
       <Toasts />
     </>
   );

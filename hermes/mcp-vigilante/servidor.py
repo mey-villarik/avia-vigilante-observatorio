@@ -23,7 +23,7 @@ import sys
 import urllib.error
 import urllib.request
 
-VERSION = '2.0.0'
+VERSION = '2.1.0'
 
 INSTRUCCIONES = (
     'Herramientas del Vigilante AVIA sobre la base de datos del observatorio. Eres el agente investigador: '
@@ -199,6 +199,40 @@ HERRAMIENTAS = [
      'description': 'Lo que una regla marca para mirar ya: aviso oficial con palabra de alerta, mismo hecho en 3 o más '
                     'fuentes en 6 horas, plazo que cierra en 5 días, territorio con el doble de menciones de lo normal.',
      'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'alertas_tempranas', 'args': lambda a: {}},
+    # 2.1 (migración 28): eventos compuestos. La base detecta que varias señales coinciden; Hermes las interpreta.
+    {'name': 'eventos_por_interpretar',
+     'description': 'Eventos compuestos que esperan tu interpretación: 2 o más señales activas que coinciden en el mismo '
+                    'departamento y en fechas que se solapan. Cada uno trae tipo (riesgo_acumulado, oportunidad_combinada, '
+                    'confluencia), prioridad calculada con su desglose, y cada señal con su certeza, fechas, noticias y '
+                    'recomendación segura. Quedan reservados 30 minutos: ciérralos con guardar_interpretacion_evento.',
+     'inputSchema': {'type': 'object', 'properties': {'limite': {'type': 'integer', 'minimum': 1, 'maximum': 10, 'default': 3}}},
+     'fn': 'eventos_por_interpretar', 'args': lambda a: {'p_limite': a.get('limite', 3)}},
+    {'name': 'guardar_interpretacion_evento',
+     'description': 'Guarda tu interpretación de un evento compuesto (EVC-xxxx): qué significa para el turismo, a quién '
+                    'afecta y qué se recomienda. Si las señales no tienen relación real, manda es_confluencia=false con '
+                    'motivo_descarte. Solo puedes subir o bajar la prioridad calculada un nivel, con motivo. Nunca inventes '
+                    'cifras (operadores afectados, visitantes, pérdidas) que no estén en las señales.',
+     'inputSchema': {'type': 'object', 'properties': {
+         'codigo': {'type': 'string', 'description': 'EVC-xxxx'},
+         'interpretacion': {'type': 'object', 'properties': {
+             'es_confluencia': {'type': 'boolean', 'default': True},
+             'motivo_descarte': {'type': 'string', 'description': 'Solo si es_confluencia es false'},
+             'titular': {'type': 'string', 'description': 'Máx. 140 caracteres: «Confluencia en La Paz: huelga + lluvia prevista»'},
+             'significado': {'type': 'string', 'description': 'Qué significa para el turismo: hechos primero, luego la interpretación con «podría»'},
+             'a_quien_afecta': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Tipos de actor: operadores, alojamientos, guías, visitantes con llegada…'},
+             'impacto': {'type': 'object', 'properties': {'nivel': {'type': 'string', 'enum': ['alto', 'medio', 'bajo']}, 'motivo': {'type': 'string'}}},
+             'recomendacion': {'type': 'object', 'properties': {
+                 'accion': {'type': 'string'}, 'para_quien': {'type': 'string'},
+                 'cuando': {'type': 'string', 'description': 'Antelación: «hoy», «con 48 h»…'},
+                 'verificar_con': {'type': 'string', 'description': 'Entidad oficial con quien comprobarlo'}},
+                 'required': ['accion', 'para_quien']},
+             'escenarios': {'type': 'array', 'items': {'type': 'object', 'properties': {'si': {'type': 'string'}, 'entonces': {'type': 'string'}}}},
+             'falta_saber': {'type': 'array', 'items': {'type': 'string'}},
+             'prioridad': {'type': 'object', 'properties': {'nivel': {'type': 'string', 'enum': ['alta', 'media', 'baja']}, 'motivo': {'type': 'string'}}}},
+         }}, 'required': ['codigo', 'interpretacion']},
+     'fn': 'guardar_interpretacion_evento',
+     'args': lambda a: {'p_codigo': a['codigo'], 'p_int': a['interpretacion'],
+                        'p_modelo': os.environ.get('HERMES_MODELO') or os.environ.get('LLM_MODEL') or 'hermes'}},
 ]
 POR_NOMBRE = {h['name']: h for h in HERRAMIENTAS}
 

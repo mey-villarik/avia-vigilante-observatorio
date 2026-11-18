@@ -1,0 +1,194 @@
+// Alerta emergente: un evento compuesto de prioridad alta que la persona aún no ha visto.
+// No dice «nueva señal»: trae ya la interpretación de AVIA (qué pasa, a quién afecta, qué hacer).
+// También la lista de todos los eventos abiertos, que se abre desde la barra superior.
+import { useEffect, useRef, useState } from 'react';
+import { useStore } from '../store';
+import { alertaPendiente, EVENTOS_MS, TIPO_TXT, useEventos, type EventoCompuesto } from '../services/eventos';
+import { Icon } from './Icon';
+
+const TZ = 'America/La_Paz';
+const dia = (iso: string) => new Date(iso).toLocaleString('es-BO', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+function ventana(e: EventoCompuesto): string {
+  const ini = Date.parse(e.ventana_inicio);
+  const desde = ini <= Date.now() ? 'en curso' : `desde ${dia(e.ventana_inicio)}`;
+  return `${desde} · hasta ${dia(e.ventana_fin)}`;
+}
+
+/** Pide los eventos cada minuto mientras hay sesión de analista o administrador */
+export function useEventosEmergentes() {
+  const perfil = useStore((s) => s.perfil);
+  const staff = perfil != null && perfil.rol !== 'visor';
+  useEffect(() => {
+    if (!staff) { useEventos.setState({ eventos: [] }); return; }
+    void useEventos.getState().cargar();
+    const t = setInterval(() => void useEventos.getState().cargar(), EVENTOS_MS);
+    return () => clearInterval(t);
+  }, [staff]);
+}
+
+function Ficha({ e, onSenal }: { e: EventoCompuesto; onSenal: (codigo: string) => void }) {
+  const i = e.interpretacion;
+  return (
+    <div className="evc-ficha">
+      <div className="evc-meta">
+        <span className={`tag evc-tipo t-${e.tipo}`}>{TIPO_TXT[e.tipo]}</span>
+        <span className="tag"><Icon name="mapa" /> {e.territorio}</span>
+        <span className="tag"><Icon name="clock" /> {ventana(e)}</span>
+        <span className={`tag p-${e.prioridad}`} title={e.calculo?.regla ?? ''}>Prioridad {e.prioridad} · {Math.round(e.puntaje)}/100</span>
+      </div>
+
+      {i ? (
+        <>
+          <p className="evc-sig">{i.significado}</p>
+          <div className="evc-bloques">
+            <section>
+              <h4>A quién afecta</h4>
+              <ul>{i.a_quien_afecta.map((a) => <li key={a}>{a}</li>)}</ul>
+              {i.impacto && <p className="evc-imp"><b>Impacto {i.impacto.nivel}:</b> {i.impacto.motivo}</p>}
+            </section>
+            <section className="evc-rec">
+              <h4>Qué se recomienda</h4>
+              <p><b>{i.recomendacion.accion}</b></p>
+              <p className="muted">Para {i.recomendacion.para_quien}{i.recomendacion.cuando ? ` · ${i.recomendacion.cuando}` : ''}</p>
+              {i.recomendacion.verificar_con && <p className="muted">Verificar con: {i.recomendacion.verificar_con}</p>}
+            </section>
+          </div>
+          {i.escenarios && i.escenarios.length > 0 && (
+            <section>
+              <h4>Escenarios</h4>
+              <ul>{i.escenarios.map((s) => <li key={s.si}>Si {s.si}, entonces {s.entonces}.</li>)}</ul>
+            </section>
+          )}
+          {i.falta_saber && i.falta_saber.length > 0 && (
+            <p className="evc-falta"><b>Falta saber:</b> {i.falta_saber.join(' · ')}</p>
+          )}
+          {e.prioridad_hermes && e.prioridad_hermes !== e.prioridad_calculada && i.prioridad_motivo && (
+            <p className="muted small">AVIA cambió la prioridad calculada ({e.prioridad_calculada}) a {e.prioridad_hermes}: {i.prioridad_motivo}</p>
+          )}
+        </>
+      ) : (
+        <p className="evc-espera">AVIA aún no ha interpretado este evento. Abajo están las señales que coinciden.</p>
+      )}
+
+      <section>
+        <h4>Señales que lo forman ({e.senales.length})</h4>
+        <ul className="evc-senales">
+          {e.senales.map((s) => (
+            <li key={s.codigo}>
+              <span className={`dot n-${s.naturaleza}`} aria-hidden="true" />
+              <button className="linklike" onClick={() => onSenal(s.codigo)}>{s.codigo}</button>
+              <span>{s.titulo}</span>
+              {s.certeza?.nivel && <span className="tag">{s.certeza.nivel}</span>}
+              {s.nacional && <span className="tag">nacional</span>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function Descartar({ codigo, onHecho }: { codigo: string; onHecho: () => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const [motivo, setMotivo] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const descartar = useEventos((s) => s.descartar);
+  if (!abierto) return <button className="btn ghost" onClick={() => setAbierto(true)}>No es relevante…</button>;
+  return (
+    <form className="evc-desc" onSubmit={(ev) => {
+      ev.preventDefault();
+      descartar(codigo, motivo).then(onHecho, (e: Error) => setError(e.message));
+    }}>
+      <input className="inp" autoFocus required placeholder="Motivo (p. ej. «la huelga ya se levantó»)" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+      <button className="btn danger" type="submit" disabled={!motivo.trim()}>Descartar evento</button>
+      <button className="btn ghost" type="button" onClick={() => setAbierto(false)}>Cancelar</button>
+      {error && <p className="evc-error" role="alert">{error}</p>}
+    </form>
+  );
+}
+
+/** Ventana de alerta: sale sola con la primera alerta sin ver */
+export function AlertaEmergente() {
+  const eventos = useEventos((s) => s.eventos);
+  const { marcarVisto } = useEventos.getState();
+  const openDrawer = useStore((s) => s.openDrawer);
+  const e = alertaPendiente(eventos);
+  const boton = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (e) boton.current?.focus(); }, [e?.codigo, e?.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!e) return null;
+  const quedan = eventos.filter((x) => x.alerta && !x.visto).length - 1;
+  const verSenal = (codigo: string) => { void marcarVisto(e.codigo); openDrawer({ kind: 'senal', id: codigo }); };
+  return (
+    <>
+      <div className="scrim evc-scrim" />
+      <div className="evc-modal" role="alertdialog" aria-modal="true" aria-labelledby="evc-t" aria-describedby="evc-d"
+        onKeyDown={(ev) => { if (ev.key === 'Escape') void marcarVisto(e.codigo); }}>
+        <div className={`evc-h t-${e.tipo}`}>
+          <Icon name="riesgo" />
+          <span>Alerta emergente · {e.codigo}{e.version > 1 ? ` · actualizada (v${e.version})` : ''}</span>
+          {quedan > 0 && <span className="evc-mas">+{quedan} más</span>}
+        </div>
+        <div className="evc-b">
+          <h2 id="evc-t">{e.titular ?? `${TIPO_TXT[e.tipo]} en ${e.territorio}: ${e.senales.map((s) => s.titulo).slice(0, 2).join(' + ')}`}</h2>
+          <div id="evc-d"><Ficha e={e} onSenal={verSenal} /></div>
+        </div>
+        <div className="evc-f">
+          <Descartar codigo={e.codigo} onHecho={() => undefined} />
+          <button ref={boton} className="btn primary" onClick={() => void marcarVisto(e.codigo)}><Icon name="check" /> Entendido</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Lista de eventos abiertos (botón «Eventos» de la barra superior) */
+export function ListaEventos() {
+  const abierta = useEventos((s) => s.listaAbierta);
+  const eventos = useEventos((s) => s.eventos);
+  const sonido = useEventos((s) => s.sonido);
+  const error = useEventos((s) => s.error);
+  const { setListaAbierta, setSonido } = useEventos.getState();
+  const openDrawer = useStore((s) => s.openDrawer);
+  const [sel, setSel] = useState<string | null>(null);
+  if (!abierta) return null;
+  const cerrar = () => { setListaAbierta(false); setSel(null); };
+  const actual = eventos.find((e) => e.codigo === sel) ?? null;
+  return (
+    <>
+      <div className="scrim" onClick={cerrar} />
+      <div className="evc-modal ancho" role="dialog" aria-modal="true" aria-labelledby="evc-l" onKeyDown={(ev) => { if (ev.key === 'Escape') cerrar(); }}>
+        <div className="evc-h">
+          <Icon name="cadena" />
+          <span id="evc-l">Eventos: señales que coinciden en lugar y fecha</span>
+          <button className="icon-btn" aria-label="Cerrar" onClick={cerrar}><Icon name="close" /></button>
+        </div>
+        <div className="evc-b">
+          <label className="evc-sonido"><input type="checkbox" checked={sonido} onChange={(e) => setSonido(e.target.checked)} /> Sonido al llegar una alerta</label>
+          {error && <p className="evc-error" role="alert">{error}</p>}
+          {eventos.length === 0 && <p className="muted">No hay eventos abiertos. Aparecen cuando dos o más señales activas coinciden en el mismo departamento y en las mismas fechas.</p>}
+          {actual ? (
+            <>
+              <button className="linklike" onClick={() => setSel(null)}>← Todos los eventos</button>
+              <h2>{actual.titular ?? `${TIPO_TXT[actual.tipo]} en ${actual.territorio}`}</h2>
+              <Ficha e={actual} onSenal={(c) => { cerrar(); openDrawer({ kind: 'senal', id: c }); }} />
+              <div className="evc-f"><Descartar codigo={actual.codigo} onHecho={() => setSel(null)} /></div>
+            </>
+          ) : (
+            <ul className="evc-lista">
+              {eventos.map((e) => (
+                <li key={e.codigo}>
+                  <button onClick={() => setSel(e.codigo)}>
+                    <span className={`tag p-${e.prioridad}`}>{e.prioridad}</span>
+                    <span className="evc-lt"><b>{e.titular ?? `${TIPO_TXT[e.tipo]} en ${e.territorio}`}</b>
+                      <small>{e.codigo} · {TIPO_TXT[e.tipo]} · {e.senales.length} señales · {ventana(e)}{e.esperando_hermes ? ' · AVIA interpretando' : ''}</small></span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
