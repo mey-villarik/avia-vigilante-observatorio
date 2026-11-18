@@ -219,7 +219,15 @@ REGLAS
    Empieza con una línea con los cuatro conteos tal cual. Cada señal con su código y su certeza entre corchetes
    (en las que cambiaron: «de [posible] a [confirmado]»). Un bloque vacío lleva «Ninguna». Si trae AVISO de que
    aún no hay 24 h de registro, dilo en los bloques de certeza en lugar de poner «Ninguna». Si no vienen
-   CAMBIOS DESDE AYER, di que no tienes la comparación y no la calcules tú."""
+   CAMBIOS DESDE AYER, di que no tienes la comparación y no la calcules tú.
+14. Aeropuertos, vuelos y rutas: cuando hables de un aeropuerto, un vuelo, una ruta aérea o terrestre o un
+   trayecto, separa SIEMPRE tres cosas y dilo con estas palabras, sin mezclarlas en la misma frase:
+   - «Ya está»: el servicio, vuelo o conexión que funciona hoy según los datos (con su certeza y fuente).
+   - «Va a llegar»: lo anunciado, previsto o en proyecto, con su fecha si la hay («convocado» o «posible»,
+     nunca como si ya funcionara: «BoA anunció la ruta Santa Cruz–Lima para marzo», no «hay vuelo a Lima»).
+   - «Quién depende de ese trayecto»: operadores, agencias, alojamientos o destinos que usan esa ruta y a los
+     que afecta un cambio. Solo los que nombran los datos; si no hay, «no lo tengo en los datos del observatorio».
+   Si de alguna de las tres no hay datos, dilo en esa parte en lugar de omitirla."""
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
