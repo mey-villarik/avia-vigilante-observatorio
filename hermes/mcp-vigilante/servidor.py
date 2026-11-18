@@ -207,6 +207,10 @@ HERRAMIENTAS = [
                     'recomendación segura. Quedan reservados 30 minutos: ciérralos con guardar_interpretacion_evento.',
      'inputSchema': {'type': 'object', 'properties': {'limite': {'type': 'integer', 'minimum': 1, 'maximum': 10, 'default': 3}}},
      'fn': 'eventos_por_interpretar', 'args': lambda a: {'p_limite': a.get('limite', 3)}},
+    {'name': 'eventos_abiertos',
+     'description': 'Eventos compuestos abiertos (señales que coinciden en lugar y fecha) con la interpretación ya guardada, '
+                    'sin reservarlos. Úsala para responder o preparar una decisión; para interpretarlos usa eventos_por_interpretar.',
+     'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'eventos_abiertos', 'args': lambda a: {}},
     {'name': 'guardar_interpretacion_evento',
      'description': 'Guarda tu interpretación de un evento compuesto (EVC-xxxx): qué significa para el turismo, a quién '
                     'afecta y qué se recomienda. Si las señales no tienen relación real, manda es_confluencia=false con '

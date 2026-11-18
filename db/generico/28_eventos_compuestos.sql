@@ -452,6 +452,16 @@ BEGIN
                             'prioridad', coalesce(v_pr, e.prioridad_calculada::text));
 END $$;
 
+-- Lectura sin reservar (para el chat de AVIA y las skills de decisión): eventos abiertos con su interpretación
+CREATE OR REPLACE FUNCTION vigilante.eventos_abiertos(p_cliente text)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, pg_temp AS $$
+  SELECT coalesce(jsonb_agg(vigilante._evento_json(e.id) ORDER BY e.puntaje DESC, e.created_at DESC), '[]')
+    FROM vigilante.eventos_compuestos e
+   WHERE e.cliente_id = vigilante.id_cliente(p_cliente) AND e.estado IN ('por_interpretar', 'interpretando', 'interpretado')
+$$;
+REVOKE ALL ON FUNCTION vigilante.eventos_abiertos(text) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION vigilante.eventos_abiertos(text) TO service_role;
+
 REVOKE ALL ON FUNCTION vigilante.eventos_pendientes_hermes(text), vigilante.eventos_por_interpretar(text, int),
                        vigilante.guardar_interpretacion_evento(text, text, jsonb, text) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION vigilante.eventos_pendientes_hermes(text), vigilante.eventos_por_interpretar(text, int),

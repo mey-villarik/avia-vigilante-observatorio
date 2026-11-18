@@ -43,7 +43,23 @@ Que dos señales coincidan en lugar y fecha no significa que se relacionen. Preg
 
 ## Paso 3 · Pesa la evidencia (método de la skill avia-auditor)
 
-Aplica la skill **avia-auditor**, ya instalada: separa hecho, interpretación, predicción y opinión, y exige más evidencia cuanto mayor es el riesgo. Aquí no buscas en la web: la evidencia son las noticias que trae cada señal. Cada señal trae su `certeza` (confirmado, convocado, posible, rumor) y sus noticias con `fuente_tipo`. Antes de escribir:
+Aplica la skill **avia-auditor**, ya instalada: separa hecho, interpretación, predicción y opinión, y exige más evidencia cuanto mayor es el riesgo.
+
+**Qué tomas de avia-auditor y qué no.** Tomas: HECHO / INTERPRETACIÓN / PREDICCIÓN / OPINIÓN, los umbrales U1–U4, los pesos por punto y sus reglas de calidad, el bloqueo antialucinación y el antisensacionalismo. No tomas: su perfil de fuentes de España (BOE, CNMV…), su búsqueda web (aquí la evidencia son las noticias que ya están en la base), su formato por claim ni su cierre con menú de opciones.
+
+Pesos por punto con fuentes de Bolivia:
+
+| Peso | Fuente |
+| --- | --- |
+| 5 | Primaria oficial: SENAMHI, ABC (transitabilidad), Ministerio de Salud, DGAC/NAABOL, Ministerio de Turismo, Gaceta Oficial, Defensa Civil, SERNAP |
+| 4 | Organismo internacional u oficial no primario: OPS/OMS, CAF, BID, PNUD, ABI |
+| 3 | Medio de referencia con documento, o dos medios independientes |
+| 2 | Un medio sin documento o declaración de parte (un sindicato que convoca, una empresa) |
+| 1 | Redes o captura sin rastro |
+
+Riesgo alto (salud, clima, seguridad, vial) y punto clave con peso menor que 4: la recomendación es **verificar con la fuente oficial** antes de actuar, en condicional.
+
+Cada señal trae su `certeza` (confirmado, convocado, posible, rumor) y sus noticias con `fuente_tipo`. Antes de escribir:
 
 - **Separa siempre HECHO, INTERPRETACIÓN y ESCENARIO.** En `significado`, primero los hechos con su certeza; después tu lectura con «podría».
 - **Riesgo alto (salud, clima, seguridad, vial) pide más evidencia.** Si la señal clave del evento es «posible» o «rumor», la recomendación es **verificar**, no actuar: «Confirmar con ABC antes de avisar a clientes».

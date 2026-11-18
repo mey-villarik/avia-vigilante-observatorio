@@ -140,6 +140,10 @@ BEGIN
   IF e.estado <> 'descartado' THEN RAISE EXCEPTION 'Santa Cruz debía quedar descartado'; END IF;
 END $$;
 
+DO $$ BEGIN
+  IF jsonb_array_length(vigilante.eventos_abiertos('prueba-eventos')) <> 1 THEN RAISE EXCEPTION 'eventos_abiertos debía dar 1 (La Paz)'; END IF;
+END $$;
+
 -- 4. Panel: un administrador ve la alerta, pulsa «Entendido» y deja de verla ----------------
 INSERT INTO vigilante.users (cliente_id, auth_user_id, nombre, email, rol)
 SELECT c, '00000000-0000-0000-0000-0000000000e1', 'Analista de prueba', 'ana@prueba.bo', 'analista' FROM ids;

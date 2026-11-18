@@ -107,6 +107,16 @@ La base solo comprueba que la respuesta está completa y la recorta. Lo que no e
 | `eventos_umbral_media` | 45 | Desde aquí, prioridad media |
 | `eventos_espera_hermes_min` | 20 | Minutos que el panel espera la interpretación antes de avisar igual |
 
+## Skills de Hermes para decidir
+
+| Skill | Para qué | Origen |
+| --- | --- | --- |
+| `interpretar-eventos` | Interpreta cada evento compuesto (lo usa la alerta emergente) | Nueva |
+| `avia-radar-decision` | «¿Qué hacemos con…?»: pasaporte de decisión con opciones, escenarios optimista/realista/adverso, reversibilidad y GO / GO condicionado / NO-GO | GPT «Radar AVIA Siesta», adaptado |
+| `avia-anticipacion` | Radar semanal: señales débiles, tendencias y posibles eventos que aún no coinciden | GPT «AVIA TransmediaVigilance», adaptado |
+
+Las tres toman de `avia-auditor` (ya instalada) el método para pesar la evidencia, con fuentes de Bolivia, y de `vigilancia-fuentes-bolivia` el glosario y las reglas de certeza. Se copian igual que la primera: `cp -r hermes/skills/<nombre> /root/.hermes/skills/` y `docker restart hermes`. El MCP 2.1 añade `eventos_abiertos` para que las skills y el chat lean los eventos sin reservarlos.
+
 ## Siguientes pasos posibles
 
 - Que el chat de AVIA conozca los eventos abiertos («¿qué se está juntando esta semana?»).
