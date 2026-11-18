@@ -40,28 +40,75 @@ Con `--activas N` (las señales activas que muestra el panel en ese momento) el 
 
 Las preguntas 9 a 12 necesitan una señal real: se pasa con `--senal SEN-xxxx`; sin ella se saltan.
 
-## Cómo correrla (en el VPS)
+## Qué necesita en el VPS
+
+Nada que instalar: el script solo usa la biblioteca estándar de Python 3 (el VPS ya tiene `python3` para `avia_api.py` y el recolector). Todo lo demás lo saca solo:
+
+| Qué | De dónde lo saca | Si falla |
+| --- | --- | --- |
+| `AVIA_API_KEY` (la clave que nginx inyecta) | `/root/avia/supabase.env`, el mismo archivo que usa el servicio `avia-api` (también mira `/etc/avia/supabase.env` y `AVIA_SUPABASE_ENV`) | Responde `HTTP 401` en todas las preguntas |
+| La sesión (AVIA exige sesión iniciada) | Inicia sesión como el primer administrador activo de `vigilante.users`, con `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` del mismo archivo. Usa un enlace mágico generado en el servidor: **no envía ningún correo** | Exportar `AVIA_BATERIA_EMAIL=correo@…` para elegir otro usuario, o `AVIA_TOKEN=…` con el `access_token` de la web (herramientas de desarrollo → Almacenamiento → cookie `sb-…-auth-token`; caduca en una hora) |
+| Señales activas (preguntas 1 y 7) | `vigilante_bd()`, la misma lista que ven el panel y AVIA (los contadores del 21 si ya está desplegado) | `--activas N` con el número que muestra el panel |
+| Una señal real (preguntas 9 a 12) | La señal activa de prioridad más alta con más fuentes | `--senal SEN-xxxx`; sin señal, esas cuatro se saltan |
+| avia-api escuchando | `http://127.0.0.1:8099/health` | `systemctl status avia-api` |
+
+Nada de esto se guarda en Git ni se imprime: el script solo muestra de qué archivo leyó las claves y con qué correo inició sesión.
+
+### Traer el script al VPS sin fusionar el PR
+
+`bateria.py` no depende de nada más del PR #13, así que se pueden traer solo sus dos archivos, sin tocar el resto de la carpeta:
+
+```bash
+cd /root/avia-repo
+git fetch origin claude/project-thread-am0qq8
+git checkout FETCH_HEAD -- hermes/avia-api/bateria.py hermes/avia-api/bateria.json hermes/avia-api/.gitignore
+```
+
+Esto no cambia de rama ni toca `avia_api.py` (y el servicio corre la copia de `/root/avia/`, no la del repo). Cuando el PR se fusione, un `git pull` normal deja los mismos archivos.
+
+## Cómo correrla
 
 ```bash
 cd /root/avia-repo/hermes/avia-api
-export AVIA_API_KEY=...   # la clave que nginx inyecta; está en /root/avia/supabase.env (AVIA_API_KEY)
-export AVIA_TOKEN=...     # access_token de una sesión de la web (administrador o analista)
-python3 bateria.py --activas 8 --senal SEN-0418 --salida informe-despues.md
+python3 bateria.py --etiqueta antes
 ```
 
-El `access_token` se saca de la web iniciada (herramientas de desarrollo → Almacenamiento → la cookie `sb-…-auth-token`, campo `access_token`) y caduca en una hora. Opciones: `--url` (por defecto `http://127.0.0.1:8099`), `--solo 1,15,16` (algunas preguntas) y `--doc` (la tabla de arriba).
+Muestra en pantalla una línea por pregunta (REVISAR, FALLA o SALTADA y el motivo de cada fallo) y al final guarda dos archivos en `informes/`:
 
-El script sale con código 1 si alguna pregunta falla. Gasta una llamada al modelo por pregunta (20 en total).
+- `informes/AAAA-MM-DD_HHMM_antes.md`: el informe para leer, con cada pregunta, lo que hay que revisar a mano y la respuesta completa de AVIA.
+- `informes/AAAA-MM-DD_HHMM_antes.json`: los mismos datos, para compararlos con otra ronda.
 
-## Cómo demostrar la mejora
+La carpeta `informes/` no se sube a Git (está en `.gitignore`), así que un `git pull` no la pisa. Tarda unos minutos (una llamada al modelo por pregunta, 20 en total) y sale con código 1 si alguna pregunta falla.
 
-1. Antes de desplegar los pasos 1 a 9: correr la batería y guardar `informe-antes.md`.
-2. Desplegar (Supabase 21 a 26, `avia_api.py`, `analizador.py`, `prompt_clasificador.md`, web).
-3. Correr de nuevo y guardar `informe-despues.md`.
-4. Comparar pregunta a pregunta: las que fallaban deben pasar y, en las que pasan las reglas, la persona que revisa lee la respuesta con el criterio de «Qué se comprueba».
+Otras opciones: `--solo 1,15,16` (algunas preguntas), `--activas 8` y `--senal SEN-0418` (forzar los datos del panel), `--salida ruta.md` (otro nombre), `--url` (otra dirección de avia-api) y `--doc` (la tabla de arriba).
 
-Las reglas automáticas son una red de seguridad, no un examen completo: una respuesta que pasa todas puede seguir siendo mala (por eso la revisión a mano).
+## Cómo comparar antes y después de una mejora
+
+1. **Antes** de desplegar el cambio: `python3 bateria.py --etiqueta antes`.
+2. Desplegar el cambio (por ejemplo Supabase 21 a 26, `avia_api.py`, `analizador.py`, `prompt_clasificador.md` o la web). Antes de copiar `avia_api.py` al VPS, comparar con `diff` la copia de `/root/avia/` y la del repo por si la del VPS tiene un parche propio.
+3. **Después**: `python3 bateria.py --etiqueta despues`.
+4. Comparar las dos rondas:
+
+```bash
+python3 bateria.py --comparar informes/*_antes.md informes/*_despues.md --salida informes/comparacion.md
+```
+
+La comparación da una tabla con el resultado de cada pregunta en las dos rondas y marca **✅ mejora** (fallaba y ahora pasa las reglas), **❌ empeora** (pasaba y ahora falla) o **=**, más los motivos de cada fallo. Sale con código 1 si algo empeoró.
+
+5. Leer a mano las preguntas que quedan en REVISAR en la ronda de después, con el criterio de «Qué se comprueba» (en el informe aparece como «Qué revisar a mano»), y comparar la respuesta con la de antes.
+
+Conviene correr las dos rondas el mismo día y con los mismos datos: si entre una y otra entran señales nuevas, el número de activas y la señal de prueba cambian (el informe anota cuáles usó). Para que las preguntas 9 a 12 usen la misma señal en las dos rondas, pasar la de la primera con `--senal`.
+
+## Qué mide cada criterio y qué requiere revisión manual
+
+| Resultado | Qué significa | Qué hacer |
+| --- | --- | --- |
+| **FALLA** | La respuesta incumple una regla automática: falta algo obligatorio (la hora de los datos, un bloque, «Sin datos»), dice algo prohibido («la ruta está habilitada», «el Pulso es 62», «confianza de 0,95») o da un número de señales distinto al del panel. También si AVIA no respondió (error HTTP o tiempo agotado) | Es un fallo seguro: leer el motivo y la respuesta |
+| **REVISAR** | Pasa todas las reglas automáticas | Una persona lee la respuesta con el criterio de «Qué se comprueba»: que los números coincidan con el panel, que las fuentes y fechas citadas existan, que los hechos estén separados de las hipótesis y que no recomiende nada sin verificar |
+| **SALTADA** | No se pudo hacer (sin señal real para las preguntas 9 a 12) | Correr con `--senal` |
+
+Las reglas automáticas son una red de seguridad, no un examen completo: una respuesta que pasa todas puede seguir siendo mala, por eso siempre hay revisión a mano. Las reglas de cada pregunta están en `bateria.json` (`debe`, `no_debe`, `cuenta_activas` y `debe_si_activas_menor_que`) y se pueden afinar sin tocar el script; si se cambian, conviene volver a correr la ronda de antes para comparar con las mismas reglas.
 
 ## Qué se probó
 
-El script se probó con un servidor simulado de AVIA: con respuestas buenas las 20 preguntas pasan las reglas y con respuestas malas deliberadas (7 casos: «hay 7 señales», «la ruta está habilitada, se puede viajar», «el aeropuerto está operativo», «el Pulso es 62», «ya hay un paro», «confianza de 0,95» y sin bloques) las 7 fallan. **No se ha corrido contra el AVIA real ni contra DeepSeek**: eso lo hace el equipo en el VPS.
+El script se probó con un servidor simulado de AVIA: con respuestas buenas las 20 preguntas pasan las reglas y con respuestas malas deliberadas (7 casos: «hay 7 señales», «la ruta está habilitada, se puede viajar», «el aeropuerto está operativo», «el Pulso es 62», «ya hay un paro», «confianza de 0,95» y sin bloques) las 7 fallan. También se probó con un Supabase simulado el arranque automático (lectura de `supabase.env`, inicio de sesión del administrador, señales activas y señal de prueba) y la comparación de dos rondas. **No se ha corrido contra el AVIA real ni contra DeepSeek**: eso lo hace el equipo en el VPS.
