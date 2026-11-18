@@ -21,6 +21,7 @@ Las señales antiguas copiadas de `vigilante.json` (sin noticias enlazadas) mues
 
 - **Ficha de la señal**: sección «Trazabilidad» con las fechas y cada noticia (Publicada / Recogida, sello «Oficial»).
 - **AVIA** (regla 8 en `avia_api.py`): en «Hechos», cada hecho con fuente, enlace y fecha de publicación; si no hay fecha, lo dice; nunca inventa fechas ni enlaces. Recibe hasta 3 fuentes por señal.
+- **Gestión interna fuera del chat** (regla 15 de AVIA): quién verificó una señal y cuándo se ve en la ficha del panel, pero AVIA no lo dice en el chat salvo que se le pregunte de forma explícita.
 - **Modo local** (`bloques()`): mismo formato.
 
 ## Dónde está
