@@ -327,6 +327,65 @@ def _hora_bolivia(iso) -> str:
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 
+_RE_BLOQUE_JSON = re.compile(r'```[a-zA-Z]*\s*(\{.*?)(?:```|$)', re.S)
+_RE_TEXTO = re.compile(r'"texto"\s*:\s*"((?:[^"\\]|\\.)*)', re.S)
+_RE_COMANDO = re.compile(r'\{[^{}]*"tipo"\s*:\s*"[^"]+"[^{}]*\}', re.S)
+
+
+def _json_suelto(s: str):
+    """Intenta leer un objeto JSON tolerando saltos de línea dentro de las cadenas y texto sobrante al final."""
+    try:
+        return json.loads(s, strict=False)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    try:
+        obj, _ = json.JSONDecoder(strict=False).raw_decode(s)
+        return obj
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _separar_comandos(resp: str) -> dict:
+    """Separa la respuesta del modelo en {texto, comandos}. El JSON nunca debe llegar a la pantalla:
+    acepta el JSON solo, envuelto en ```json```, con texto antes o después, sin cerrar (cortado por
+    max_tokens) o con saltos de línea crudos dentro de "texto"."""
+    resp = (resp or '').strip()
+    if '"texto"' not in resp:
+        return {'texto': resp}
+    m = _RE_BLOQUE_JSON.search(resp)
+    if m:
+        cand, fuera = m.group(1), (resp[:m.start()] + resp[m.end():]).strip()
+    else:
+        i = resp.find('{')
+        cand, fuera = resp[i:], resp[:i].strip()
+        j = cand.rfind('}')
+        if j >= 0 and cand[j + 1:].strip():
+            fuera = (fuera + '\n\n' + cand[j + 1:].strip()).strip()
+            cand = cand[:j + 1]
+    obj = _json_suelto(cand.strip())
+    if isinstance(obj, dict) and 'texto' in obj:
+        texto = str(obj.get('texto') or '').strip()
+        comandos = obj.get('comandos')
+    else:
+        # JSON roto o cortado: se rescata el texto y las órdenes que se puedan leer
+        mt = _RE_TEXTO.search(cand)
+        texto = ''
+        if mt:
+            crudo = mt.group(1)
+            try:
+                texto = json.loads('"' + crudo + '"', strict=False)
+            except (json.JSONDecodeError, ValueError):
+                texto = crudo.replace('\\n', '\n').replace('\\"', '"')
+        comandos = [c for c in (_json_suelto(x) for x in _RE_COMANDO.findall(cand)) if isinstance(c, dict)]
+    comandos = [c for c in (comandos or []) if isinstance(c, dict) and c.get('tipo')] if isinstance(comandos, list) else []
+    if not texto:
+        texto = fuera or 'Listo.'
+    out = {'texto': texto.strip()}
+    if comandos:
+        out['comandos'] = comandos
+    return out
+
+
 async def handle_chat(request: web.Request) -> web.Response:
     if not _check_auth(request):
         return web.json_response({'error': 'unauthorized'}, status=401)
@@ -389,22 +448,13 @@ SEÑALES ACTIVAS ({len(senales)}):
 
 Puedes devolver comandos para mover la interfaz. En ese caso responde con un JSON:
 {{"texto": "tu respuesta", "comandos": [{{"tipo": "abrir", "vista": "senales"}}]}}
+Si usas comandos, responde SOLO con ese JSON: sin ```json```, sin texto antes ni después.
 Si no hay comandos, responde solo con el texto (markdown, sin JSON)."""
 
         try:
             resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=1100)
-            resp = resp.strip()
-            if resp.startswith('```'):
-                resp = re.sub(r'^```(?:json)?\s*|\s*```$', '', resp).strip()
-            # El modelo a veces devuelve JSON con comandos
-            if resp.startswith('{'):
-                try:
-                    parsed = json.loads(resp)
-                    if isinstance(parsed, dict) and 'texto' in parsed:
-                        return web.json_response(parsed)
-                except (json.JSONDecodeError, ValueError):
-                    pass
-            return web.json_response({'texto': resp})
+            # el modelo a veces devuelve JSON con comandos (suelto, en ```json```, cortado…): solo se muestra «texto»
+            return web.json_response(_separar_comandos(resp))
         except Exception as e:
             print('CHAT ERROR', repr(e), flush=True)
             return web.json_response(
