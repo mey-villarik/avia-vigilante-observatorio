@@ -11,9 +11,13 @@
 --
 -- vigilante.pasar_senales(codigos, destino, nota) hace ese pase en una sola llamada y
 -- respeta las mismas reglas que mover uno a uno, más dos protecciones:
---   * Una señal que espera aprobación de una persona (riesgo de salud, clima, vial,
---     seguridad, fuente no oficial…) NUNCA se mueve en bloque: se omite y queda para
---     aprobarla una por una («Aprobar y publicar» en su ficha o en Telegram).
+--   * Las alertas de RIESGO (categorías con revision_obligatoria: clima, salud, vial,
+--     seguridad) y los escenarios que esperan aprobación NUNCA se mueven en bloque: se
+--     omiten y quedan para aprobarlas una por una («Aprobar y publicar» en su ficha o en
+--     Telegram).
+--   * Lo que solo espera aprobación por no tener aún fuente oficial SÍ pasa en bloque:
+--     pulsar el botón es la aprobación de esa persona (decisión de Meysel, 19-11-2026),
+--     y queda registrada como tal (revision_decidida_en / _por, trigger del 18).
 --   * Un escenario nunca se publica: se omite al pasar a Publicadas.
 -- Las etapas no se saltan: detectada → en_analisis → confirmada → publicada; cada paso
 -- queda en el historial con el nombre de quien pulsó el botón.
@@ -50,8 +54,11 @@ BEGIN
 
     IF s.id IS NULL THEN
       v_motivo := 'aún no está en la base de datos';
-    ELSIF vigilante.espera_revision(s) THEN
-      v_motivo := 'espera aprobación de una persona: apruébala desde su ficha';
+    ELSIF vigilante.espera_revision(s) AND (s.es_escenario
+          OR s.categoria IN ('clima', 'salud', 'vial', 'seguridad')
+          OR EXISTS (SELECT 1 FROM vigilante.categorias c
+                      WHERE c.cliente_id = s.cliente_id AND c.codigo = s.categoria AND c.revision_obligatoria)) THEN
+      v_motivo := 'alerta de riesgo o escenario: se aprueba una por una desde su ficha';
     ELSIF p_a = 'confirmada' AND s.estado NOT IN ('detectada', 'en_analisis', 'en_verificacion') THEN
       v_motivo := 'ya no está en Detectadas';
     ELSIF p_a = 'publicada' AND s.estado <> 'confirmada' THEN
@@ -74,7 +81,7 @@ BEGIN
       UPDATE vigilante.signals SET estado = 'confirmada', estado_manual = true WHERE id = s.id;
       s.estado := 'confirmada';
     END IF;
-    IF p_a = 'publicada' AND s.estado = 'confirmada' THEN
+    IF p_a = 'publicada' AND s.estado = 'confirmada' AND NOT s.es_escenario THEN
       UPDATE vigilante.signals SET estado = 'publicada', estado_manual = true WHERE id = s.id;
     END IF;
 

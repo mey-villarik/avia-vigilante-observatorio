@@ -13,7 +13,7 @@ SELECT c, x.a::uuid, x.n, x.r::vigilante.rol_usuario FROM ids, (VALUES
 --  B-1 eventos, oficial, detectada          → pasa a Confirmada y luego a Publicada
 --  B-2 eventos, oficial, ya en análisis     → pasa a Confirmada
 --  B-3 salud (riesgo)                       → espera aprobación: NUNCA se mueve en bloque
---  B-4 eventos, fuente no oficial           → espera aprobación: se omite
+--  B-4 eventos, fuente no oficial           → espera aprobación, pero no es riesgo: pasa (el botón es la aprobación)
 --  B-5 escenario aprobado (confirmada)      → nunca se publica
 INSERT INTO vigilante.signals (cliente_id, codigo, titulo, resumen, naturaleza, categoria, prioridad,
                                fuente_oficial, enlace_oficial, es_escenario)
@@ -44,12 +44,15 @@ DO $$ BEGIN
 END $$;
 SELECT set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-0000000000b1', true);
 
--- 2. Detectadas → Confirmadas: B-1 y B-2 pasan; B-3 y B-4 (esperan aprobación) y X-9 (no existe) se omiten
+-- 2. Detectadas → Confirmadas: B-1, B-2 y B-4 pasan; B-3 (riesgo de salud) y X-9 (no existe) se omiten
 SELECT vigilante.pasar_senales(ARRAY['B-1', 'B-2', 'B-3', 'B-4', 'X-9'], 'confirmada') AS a_confirmadas;
 DO $$ BEGIN
   IF (SELECT array_agg(estado::text ORDER BY codigo) FROM vigilante.signals WHERE codigo IN ('B-1','B-2','B-3','B-4'))
-     <> ARRAY['confirmada', 'confirmada', 'detectada', 'detectada'] THEN
+     <> ARRAY['confirmada', 'confirmada', 'detectada', 'confirmada'] THEN
     RAISE EXCEPTION 'estados inesperados tras el pase a confirmadas';
+  END IF;
+  IF (SELECT revision_decidida_en FROM vigilante.signals WHERE codigo = 'B-4') IS NULL THEN
+    RAISE EXCEPTION 'B-4 debería quedar aprobada por quien pulsó el botón';
   END IF;
 END $$;
 
@@ -63,18 +66,18 @@ DO $$ BEGIN
   END;
 END $$;
 
--- 4. Confirmadas → Publicadas: B-1 y B-2 se publican; B-5 (escenario) y B-3 (sin confirmar) no
-SELECT vigilante.pasar_senales(ARRAY['B-1', 'B-2', 'B-5', 'B-3'], 'publicada') AS a_publicadas;
+-- 4. Confirmadas → Publicadas: B-1, B-2 y B-4 se publican; B-5 (escenario) y B-3 (sin confirmar) no
+SELECT vigilante.pasar_senales(ARRAY['B-1', 'B-2', 'B-4', 'B-5', 'B-3'], 'publicada') AS a_publicadas;
 SELECT quien, codigo, a, nota FROM vigilante.movimientos_senales(20) WHERE codigo LIKE 'B-%' ORDER BY codigo, cuando;
 RESET ROLE;
 
 DO $$ BEGIN
   IF (SELECT array_agg(estado::text ORDER BY codigo) FROM vigilante.signals WHERE codigo LIKE 'B-%')
-     <> ARRAY['publicada', 'publicada', 'detectada', 'detectada', 'confirmada'] THEN
+     <> ARRAY['publicada', 'publicada', 'detectada', 'publicada', 'confirmada'] THEN
     RAISE EXCEPTION 'estados inesperados tras el pase a publicadas';
   END IF;
-  IF EXISTS (SELECT 1 FROM vigilante.alerts a JOIN vigilante.signals s ON s.id = a.signal_id WHERE s.codigo IN ('B-3', 'B-4', 'B-5')) THEN
-    RAISE EXCEPTION 'se publicó algo que esperaba aprobación o un escenario';
+  IF EXISTS (SELECT 1 FROM vigilante.alerts a JOIN vigilante.signals s ON s.id = a.signal_id WHERE s.codigo IN ('B-3', 'B-5')) THEN
+    RAISE EXCEPTION 'se publicó un riesgo sin aprobar o un escenario';
   END IF;
 END $$;
 SELECT s.codigo, s.estado, a.id IS NOT NULL AS alerta_en_web

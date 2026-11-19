@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import type { Senal } from '../types';
 import { CATS, DEPS } from '../data/demo';
-import { COLUMNAS, columnaDe, motivoNoPasa, type Columna } from '../services/senales';
+import { COLUMNAS, aprobarUnaPorUna, columnaDe, motivoNoPasa, type Columna } from '../services/senales';
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
 import { CertezaTag, NatPill } from '../components/common';
@@ -15,7 +15,7 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       onClick={() => openDrawer({ kind: 'senal', id: s.id })}>
       <span className="cm">
         <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span>
-        {porRevisar(s) && <span className="tag por-aprobar" title="Riesgo o fuente no oficial: una persona la aprueba antes de publicarla. No pasa en bloque.">Por aprobar</span>}
+        {aprobarUnaPorUna(s) && <span className="tag por-aprobar" title="Alerta de riesgo o escenario: una persona la aprueba una por una antes de publicarla. No pasa en bloque.">Por aprobar</span>}
         {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
         {s.revisionVencida && <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>}
         {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}
@@ -58,7 +58,7 @@ export function Senales() {
         <div>
           <div className="eyebrow">Tratamiento del conocimiento</div>
           <h1>De noticia suelta a <em>señal verificada</em></h1>
-          <p className="sub">Una señal junta una o varias noticias sobre el mismo hecho. AVIA la detecta, la evalúa y la corrobora; tú solo la confirmas y la publicas, y al publicarse pasa a ser una alerta. {decide ? 'Usa «Pasar todas» entre columnas para moverlas de una vez. Las que dicen «Por aprobar» (riesgos o fuentes no oficiales) se aprueban una por una desde su ficha.' : 'Estás en modo consulta.'}</p>
+          <p className="sub">Una señal junta una o varias noticias sobre el mismo hecho. AVIA la detecta, la evalúa y la corrobora; tú solo la confirmas y la publicas, y al publicarse pasa a ser una alerta. {decide ? 'Usa «Pasar todas» entre columnas para moverlas de una vez. Al pulsarlo las apruebas tú; solo las que dicen «Por aprobar» (alertas de riesgo de clima, salud, vial o seguridad, y escenarios) se aprueban una por una desde su ficha.' : 'Estás en modo consulta.'}</p>
           <p className="sub"><a href="publico.html" target="_blank" rel="noopener noreferrer">Ver la web pública</a>: ahí aparecen como alertas las señales en «Publicada».</p>
         </div>
       </section>
@@ -120,7 +120,7 @@ export function Senales() {
               {sig && (
                 <div className="pase">
                   <button className="btn gold" disabled={!decide || !aptas.length || pasando !== null}
-                    title={!decide ? 'Estás en modo consulta' : quedan ? `${quedan} se quedan: ${k === 'detectadas' ? 'esperan aprobación una por una' : 'escenarios, no se publican'}` : `Pasar las ${aptas.length} a ${sig[1]}`}
+                    title={!decide ? 'Estás en modo consulta' : quedan ? `${quedan} se quedan: ${k === 'detectadas' ? 'riesgos: se aprueban una por una' : 'escenarios, no se publican'}` : `Pasar las ${aptas.length} a ${sig[1]}`}
                     onClick={async () => { setPasando(k); try { await passSignals(aptas.map((s) => s.id), aSig); } finally { setPasando(null); } }}>
                     <span className="pase-t">{pasando === k ? 'Pasando…' : `Pasar todas (${aptas.length})`}</span>
                     <span className="pase-f" aria-hidden="true">→</span>

@@ -58,11 +58,18 @@ export function columnaDe(e: Etapa): Columna | null {
 /**
  * Por qué una señal NO puede pasar en bloque a «a» (null = sí puede).
  * Mismas reglas que vigilante.pasar_senales() (db/generico/29_pase_en_bloque.sql):
- * lo que espera aprobación se aprueba una por una y un escenario nunca se publica.
+ * las alertas de riesgo y los escenarios que esperan aprobación se aprueban una por una;
+ * lo demás pasa (pulsar el botón es la aprobación). Un escenario nunca se publica.
  */
-export function motivoNoPasa(s: { estado: Etapa; sla?: number | null; revisionVencida?: boolean; escenario?: boolean }, a: 'confirmada' | 'publicada'): string | null {
+export const CATEGORIAS_RIESGO = ['clima', 'salud', 'vial', 'seguridad'];
+/** espera aprobación y además es un riesgo o un escenario: no pasa en bloque */
+export function aprobarUnaPorUna(s: { estado: Etapa; categoria?: string; sla?: number | null; revisionVencida?: boolean; escenario?: boolean }): boolean {
+  return columnaDe(s.estado) === 'detectadas' && Boolean(s.sla || s.revisionVencida)
+    && (Boolean(s.escenario) || CATEGORIAS_RIESGO.includes(s.categoria ?? ''));
+}
+export function motivoNoPasa(s: { estado: Etapa; categoria?: string; sla?: number | null; revisionVencida?: boolean; escenario?: boolean }, a: 'confirmada' | 'publicada'): string | null {
   const col = columnaDe(s.estado);
-  if (col === 'detectadas' && (s.sla || s.revisionVencida)) return 'espera aprobación de una persona: apruébala desde su ficha';
+  if (aprobarUnaPorUna(s)) return 'alerta de riesgo o escenario: se aprueba una por una desde su ficha';
   if (a === 'confirmada' && col !== 'detectadas') return 'ya no está en Detectadas';
   if (a === 'publicada' && s.estado !== 'confirmada') return 'no está en Confirmadas';
   if (a === 'publicada' && s.escenario) return 'es un escenario: no se publica';

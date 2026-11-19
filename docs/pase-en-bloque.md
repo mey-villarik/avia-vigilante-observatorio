@@ -16,7 +16,8 @@ Entre columna y columna hay un botón **Pasar todas (n)**. Pasa de una vez todas
 
 ## Qué NO pasa en bloque
 
-- **Lo que espera aprobación** (riesgos de salud, clima, vial o seguridad, fuentes no oficiales, escenarios): lleva la etiqueta **Por aprobar** y se queda en Detectadas hasta que una persona la apruebe desde su ficha o desde Telegram (`aprobar_senal`, del 18). La regla «nunca se publica sin aprobación» no cambia.
+- **Alertas de riesgo** (clima, salud, vial, seguridad) y **escenarios** que esperan aprobación: llevan la etiqueta **Por aprobar** y se quedan en Detectadas hasta que una persona las apruebe una por una desde su ficha o desde Telegram (`aprobar_senal`, del 18).
+- Lo que espera aprobación solo porque aún no tiene fuente oficial **sí pasa**: pulsar el botón es la aprobación de esa persona y queda registrada con su nombre (decisión de Meysel, 19-11-2026). La regla «nunca se publica sin aprobación» se mantiene.
 - **Escenarios**: aunque estén confirmados, no se publican nunca.
 
 El botón dice cuántas se quedan y por qué.

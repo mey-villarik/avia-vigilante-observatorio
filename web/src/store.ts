@@ -569,7 +569,7 @@ export const useStore = create<Store>()((set, get) => {
       }
       logEvent({ t: 0, k: 'check', w: `${quien} pasó ${n} señal(es) a «${destino}»`, d: aptas.slice(0, 6).map((s) => s.id).join(', ') + (aptas.length > 6 ? '…' : '') });
       const quedan = omitidas + falladas;
-      get().toast(`${n} señal(es) → ${destino}.` + (quedan ? ` ${quedan} se quedaron: las que esperan aprobación se aprueban una por una${to === 'publicada' ? ' y los escenarios no se publican' : ''}.` : ''));
+      get().toast(`${n} señal(es) → ${destino}.` + (quedan ? ` ${quedan} se quedaron: las alertas de riesgo se aprueban una por una${to === 'publicada' ? ' y los escenarios no se publican' : ''}.` : ''));
       return n;
     },
     decideReview: async (id, aprobar, note = '') => {
