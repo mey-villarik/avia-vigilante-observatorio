@@ -14,6 +14,10 @@ Cada vez que se ejecuta (cron o n8n, p. ej. cada 10 minutos):
   4. Anota tokens y coste en vigilante.system_logs.
   5. Si guardó algo, pide a la base que componga eventos (vigilante.componer_eventos, migración 28).
 
+Desde la migración 31, cada noticia llega con las señales abiertas que pueden hablar de lo mismo
+(senales_relacionadas). Si el modelo ve que la noticia cambia una de ellas (nueva fecha, cancelación,
+desvío, desmentido…), devuelve «cambio» y la base lo registra para la alerta del panel.
+
 Uso:
   analizador.py                 # lo normal
   analizador.py --prueba        # pide un lote y muestra la respuesta del modelo, sin guardar (las noticias vuelven a la cola)
@@ -47,6 +51,8 @@ CATEGORIAS = {'clima', 'salud', 'vial', 'seguridad', 'conectividad', 'eventos', 
 PRIORIDADES = {'alta', 'media', 'baja'}
 CERTEZAS = ('confirmado', 'convocado', 'posible', 'rumor')
 TAREAS = {'corroborar', 'contradiccion', 'relacionar', 'oportunidad_inferida'}
+# migración 31: tipos de cambio en una señal que ya existía
+CAMBIOS = {'fecha', 'plazo', 'cancelado', 'desviado', 'resuelto', 'agravado', 'atenuado', 'lugar', 'desmentido', 'confirmado', 'otro'}
 FECHA = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 # lo que el modelo NO puede decidir: la procedencia la pone la base
 PROHIBIDOS = {'fuente_id', 'fuente', 'enlace_oficial', 'enlace', 'url', 'codigo', 'noticias', 'ids'}
@@ -107,7 +113,8 @@ def llamar_modelo(sistema: str, lote: list[dict]) -> tuple[list[dict], dict]:
     modelo = os.environ.get('LLM_MODEL', 'deepseek-chat')
     # al modelo solo le llega lo necesario para clasificar
     entrada = [{k: n.get(k) for k in ('clave', 'titulo', 'texto', 'fuente', 'fuente_tipo', 'fuentes_que_coinciden', 'publicado_en',
-                                      'territorios', 'oportunidad_candidata', 'es_actualizacion', 'senal_existente')} for n in lote]
+                                      'territorios', 'oportunidad_candidata', 'es_actualizacion', 'senal_existente',
+                                      'senales_relacionadas')} for n in lote]
     r = post(f'{base}/chat/completions', {
         'model': modelo, 'temperature': 0, 'max_tokens': 4000,
         'response_format': {'type': 'json_object'},
@@ -123,8 +130,20 @@ def llamar_modelo(sistema: str, lote: list[dict]) -> tuple[list[dict], dict]:
         'modelo': modelo, 'tokens_entrada': te, 'tokens_salida': ts, 'costo_usd': round((te * pe + ts * ps) / 1e6, 6)}
 
 
-def limpiar(res: list, claves: set[int]) -> list[dict]:
+def senales_del_lote(lote: list[dict]) -> dict[int, set[str]]:
+    """Códigos de señal que se mandaron con cada noticia: el modelo solo puede decir que cambia una de esas."""
+    r: dict[int, set[str]] = {}
+    for n in lote:
+        cods = {s.get('codigo') for s in (n.get('senales_relacionadas') or []) if isinstance(s, dict)}
+        if isinstance(n.get('senal_existente'), dict):
+            cods.add(n['senal_existente'].get('codigo'))
+        r[n['clave']] = {c for c in cods if c}
+    return r
+
+
+def limpiar(res: list, claves: set[int], senales: dict[int, set[str]] | None = None) -> list[dict]:
     """Solo claves del lote, valores permitidos y nada de procedencia."""
+    senales = senales or {}
     vistos, ok = set(), []
     for x in res if isinstance(res, list) else []:
         if not isinstance(x, dict):
@@ -182,6 +201,14 @@ def limpiar(res: list, claves: set[int]) -> list[dict]:
         op = x.get('oportunidad')
         if not (isinstance(op, dict) and op.get('hecho') and op.get('tipo')):
             x.pop('oportunidad', None)
+        # migración 31: la noticia cambia una señal que ya existía (solo una de las que se le mandaron)
+        ca = x.get('cambio')
+        if isinstance(ca, dict) and str(ca.get('ahora') or '').strip() and ca.get('senal') in senales.get(clave, set()):
+            x['cambio'] = {'senal': ca['senal'], 'tipo': ca.get('tipo') if ca.get('tipo') in CAMBIOS else 'otro',
+                           'antes': str(ca.get('antes') or '').strip()[:400] or None, 'ahora': str(ca['ahora']).strip()[:400],
+                           'importancia': ca.get('importancia') if ca.get('importancia') in PRIORIDADES else None}
+        else:
+            x.pop('cambio', None)
         t = x.get('tarea')
         if not (x.get('necesita_agente') and isinstance(t, dict) and t.get('tipo') in TAREAS):
             x['necesita_agente'] = False
@@ -229,7 +256,7 @@ def main() -> int:
                                      'p_mensaje': f'Fallo del modelo: {str(e)[:300]}', 'p_detalle': None,
                                      'p_costo_usd': None, 'p_codigo_fuente': None})
             return 1
-        limpios = limpiar(res, {n['clave'] for n in lote})
+        limpios = limpiar(res, {n['clave'] for n in lote}, senales_del_lote(lote))
         if a.prueba:
             print(json.dumps({'lote': lote, 'resultado': limpios, 'uso': uso}, ensure_ascii=False, indent=2))
             sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': ids, 'p_estado': 'nuevo', 'p_motivo': None})
@@ -238,6 +265,9 @@ def main() -> int:
         sin_respuesta = [i for n in lote if n['clave'] not in {x['clave'] for x in limpios} for i in n['ids']]
         if sin_respuesta:
             sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': sin_respuesta, 'p_estado': 'nuevo', 'p_motivo': None})
+        cambios = sum(1 for x in limpios if x.get('cambio'))
+        if cambios:
+            log(f'El clasificador ve {cambios} cambio(s) en señales que ya existían (migración 31)')
         r = sb.rpc('guardar_clasificacion', {'p_cliente': sb.cliente, 'p_resultados': limpios, 'p_modelo': uso['modelo'],
                                              'p_prompt_version': version, 'p_uso': uso})
         log(f'Lote de {len(lote)} ({len(ids)} noticias): {r} · tokens {uso["tokens_entrada"]}+{uso["tokens_salida"]}')
