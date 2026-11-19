@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import type { Etapa, Senal } from '../types';
-import { CATS, DEPS, STAGES } from '../data/demo';
+import { Fragment, useState } from 'react';
+import type { Senal } from '../types';
+import { CATS, DEPS } from '../data/demo';
+import { COLUMNAS, DESTINO, columnaDe, motivoNoPasa, type Columna, type Destino } from '../services/senales';
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
 import { CertezaTag, NatPill } from '../components/common';
@@ -28,21 +29,57 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
   );
 }
 
+/** Dos flechas pequeñas entre columnas: todas adelante (→) y todas atrás (←) */
+function Pase({ de, a, nombreDe, nombreA }: { de: Columna; a: Columna; nombreDe: string; nombreA: string }) {
+  const senales = useStore((s) => s.senales);
+  const role = useStore((s) => s.role);
+  const f = useStore((s) => s.sigFilter);
+  const passSignals = useStore((s) => s.passSignals);
+  const [ocupado, setOcupado] = useState(false);
+  const decide = canDecide(role);
+  const visibles = (f.periodo === 'todo' ? senales : senales.filter((s) => esReciente(s))).filter((s) => (!f.revisar || porRevisar(s))
+    && (f.nat === 'all' || s.naturaleza === f.nat)
+    && (f.dep === 'all' || s.deps.includes(f.dep))
+    && (!f.q || norm(`${s.titulo} ${s.resumen} ${s.destinos.join(' ')} ${s.id}`).includes(norm(f.q))));
+  const lista = (col: Columna, to: Destino) => visibles.filter((s) => columnaDe(s.estado) === col && !motivoNoPasa(s, to));
+  const adelante = lista(de, DESTINO[a]);
+  const atras = lista(a, DESTINO[de]);
+  const mover = async (ids: string[], to: Destino) => {
+    if (to === 'confirmada' && a === 'publicadas'
+        && !window.confirm(`¿Retirar ${ids.length} alerta(s) de la web pública? Los mensajes ya enviados a Telegram no se borran.`)) return;
+    setOcupado(true);
+    try { await passSignals(ids, to); } finally { setOcupado(false); }
+  };
+  return (
+    <div className="pase">
+      <button className="pase-b" disabled={!decide || ocupado || !adelante.length} aria-label={`Pasar todas de ${nombreDe} a ${nombreA}`}
+        title={`Pasar todas (${adelante.length}) a ${nombreA}`} onClick={() => void mover(adelante.map((s) => s.id), DESTINO[a])}>
+        <span aria-hidden="true">→</span><b>{adelante.length}</b>
+      </button>
+      <button className="pase-b" disabled={!decide || ocupado || !atras.length} aria-label={`Devolver todas de ${nombreA} a ${nombreDe}`}
+        title={`Devolver todas (${atras.length}) a ${nombreDe}`} onClick={() => void mover(atras.map((s) => s.id), DESTINO[de])}>
+        <span aria-hidden="true">←</span><b>{atras.length}</b>
+      </button>
+    </div>
+  );
+}
+
 const NAT_OPTS: [SigFilter['nat'], string][] = [['all', 'Todas'], ['oportunidad', 'Oportunidades'], ['riesgo', 'Riesgos'], ['mixta', 'Mixtas']];
 
 export function Senales() {
   const senales = useStore((s) => s.senales);
   const role = useStore((s) => s.role);
   const f = useStore((s) => s.sigFilter);
-  const { setSigFilter, moveSignal } = useStore.getState();
+  const { setSigFilter, passSignals } = useStore.getState();
   const [dragId, setDragId] = useState<string | null>(null);
-  const [over, setOver] = useState<Etapa | null>(null);
+  const [over, setOver] = useState<Columna | null>(null);
   const decide = canDecide(role);
 
   const visibles = f.periodo === 'todo' ? senales : senales.filter((s) => esReciente(s));
   const ocultas = senales.length - visibles.length;
   const pendientes = senales.filter(porRevisar);
   const vencidas = pendientes.filter((s) => s.revisionVencida).length;
+  const descartadas = visibles.filter((s) => s.estado === 'descartada').length;
   const list = visibles.filter((s) => (!f.revisar || porRevisar(s))
     && (f.nat === 'all' || s.naturaleza === f.nat)
     && (f.dep === 'all' || s.deps.includes(f.dep))
@@ -54,7 +91,7 @@ export function Senales() {
         <div>
           <div className="eyebrow">Tratamiento del conocimiento</div>
           <h1>De noticia suelta a <em>señal verificada</em></h1>
-          <p className="sub">Una señal junta una o varias noticias sobre el mismo hecho. Recorre etapas: AVIA la detecta y la evalúa, una persona la verifica y, si se publica, pasa a ser una alerta. {decide ? 'Arrastra una tarjeta a otra columna o ábrela para decidir.' : 'Estás en modo consulta.'}</p>
+          <p className="sub">Una señal junta una o varias noticias sobre el mismo hecho. AVIA la detecta, la evalúa y la corrobora; las de fuente oficial las pasa sola a Confirmadas. Al publicarse pasa a ser una alerta. {decide ? 'Muévelas de una en una arrastrándolas, o todas a la vez con las flechas entre columnas (→ adelante, ← atrás).' : 'Estás en modo consulta.'}</p>
           <p className="sub"><a href="publico.html" target="_blank" rel="noopener noreferrer">Ver la web pública</a>: ahí aparecen como alertas las señales en «Publicada».</p>
         </div>
       </section>
@@ -91,25 +128,30 @@ export function Senales() {
           Hay {ocultas} señal(es) más antiguas guardadas. <button className="linklike" onClick={() => setSigFilter({ periodo: 'todo' })}>Ver todo lo guardado</button>
         </p>
       )}
-      <div className="pipe">
-        {STAGES.map(([k, n]) => {
-          const ss = list.filter((s) => s.estado === k);
+      <div className="pipe tres">
+        {COLUMNAS.map(([k, n, ayuda], i) => {
+          const ss = list.filter((s) => columnaDe(s.estado) === k);
           if (f.revisar) ss.sort((a, b) => (a.revisionVencida ? -1 : a.sla ?? 1e9) - (b.revisionVencida ? -1 : b.sla ?? 1e9));
+          const sig = i < COLUMNAS.length - 1 ? COLUMNAS[i + 1] : null;
           return (
-            <div key={k} className={`stage ${over === k ? 'drop' : ''}`}
-              onDragOver={(e) => { if (!dragId) return; e.preventDefault(); setOver(k); }}
-              onDragLeave={() => setOver(null)}
-              onDrop={(e) => { e.preventDefault(); if (dragId) moveSignal(dragId, k); setDragId(null); setOver(null); }}>
-              <div className="stage-h">{n}<b>{ss.length}</b></div>
-              <div className="stage-b">
-                {ss.length
-                  ? ss.map((s) => <Card key={s.id} s={s} draggable={decide} onDragStart={() => setDragId(s.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />)
-                  : <div className="note" style={{ padding: 8 }}>Vacía</div>}
+            <Fragment key={k}>
+              <div className={`stage ${over === k ? 'drop' : ''}`}
+                onDragOver={(e) => { if (!dragId) return; e.preventDefault(); setOver(k); }}
+                onDragLeave={() => setOver(null)}
+                onDrop={(e) => { e.preventDefault(); if (dragId) void passSignals([dragId], DESTINO[k]); setDragId(null); setOver(null); }}>
+                <div className="stage-h" title={ayuda}>{n}<b>{ss.length}</b></div>
+                <div className="stage-b">
+                  {ss.length
+                    ? ss.map((s) => <Card key={s.id} s={s} draggable={decide} onDragStart={() => setDragId(s.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />)
+                    : <div className="note" style={{ padding: 8 }}>Vacía</div>}
+                </div>
               </div>
-            </div>
+              {sig && <Pase de={k} a={sig[0]} nombreDe={n} nombreA={sig[1]} />}
+            </Fragment>
           );
         })}
       </div>
+      {descartadas > 0 && <p className="note" style={{ marginTop: 10 }}>{descartadas} señal(es) descartadas no se muestran.</p>}
     </>
   );
 }

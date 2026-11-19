@@ -13,7 +13,7 @@ import {
 import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
-import { decidirSenal, leerEstados, leerMovimientos, moverSenal, siguientesPasos, transicionValida } from './services/senales';
+import { decidirSenal, leerEstados, leerMovimientos, motivoNoPasa, moverSenal, type Destino, pasarSenales, pasosHasta, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
@@ -141,6 +141,11 @@ interface Actions {
   /** el equipo valida o descarta una oportunidad propuesta */
   decideOpportunity: (id: number, estado: EstadoOportunidad) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
+  /**
+   * Pasa una o varias señales a otra columna, en los dos sentidos (botones entre columnas
+   * y arrastrar). Solo omite los escenarios al publicar. Devuelve cuántas movió.
+   */
+  passSignals: (ids: string[], to: Destino) => Promise<number>;
   /** el analista aprueba (y se publica) o rechaza una señal que espera revisión */
   decideReview: (id: string, aprobar: boolean, note?: string) => Promise<void>;
   addEvaluatedSignal: (r: Evaluacion) => string;
@@ -520,6 +525,52 @@ export const useStore = create<Store>()((set, get) => {
         });
       }
       return true;
+    },
+    passSignals: async (ids, to) => {
+      const { role } = get();
+      if (role === 'visor' || !ids.length) return 0;
+      const quien = get().perfil?.nombre ?? ROLE_NAME[role];
+      const antes = get().senales.filter((s) => ids.includes(s.id));
+      const aptas = antes.filter((s) => !motivoNoPasa(s, to));
+      const omitidas = antes.length - aptas.length;
+      if (!aptas.length) {
+        get().toast(omitidas ? `No se puede: ${motivoNoPasa(antes[0], to)}.` : 'No hay señales para pasar.');
+        return 0;
+      }
+      const nota = 'Pase en bloque';
+      const mover = (movidas: Set<string>) => set({
+        contadores: null, sintesisDia: null,
+        senales: get().senales.map((x) => {
+          if (!movidas.has(x.id)) return x;
+          const pasos = pasosHasta(x.estado, to);
+          let de = x.estado;
+          const hist = [...(x.historial ?? [])];
+          for (const a of pasos) { hist.unshift({ de, a, quien, cuando: clock(0), nota }); de = a; }
+          return { ...x, estado: de, sla: null, revisionVencida: false, historial: hist };
+        }),
+      });
+      const destino = to === 'en_analisis' ? 'Detectadas' : to === 'confirmada' ? 'Confirmadas' : 'Publicadas';
+      const conBd = Boolean(get().perfil) && get().origen === 'vps';
+      let n = aptas.length;
+      let falladas = 0;
+      if (!conBd) {
+        mover(new Set(aptas.map((s) => s.id)));
+      } else {
+        try {
+          const r = await pasarSenales(aptas, to, nota);
+          mover(new Set(r.movidas));
+          n = r.movidas.length;
+          falladas = r.omitidas.length;
+          void get().loadRemote(true);
+        } catch (e) {
+          get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+          return 0;
+        }
+      }
+      logEvent({ t: 0, k: 'check', w: `${quien} pasó ${n} señal(es) a «${destino}»`, d: aptas.slice(0, 6).map((s) => s.id).join(', ') + (aptas.length > 6 ? '…' : '') });
+      const quedan = omitidas + falladas;
+      get().toast(`${n} señal(es) → ${destino}.` + (quedan ? ` ${quedan} se quedaron${to === 'publicada' ? ' (los escenarios no se publican)' : ''}.` : ''));
+      return n;
     },
     decideReview: async (id, aprobar, note = '') => {
       const { role } = get();

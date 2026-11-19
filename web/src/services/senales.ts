@@ -10,8 +10,8 @@ const PASOS: Record<Etapa, Etapa[]> = {
   detectada: ['en_analisis'],
   en_analisis: ['en_verificacion', 'confirmada'],
   en_verificacion: ['confirmada', 'publicada'],
-  confirmada: ['publicada'],
-  publicada: ['en_verificacion'],
+  confirmada: ['publicada', 'en_analisis'],
+  publicada: ['en_verificacion', 'confirmada'],
   descartada: [],
 };
 export const transicionValida = (de: Etapa, a: Etapa) => de === a || a === 'descartada' || PASOS[de].includes(a);
@@ -38,6 +38,81 @@ export async function moverSenal(codigo: string, estado: Etapa, nota?: string): 
     if (/aún no está en la base/.test(m)) throw new Error(`${codigo} aún no está en la base de datos: falta activar la sincronización en el VPS.`);
     throw new Error(traducir(m.replace(/_/g, ' ')));
   }
+}
+
+/** Las tres columnas de la pestaña Señales (pedido de Meysel, 19-11-2026) */
+export type Columna = 'detectadas' | 'confirmadas' | 'publicadas';
+export const COLUMNAS: [Columna, string, string][] = [
+  ['detectadas', 'Detectadas', 'AVIA las encontró y las está evaluando'],
+  ['confirmadas', 'Confirmadas', 'Verificadas, listas para publicar'],
+  ['publicadas', 'Publicadas', 'Ya salen en la web pública y en Telegram'],
+];
+/** columna en la que se ve cada etapa; descartadas no se muestra */
+export function columnaDe(e: Etapa): Columna | null {
+  if (e === 'detectada' || e === 'en_analisis' || e === 'en_verificacion') return 'detectadas';
+  if (e === 'confirmada') return 'confirmadas';
+  if (e === 'publicada') return 'publicadas';
+  return null;
+}
+
+/** Destino de un pase: la etapa con la que se entra en cada columna */
+export type Destino = 'en_analisis' | 'confirmada' | 'publicada';
+export const DESTINO: Record<Columna, Destino> = { detectadas: 'en_analisis', confirmadas: 'confirmada', publicadas: 'publicada' };
+const NUM: Record<Columna, number> = { detectadas: 1, confirmadas: 2, publicadas: 3 };
+
+/**
+ * Por qué una señal NO puede pasar a «a» (null = sí puede). Mismas reglas que
+ * vigilante.pasar_senales() (db/generico/29_pase_en_bloque.sql): ya no hay aprobación
+ * previa; solo un escenario nunca se publica.
+ */
+export function motivoNoPasa(s: { estado: Etapa; escenario?: boolean }, a: Destino): string | null {
+  const col = columnaDe(s.estado);
+  if (!col) return 'está descartada';
+  if (col === columnaDe(a)) return 'ya está en esa columna';
+  if (a === 'publicada' && s.escenario) return 'es un escenario: no se publica';
+  return null;
+}
+
+export interface ResultadoPase { movidas: string[]; omitidas: { codigo: string; motivo: string }[] }
+
+/** etapas que recorre una señal hasta «a», sin saltarse ninguna (en los dos sentidos) */
+export function pasosHasta(de: Etapa, a: Destino): Etapa[] {
+  const pasos: Etapa[] = [];
+  let e = de;
+  for (let i = 0; i < 4; i++) {
+    const c = columnaDe(e), fin = columnaDe(a);
+    if (!c || !fin || c === fin) break;
+    e = NUM[c] < NUM[fin]
+      ? (e === 'detectada' ? 'en_analisis' : c === 'detectadas' ? 'confirmada' : 'publicada')
+      : (c === 'publicadas' ? 'confirmada' : 'en_analisis');
+    pasos.push(e);
+  }
+  return pasos;
+}
+
+/**
+ * Pasa varias señales a Confirmadas o Publicadas en una sola llamada.
+ * Si la base aún no tiene el 29, las mueve una a una con mover_senal (mismo resultado, más lento).
+ */
+export async function pasarSenales(senales: { id: string; estado: Etapa }[], a: Destino, nota = 'Pase en bloque'): Promise<ResultadoPase> {
+  const { data, error } = await rpc('pasar_senales', { p_codigos: senales.map((s) => s.id), p_a: a, p_nota: nota });
+  if (!error) {
+    const r = data as ResultadoPase;
+    return { movidas: r?.movidas ?? [], omitidas: r?.omitidas ?? [] };
+  }
+  if (!(/pasar_senales/.test(error.message) && /(not find|no existe|does not exist|schema cache)/i.test(error.message))) {
+    throw new Error(traducir(error.message.replace(/_/g, ' ')));
+  }
+  const res: ResultadoPase = { movidas: [], omitidas: [] };
+  for (const s of senales) {
+    try {
+      for (const paso of pasosHasta(s.estado, a)) await moverSenal(s.id, paso, nota);
+      res.movidas.push(s.id);
+    } catch (e) {
+      res.omitidas.push({ codigo: s.id, motivo: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return res;
 }
 
 export interface Decision { ok: boolean; estado: Etapa | 'confirmada_publicada'; mensaje: string }
