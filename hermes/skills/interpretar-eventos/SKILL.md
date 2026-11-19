@@ -24,6 +24,8 @@ Usa el glosario, el grado de certeza y las reglas de recomendaciones seguras de 
 2. Para cada evento, sigue los pasos de abajo y llama a `guardar_interpretacion_evento` **una vez**.
 3. Termina con un resumen de 2 líneas: cuántos interpretados y cuántos descartados.
 
+Si en la misma ronda hay **cambios en noticias** (migración 31), atiéndelos antes con la skill `interpretar-cambios`. Un evento que vuelve a ti con las mismas señales suele ser porque una de ellas cambió (otra fecha, se canceló, se desvió): mira `cambios_abiertos` y reescribe la interpretación con el dato nuevo.
+
 No uses otras herramientas salvo `buscar_senales` para ver contexto o antecedentes (por ejemplo, si una huelga ya se repitió la semana pasada). No abras fuentes, no crees señales y no busques en la web: interpretas lo que la base te da.
 
 ## Paso 1 · ¿Es de verdad un evento?

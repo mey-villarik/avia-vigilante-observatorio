@@ -7,6 +7,7 @@ import { ROLE_NAME } from '../lib/util';
 import { Icon } from './Icon';
 import { clock } from '../lib/util';
 import { useEventos } from '../services/eventos';
+import { BotonCambios } from './Cambios';
 
 export const BrandMark = () => (
   <svg className="brand-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true">
@@ -142,6 +143,7 @@ export function Topbar() {
             </button>
           )}
           <BotonEventos />
+          <BotonCambios />
           <button className="icon-btn" aria-label="Buscar (Ctrl+K)" title="Buscar (Ctrl+K)" onClick={() => setSearchOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
           </button>

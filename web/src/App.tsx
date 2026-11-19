@@ -7,6 +7,7 @@ import { Drawer } from './components/Drawer';
 import { Search } from './components/Search';
 import { Chat } from './components/Chat';
 import { AlertaEmergente, ListaEventos, useEventosEmergentes } from './components/Emergentes';
+import { AlertaCambio, ListaCambios, useCambiosNoticias } from './components/Cambios';
 import { Foot } from './components/common';
 import { useChat } from './services/chat';
 import { REFRESCO_MS } from './services/datos';
@@ -88,6 +89,7 @@ export default function App() {
   usePrefs();
   useDatosVps();
   useEventosEmergentes();
+  useCambiosNoticias();
   useLiveSimulation();
   useShortcuts();
   const Vista = VISTAS[view];
@@ -108,6 +110,8 @@ export default function App() {
       <Search />
       <ListaEventos />
       <AlertaEmergente />
+      <ListaCambios />
+      <AlertaCambio />
       <Toasts />
     </>
   );

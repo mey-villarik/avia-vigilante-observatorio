@@ -23,7 +23,7 @@ import sys
 import urllib.error
 import urllib.request
 
-VERSION = '2.1.0'
+VERSION = '2.2.0'
 
 INSTRUCCIONES = (
     'Herramientas del Vigilante AVIA sobre la base de datos del observatorio. Eres el agente investigador: '
@@ -239,6 +239,56 @@ HERRAMIENTAS = [
      'fn': 'guardar_interpretacion_evento',
      'args': lambda a: {'p_codigo': a['codigo'], 'p_int': a['interpretacion'],
                         'p_modelo': os.environ.get('HERMES_MODELO') or os.environ.get('LLM_MODEL') or 'hermes'}},
+    # 2.2 (migración 31): cambios en señales que ya existían («viene un ciclón» → «el ciclón se desvió»).
+    {'name': 'cambios_por_interpretar',
+     'description': 'Cambios detectados en señales que ya existían: nueva fecha, cancelación, desvío, desmentido, fin de una '
+                    'alerta… Cada uno trae el antes y el ahora, la señal que cambia, las noticias nuevas y lo que decían las '
+                    'anteriores, y los eventos compuestos afectados. El panel ya lo avisó: tú confirmas si es un cambio real y '
+                    'dices qué significa. Quedan reservados 30 minutos: ciérralos con guardar_interpretacion_cambio.',
+     'inputSchema': {'type': 'object', 'properties': {'limite': {'type': 'integer', 'minimum': 1, 'maximum': 10, 'default': 5}}},
+     'fn': 'cambios_por_interpretar', 'args': lambda a: {'p_limite': a.get('limite', 5)}},
+    {'name': 'guardar_interpretacion_cambio',
+     'description': 'Guarda tu lectura de un cambio (CAM-xxxx). Si no cambia nada (repite lo mismo, o la noticia habla de otro '
+                    'hecho), manda es_cambio=false con motivo_descarte y desaparece del panel. Nunca inventes datos que no estén '
+                    'en las noticias.',
+     'inputSchema': {'type': 'object', 'properties': {
+         'codigo': {'type': 'string', 'description': 'CAM-xxxx'},
+         'interpretacion': {'type': 'object', 'properties': {
+             'es_cambio': {'type': 'boolean', 'default': True},
+             'motivo_descarte': {'type': 'string', 'description': 'Solo si es_cambio es false'},
+             'titular': {'type': 'string', 'description': 'Máx. 140 caracteres: «Santa Cruz: el ciclón se desvió y ya no llega»'},
+             'que_cambio': {'type': 'string', 'description': 'Antes: … Ahora: … (solo hechos de las noticias, con fechas tal cual)'},
+             'significado': {'type': 'string', 'description': 'Qué cambia para el turismo; la interpretación con «podría»'},
+             'a_quien_afecta': {'type': 'array', 'items': {'type': 'string'}},
+             'recomendacion': {'type': 'object', 'properties': {
+                 'accion': {'type': 'string'}, 'para_quien': {'type': 'string'},
+                 'cuando': {'type': 'string'}, 'verificar_con': {'type': 'string'}},
+                 'required': ['accion', 'para_quien']},
+             'falta_saber': {'type': 'array', 'items': {'type': 'string'}},
+             'importancia': {'type': 'object', 'properties': {'nivel': {'type': 'string', 'enum': ['alta', 'media', 'baja']}, 'motivo': {'type': 'string'}}}},
+         }}, 'required': ['codigo', 'interpretacion']},
+     'fn': 'guardar_interpretacion_cambio',
+     'args': lambda a: {'p_codigo': a['codigo'], 'p_int': a['interpretacion'],
+                        'p_modelo': os.environ.get('HERMES_MODELO') or os.environ.get('LLM_MODEL') or 'hermes'}},
+    {'name': 'registrar_cambio',
+     'description': 'Registra un cambio que encontraste investigando (p. ej. al resolver una tarea «contradiccion»): una señal '
+                    'que ya existía cambió de fecha, se canceló, se desvió, se desmintió… Necesita noticias recogidas que lo '
+                    'prueben (ids de la base). Sale como alerta en el panel.',
+     'inputSchema': {'type': 'object', 'properties': {
+         'senal': {'type': 'string', 'description': 'Código de la señal que cambia (SEN-xxxx)'},
+         'tipo': {'type': 'string', 'enum': ['fecha', 'plazo', 'cancelado', 'desviado', 'resuelto', 'agravado', 'atenuado',
+                                             'lugar', 'desmentido', 'confirmado', 'otro']},
+         'antes': {'type': 'string'}, 'ahora': {'type': 'string'},
+         'noticias': {'type': 'array', 'items': {'type': 'integer'}},
+         'importancia': {'type': 'string', 'enum': ['alta', 'media', 'baja']},
+         'senal_nueva': {'type': 'string', 'description': 'Si la noticia nueva ya es otra señal, su código'}},
+         'required': ['senal', 'tipo', 'ahora', 'noticias']},
+     'fn': 'registrar_cambio', 'args': lambda a: {'p': a}},
+    {'name': 'cambios_abiertos',
+     'description': 'Cambios de los últimos días (sin reservarlos), con su interpretación si ya la tienen. Úsala para responder '
+                    '«¿qué ha cambiado?» o preparar una decisión.',
+     'inputSchema': {'type': 'object', 'properties': {'dias': {'type': 'integer', 'minimum': 1, 'maximum': 30, 'default': 3}}},
+     'fn': 'cambios_abiertos', 'args': lambda a: {'p_dias': a.get('dias', 3)}},
 ]
 POR_NOMBRE = {h['name']: h for h in HERRAMIENTAS}
 
