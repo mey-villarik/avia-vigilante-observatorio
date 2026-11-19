@@ -647,3 +647,19 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .evc-lt small{color:var(--muted)}
 .muted{color:var(--muted)} .small{font-size:12px}
 @media (max-width:560px){.evc-bloques{grid-template-columns:1fr}.evc-modal{top:auto;bottom:12px;transform:translateX(-50%)}}
+
+/* Señales en tres columnas con «Pasar todas» entre ellas (29_pase_en_bloque.sql) */
+.pipe.tres{grid-template-columns:minmax(220px,1fr) auto minmax(220px,1fr) auto minmax(220px,1fr);gap:10px}
+.pase{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;padding-top:44px}
+.pase .btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 8px;max-width:96px;white-space:normal;text-align:center;line-height:1.2}
+.pase .btn:disabled{opacity:.45;cursor:not-allowed}
+.pase-f{font-size:20px;line-height:1}
+.pase-n{font-size:11px;color:var(--muted);text-align:center;max-width:96px}
+.tag.por-aprobar{border-color:var(--warn);color:var(--warn)}
+@media (max-width:860px){
+  .pipe.tres{grid-template-columns:1fr;overflow-x:visible}
+  .pase{flex-direction:row;padding-top:0;justify-content:center}
+  .pase .btn{flex-direction:row;max-width:none;gap:8px}
+  .pase-f{transform:rotate(90deg)}
+  .pase-n{max-width:none}
+}

@@ -40,6 +40,69 @@ export async function moverSenal(codigo: string, estado: Etapa, nota?: string): 
   }
 }
 
+/** Las tres columnas de la pestaña Señales (pedido de Meysel, 19-11-2026) */
+export type Columna = 'detectadas' | 'confirmadas' | 'publicadas';
+export const COLUMNAS: [Columna, string, string][] = [
+  ['detectadas', 'Detectadas', 'AVIA las encontró y las está evaluando'],
+  ['confirmadas', 'Confirmadas', 'Verificadas, listas para publicar'],
+  ['publicadas', 'Publicadas', 'Ya salen en la web pública y en Telegram'],
+];
+/** columna en la que se ve cada etapa; descartadas no se muestra */
+export function columnaDe(e: Etapa): Columna | null {
+  if (e === 'detectada' || e === 'en_analisis' || e === 'en_verificacion') return 'detectadas';
+  if (e === 'confirmada') return 'confirmadas';
+  if (e === 'publicada') return 'publicadas';
+  return null;
+}
+
+/**
+ * Por qué una señal NO puede pasar en bloque a «a» (null = sí puede).
+ * Mismas reglas que vigilante.pasar_senales() (db/generico/29_pase_en_bloque.sql):
+ * lo que espera aprobación se aprueba una por una y un escenario nunca se publica.
+ */
+export function motivoNoPasa(s: { estado: Etapa; sla?: number | null; revisionVencida?: boolean; escenario?: boolean }, a: 'confirmada' | 'publicada'): string | null {
+  const col = columnaDe(s.estado);
+  if (col === 'detectadas' && (s.sla || s.revisionVencida)) return 'espera aprobación de una persona: apruébala desde su ficha';
+  if (a === 'confirmada' && col !== 'detectadas') return 'ya no está en Detectadas';
+  if (a === 'publicada' && s.estado !== 'confirmada') return 'no está en Confirmadas';
+  if (a === 'publicada' && s.escenario) return 'es un escenario: no se publica';
+  return null;
+}
+
+export interface ResultadoPase { movidas: string[]; omitidas: { codigo: string; motivo: string }[] }
+
+/** etapas intermedias que recorre una señal hasta «a» (las etapas no se saltan) */
+export function pasosHasta(de: Etapa, a: 'confirmada' | 'publicada'): Etapa[] {
+  const camino: Etapa[] = ['en_analisis', 'confirmada', 'publicada'];
+  const desde = de === 'detectada' ? 0 : de === 'confirmada' ? 2 : 1;
+  return camino.slice(desde, camino.indexOf(a) + 1);
+}
+
+/**
+ * Pasa varias señales a Confirmadas o Publicadas en una sola llamada.
+ * Si la base aún no tiene el 29, las mueve una a una con mover_senal (mismo resultado, más lento).
+ */
+export async function pasarSenales(senales: { id: string; estado: Etapa }[], a: 'confirmada' | 'publicada', nota = 'Pase en bloque'): Promise<ResultadoPase> {
+  const { data, error } = await rpc('pasar_senales', { p_codigos: senales.map((s) => s.id), p_a: a, p_nota: nota });
+  if (!error) {
+    const r = data as ResultadoPase;
+    return { movidas: r?.movidas ?? [], omitidas: r?.omitidas ?? [] };
+  }
+  if (!(/pasar_senales/.test(error.message) && /(not find|no existe|does not exist|schema cache)/i.test(error.message))) {
+    throw new Error(traducir(error.message.replace(/_/g, ' ')));
+  }
+  const res: ResultadoPase = { movidas: [], omitidas: [] };
+  for (const s of senales) {
+    try {
+      for (const paso of pasosHasta(s.estado, a)) await moverSenal(s.id, paso, nota);
+      res.movidas.push(s.id);
+    } catch (e) {
+      res.omitidas.push({ codigo: s.id, motivo: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return res;
+}
+
 export interface Decision { ok: boolean; estado: Etapa | 'confirmada_publicada'; mensaje: string }
 
 /** Aprobar (y publicar) o rechazar una señal que espera revisión (db/generico/18_aprobacion_analista.sql) */

@@ -35,6 +35,7 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `99_prueba_sintesis.sql` | Prueba del 26. Termina en `ROLLBACK`. |
 | `27_comparacion_dia.sql` | Cambios desde ayer: señales nuevas, las que subieron o bajaron de certeza y las resueltas en 24 h. Crea `certeza_registro` y la tarea de pg_cron `vigilante-certezas` (cada 15 min). Ver `docs/comparacion-dia.md`. |
 | `28_eventos_compuestos.sql` | Alertas emergentes: la base junta señales que coinciden en departamento y fechas en `eventos_compuestos` (riesgo acumulado, oportunidad combinada, confluencia) con prioridad calculada; Hermes las interpreta por el MCP y el panel avisa. Tarea de pg_cron `vigilante-eventos` (cada 5 min). Prueba `99_prueba_eventos.sql`. Ver `docs/eventos-compuestos.md`. |
+| `29_pase_en_bloque.sql` | Pestaña Señales con tres columnas (Detectadas, Confirmadas, Publicadas) y botón «Pasar todas»: `pasar_senales(codigos, destino)` mueve varias de una vez sin saltar etapas; nunca mueve lo que espera aprobación ni publica escenarios. Prueba `99_prueba_pase_en_bloque.sql`. Ver `docs/pase-en-bloque.md`. |
 | `99_prueba_comparacion.sql` | Prueba del 27. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 

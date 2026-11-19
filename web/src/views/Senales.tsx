@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import type { Etapa, Senal } from '../types';
-import { CATS, DEPS, STAGES } from '../data/demo';
+import { Fragment, useState } from 'react';
+import type { Senal } from '../types';
+import { CATS, DEPS } from '../data/demo';
+import { COLUMNAS, columnaDe, motivoNoPasa, type Columna } from '../services/senales';
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
 import { CertezaTag, NatPill } from '../components/common';
@@ -14,6 +15,7 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       onClick={() => openDrawer({ kind: 'senal', id: s.id })}>
       <span className="cm">
         <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span>
+        {porRevisar(s) && <span className="tag por-aprobar" title="Riesgo o fuente no oficial: una persona la aprueba antes de publicarla. No pasa en bloque.">Por aprobar</span>}
         {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
         {s.revisionVencida && <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>}
         {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}
@@ -34,15 +36,17 @@ export function Senales() {
   const senales = useStore((s) => s.senales);
   const role = useStore((s) => s.role);
   const f = useStore((s) => s.sigFilter);
-  const { setSigFilter, moveSignal } = useStore.getState();
+  const { setSigFilter, passSignals } = useStore.getState();
   const [dragId, setDragId] = useState<string | null>(null);
-  const [over, setOver] = useState<Etapa | null>(null);
+  const [over, setOver] = useState<Columna | null>(null);
+  const [pasando, setPasando] = useState<Columna | null>(null);
   const decide = canDecide(role);
 
   const visibles = f.periodo === 'todo' ? senales : senales.filter((s) => esReciente(s));
   const ocultas = senales.length - visibles.length;
   const pendientes = senales.filter(porRevisar);
   const vencidas = pendientes.filter((s) => s.revisionVencida).length;
+  const descartadas = visibles.filter((s) => s.estado === 'descartada').length;
   const list = visibles.filter((s) => (!f.revisar || porRevisar(s))
     && (f.nat === 'all' || s.naturaleza === f.nat)
     && (f.dep === 'all' || s.deps.includes(f.dep))
@@ -54,7 +58,7 @@ export function Senales() {
         <div>
           <div className="eyebrow">Tratamiento del conocimiento</div>
           <h1>De noticia suelta a <em>señal verificada</em></h1>
-          <p className="sub">Una señal junta una o varias noticias sobre el mismo hecho. Recorre etapas: AVIA la detecta y la evalúa, una persona la verifica y, si se publica, pasa a ser una alerta. {decide ? 'Arrastra una tarjeta a otra columna o ábrela para decidir.' : 'Estás en modo consulta.'}</p>
+          <p className="sub">Una señal junta una o varias noticias sobre el mismo hecho. AVIA la detecta, la evalúa y la corrobora; tú solo la confirmas y la publicas, y al publicarse pasa a ser una alerta. {decide ? 'Usa «Pasar todas» entre columnas para moverlas de una vez. Las que dicen «Por aprobar» (riesgos o fuentes no oficiales) se aprueban una por una desde su ficha.' : 'Estás en modo consulta.'}</p>
           <p className="sub"><a href="publico.html" target="_blank" rel="noopener noreferrer">Ver la web pública</a>: ahí aparecen como alertas las señales en «Publicada».</p>
         </div>
       </section>
@@ -91,25 +95,44 @@ export function Senales() {
           Hay {ocultas} señal(es) más antiguas guardadas. <button className="linklike" onClick={() => setSigFilter({ periodo: 'todo' })}>Ver todo lo guardado</button>
         </p>
       )}
-      <div className="pipe">
-        {STAGES.map(([k, n]) => {
-          const ss = list.filter((s) => s.estado === k);
+      <div className="pipe tres">
+        {COLUMNAS.map(([k, n, ayuda], i) => {
+          const ss = list.filter((s) => columnaDe(s.estado) === k);
           if (f.revisar) ss.sort((a, b) => (a.revisionVencida ? -1 : a.sla ?? 1e9) - (b.revisionVencida ? -1 : b.sla ?? 1e9));
+          const destino = k === 'confirmadas' ? 'confirmada' : k === 'publicadas' ? 'publicada' : null;
+          const sig = i < COLUMNAS.length - 1 ? COLUMNAS[i + 1] : null;
+          const aSig = k === 'detectadas' ? 'confirmada' : 'publicada';
+          const aptas = sig ? ss.filter((s) => !motivoNoPasa(s, aSig)) : [];
+          const quedan = ss.length - aptas.length;
           return (
-            <div key={k} className={`stage ${over === k ? 'drop' : ''}`}
-              onDragOver={(e) => { if (!dragId) return; e.preventDefault(); setOver(k); }}
-              onDragLeave={() => setOver(null)}
-              onDrop={(e) => { e.preventDefault(); if (dragId) moveSignal(dragId, k); setDragId(null); setOver(null); }}>
-              <div className="stage-h">{n}<b>{ss.length}</b></div>
-              <div className="stage-b">
-                {ss.length
-                  ? ss.map((s) => <Card key={s.id} s={s} draggable={decide} onDragStart={() => setDragId(s.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />)
-                  : <div className="note" style={{ padding: 8 }}>Vacía</div>}
+            <Fragment key={k}>
+              <div className={`stage ${over === k ? 'drop' : ''}`}
+                onDragOver={(e) => { if (!dragId || !destino) return; e.preventDefault(); setOver(k); }}
+                onDragLeave={() => setOver(null)}
+                onDrop={(e) => { e.preventDefault(); if (dragId && destino) void passSignals([dragId], destino); setDragId(null); setOver(null); }}>
+                <div className="stage-h" title={ayuda}>{n}<b>{ss.length}</b></div>
+                <div className="stage-b">
+                  {ss.length
+                    ? ss.map((s) => <Card key={s.id} s={s} draggable={decide && k !== 'publicadas'} onDragStart={() => setDragId(s.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />)
+                    : <div className="note" style={{ padding: 8 }}>Vacía</div>}
+                </div>
               </div>
-            </div>
+              {sig && (
+                <div className="pase">
+                  <button className="btn gold" disabled={!decide || !aptas.length || pasando !== null}
+                    title={!decide ? 'Estás en modo consulta' : quedan ? `${quedan} se quedan: ${k === 'detectadas' ? 'esperan aprobación una por una' : 'escenarios, no se publican'}` : `Pasar las ${aptas.length} a ${sig[1]}`}
+                    onClick={async () => { setPasando(k); try { await passSignals(aptas.map((s) => s.id), aSig); } finally { setPasando(null); } }}>
+                    <span className="pase-t">{pasando === k ? 'Pasando…' : `Pasar todas (${aptas.length})`}</span>
+                    <span className="pase-f" aria-hidden="true">→</span>
+                  </button>
+                  {quedan > 0 && <span className="pase-n">{quedan} se quedan</span>}
+                </div>
+              )}
+            </Fragment>
           );
         })}
       </div>
+      {descartadas > 0 && <p className="note" style={{ marginTop: 10 }}>{descartadas} señal(es) descartadas no se muestran.</p>}
     </>
   );
 }
