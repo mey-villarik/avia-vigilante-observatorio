@@ -12,6 +12,7 @@ Cada vez que se ejecuta (cron o n8n, p. ej. cada 10 minutos):
   3. Guarda el resultado con vigilante.guardar_clasificacion(): la base crea o actualiza señales,
      oportunidades y tareas para Hermes, y pone la procedencia (fuente, enlace) desde las noticias.
   4. Anota tokens y coste en vigilante.system_logs.
+  5. Si guardó algo, pide a la base que componga eventos (vigilante.componer_eventos, migración 28).
 
 Uso:
   analizador.py                 # lo normal
@@ -247,6 +248,13 @@ def main() -> int:
         if len(lote) < LOTE:
             break
     log(f'Terminado: {total}')
+    # migración 28: con señales nuevas, la base mira si coinciden con otras (eventos compuestos).
+    # pg_cron también lo hace cada 5 minutos; aquí solo se adelanta. Sin IA: Hermes los interpreta después.
+    if total['lotes'] and not a.prueba:
+        try:
+            log(f'Eventos compuestos: {sb.rpc("componer_eventos", {"p_cliente": sb.cliente})}')
+        except Exception as e:  # noqa: BLE001 — si falta el 28 o falla, la clasificación ya está guardada
+            log(f'No se pudieron componer eventos ({str(e)[:200]}); pg_cron lo reintentará')
     return 0
 
 

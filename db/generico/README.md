@@ -34,6 +34,7 @@ Versión genérica del esquema de ORBITA para replicar el vigilante en otros sec
 | `26_sintesis_dia.sql` | Síntesis del día en 3 bloques (qué pasa, por qué importa, qué vigilar) armada por la base con las mismas señales que los contadores; parámetro `sintesis_max`. Ver `docs/sintesis-dia.md`. |
 | `99_prueba_sintesis.sql` | Prueba del 26. Termina en `ROLLBACK`. |
 | `27_comparacion_dia.sql` | Cambios desde ayer: señales nuevas, las que subieron o bajaron de certeza y las resueltas en 24 h. Crea `certeza_registro` y la tarea de pg_cron `vigilante-certezas` (cada 15 min). Ver `docs/comparacion-dia.md`. |
+| `28_eventos_compuestos.sql` | Alertas emergentes: la base junta señales que coinciden en departamento y fechas en `eventos_compuestos` (riesgo acumulado, oportunidad combinada, confluencia) con prioridad calculada; Hermes las interpreta por el MCP y el panel avisa. Tarea de pg_cron `vigilante-eventos` (cada 5 min). Prueba `99_prueba_eventos.sql`. Ver `docs/eventos-compuestos.md`. |
 | `99_prueba_comparacion.sql` | Prueba del 27. Termina en `ROLLBACK`. |
 | `99_prueba_multicliente.sql` | Prueba el flujo completo con dos clientes y comprueba que no se mezclan. Termina en `ROLLBACK`. |
 
