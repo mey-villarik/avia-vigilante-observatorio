@@ -30,6 +30,8 @@
 --   · con fechas del evento: del inicio al fin (sin fin, el día del inicio entero)
 --   · sin fechas del evento: desde la última noticia hasta «eventos_horizonte_horas» después (72 h)
 --   · el plazo de una convocatoria NO cuenta: es una fecha límite, no algo que pase en el territorio
+--   · una OPORTUNIDAD sin fechas de evento no entra (salvo «eventos_oportunidad_sin_fecha» = true):
+--     un anuncio o una programación habitual no coincide con nada en el tiempo
 -- Territorio: el departamento de la señal (una ciudad o zona cuenta en su departamento). Las señales
 -- nacionales (alcance_total o territorio «país») se suman a los departamentos que ya tienen alguna
 -- señal propia en esa ventana, si «eventos_incluir_nacional» es true. Un evento necesita 2 señales o
@@ -49,7 +51,8 @@ INSERT INTO vigilante.parametros (cliente_id, clave, valor, descripcion) VALUES
   (NULL, 'eventos_incluir_nacional', 'true', 'Las señales nacionales se suman a los departamentos que ya tienen alguna señal propia'),
   (NULL, 'eventos_umbral_alta', '70', 'Prioridad calculada desde la que un evento es «alta» (sale como alerta emergente)'),
   (NULL, 'eventos_umbral_media', '45', 'Prioridad calculada desde la que un evento es «media»'),
-  (NULL, 'eventos_espera_hermes_min', '20', 'Minutos que el panel espera la interpretación de Hermes antes de avisar igualmente')
+  (NULL, 'eventos_espera_hermes_min', '20', 'Minutos que el panel espera la interpretación de Hermes antes de avisar igualmente'),
+  (NULL, 'eventos_oportunidad_sin_fecha', 'false', 'Si es false, una oportunidad sin fechas de evento (un anuncio, una programación habitual) no entra en eventos: no es algo que pase en unas fechas')
 ON CONFLICT (cliente_id, clave) DO NOTHING;
 
 -- 1. Tabla de eventos compuestos -------------------------------------------------------
@@ -119,6 +122,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, pg_temp AS $$
            vigilante._entero(vigilante.param(p_cliente, 'eventos_anticipacion_dias'), 30) AS dias
   ), s AS (
     SELECT v.id, v.naturaleza, v.prioridad, v.categoria, v.alcance_total, v.fuente_oficial,
+           (v.fecha_evento_inicio IS NOT NULL OR v.fecha_evento_fin IS NOT NULL) AS con_fecha,
            CASE WHEN v.fecha_evento_inicio IS NOT NULL OR v.fecha_evento_fin IS NOT NULL
                 THEN coalesce(v.fecha_evento_inicio, v.fecha_evento_fin)
                 ELSE vigilante.ultima_noticia(v.id, v.created_at) END AS ini,
@@ -144,11 +148,15 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, pg_temp AS $$
    WHERE s.fin >= now()                                                  -- aún no ha pasado
      AND s.ini <= now() + make_interval(days => (SELECT dias FROM p))   -- no demasiado lejos
      AND (t.territorio_id IS NOT NULL OR s.alcance_total OR coalesce(t.es_pais, false))
+     AND (s.con_fecha OR s.naturaleza <> 'oportunidad'
+          OR coalesce((vigilante.param(p_cliente, 'eventos_oportunidad_sin_fecha'))::text, 'false') IN ('true', '"true"'))
 $$;
 REVOKE ALL ON FUNCTION vigilante._senales_para_eventos(uuid) FROM public, anon, authenticated;
 
 -- 3. Puntaje de un grupo de señales (reglas fijas, explicables) -------------------------
 --   peso de cada señal = prioridad (alta 3, media 2, baja 1) × certeza (confirmado 1, convocado 0,8, posible 0,5, rumor 0,25)
+--   dentro de una misma categoría, la señal más fuerte cuenta entera y cada una de las demás la mitad
+--   (varias notas del mismo tema no deben inflar el evento como si fueran riesgos distintos)
 --   puntaje = 10 × suma de pesos
 --           + 8 por cada categoría distinta después de la primera (riesgos de distinto tipo se suman)
 --           + 15 si la ventana común ya empezó o empieza en 48 h; + 8 si empieza en 7 días
@@ -164,15 +172,18 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
     SELECT m.*, (CASE m.prioridad WHEN 'alta' THEN 3 WHEN 'media' THEN 2 ELSE 1 END)
               * (CASE m.certeza WHEN 'confirmado' THEN 1 WHEN 'convocado' THEN 0.8 WHEN 'posible' THEN 0.5 ELSE 0.25 END) AS peso
       FROM m
+  ), wc AS (
+    SELECT w.*, CASE WHEN row_number() OVER (PARTITION BY categoria ORDER BY peso DESC, id) = 1 THEN 1 ELSE 0.5 END AS factor
+      FROM w
   ), r AS (
-    SELECT round(10 * sum(peso), 1) AS base,
+    SELECT round(10 * sum(peso * factor), 1) AS base,
            8 * greatest(count(DISTINCT categoria) - 1, 0) AS categorias,
            CASE WHEN p_inicio <= now() + interval '48 hours' THEN 15
                 WHEN p_inicio <= now() + interval '7 days' THEN 8 ELSE 0 END AS proximidad,
            CASE WHEN bool_or(fuente_oficial) THEN 5 ELSE 0 END AS oficial,
            jsonb_agg(jsonb_build_object('senal', codigo, 'prioridad', prioridad, 'certeza', coalesce(certeza, 'rumor'),
-                                        'peso', round(peso, 2)) ORDER BY peso DESC) AS detalle
-      FROM w
+                                        'peso', round(peso * factor, 2)) ORDER BY peso * factor DESC) AS detalle
+      FROM wc
   )
   SELECT jsonb_build_object(
            'puntaje', least(100, base + categorias + proximidad + oficial),
@@ -183,7 +194,7 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
                              ELSE 'baja' END,
            'calculo', jsonb_build_object('senales', base, 'categorias_distintas', categorias, 'proximidad', proximidad,
                                          'fuente_oficial', oficial, 'detalle', detalle,
-                                         'regla', '10 × Σ(prioridad × certeza) + 8 por categoría extra + proximidad (15 en 48 h, 8 en 7 días) + 5 si hay fuente oficial; máx. 100'))
+                                         'regla', '10 × Σ(prioridad × certeza; en la misma categoría, las demás señales cuentan la mitad) + 8 por categoría extra + proximidad (15 en 48 h, 8 en 7 días) + 5 si hay fuente oficial; máx. 100'))
     FROM r
 $$;
 REVOKE ALL ON FUNCTION vigilante._puntaje_evento(uuid, bigint[], timestamptz) FROM public, anon, authenticated;
@@ -440,7 +451,7 @@ BEGIN
                             WHERE coalesce(x ->> 'si', '') <> '' AND coalesce(x ->> 'entonces', '') <> '' LIMIT 3) q),
     'falta_saber', (SELECT jsonb_agg(left(x, 200)) FROM (SELECT jsonb_array_elements_text(
                       CASE WHEN jsonb_typeof(p_int -> 'falta_saber') = 'array' THEN p_int -> 'falta_saber' ELSE '[]' END) x LIMIT 4) q),
-    'prioridad_motivo', CASE WHEN v_pr IS NOT NULL THEN left(p_int #>> '{prioridad,motivo}', 300) END,
+    'prioridad_motivo', CASE WHEN v_pr IS NOT NULL THEN left(p_int #>> '{prioridad,motivo}', 600) END,
     'version', e.version));
 
   UPDATE vigilante.eventos_compuestos

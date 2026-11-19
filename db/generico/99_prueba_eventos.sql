@@ -21,6 +21,7 @@ SELECT c, x.cod, x.nom, x.tipo::vigilante.tipo_fuente, x.url, '{vial}', 'rss' FR
 --  SC-1 festival en Santa Cruz pasado mañana                                      oport.  eventos   media prensa
 --  SC-2 vuelo nuevo a Santa Cruz desde pasado mañana                               oport.  conectiv. alta  oficial
 --  CB-1 feria en Cochabamba dentro de 25 días (sola: no hay evento)               oport.  eventos   baja  prensa
+--  SC-Y anuncio de un hotel nuevo en Santa Cruz, sin fechas (oportunidad sin fecha: no cuenta) oport.  eventos   media prensa
 --  NAC  paro nacional de transporte, sin fechas, alcance_total                     riesgo  vial      alta  oficial
 -- Esperado: La Paz = riesgo_acumulado (LP-1, LP-2, NAC); Santa Cruz = confluencia (SC-1, SC-2, NAC).
 INSERT INTO vigilante.signals (cliente_id, codigo, titulo, resumen, naturaleza, categoria, prioridad, estado,
@@ -36,13 +37,14 @@ SELECT c, x.cod, 'Señal ' || x.cod, 'Resumen ' || x.cod, x.nat::vigilante.natur
     ('LP-X', 'riesgo', 'vial', 'alta', 'descartada', NULL, false),
     ('SC-1', 'oportunidad', 'eventos', 'media', 'detectada', 2, false),
     ('SC-2', 'oportunidad', 'conectividad', 'alta', 'detectada', 2, false),
+    ('SC-Y', 'oportunidad', 'eventos', 'media', 'detectada', NULL, false),
     ('CB-1', 'oportunidad', 'eventos', 'baja', 'detectada', 25, false),
     ('NAC', 'riesgo', 'vial', 'alta', 'detectada', NULL, true)) x(cod, nat, cat, pri, est, dias, nac);
 
 INSERT INTO vigilante.raw_items (cliente_id, source_id, url, content_hash, titulo, recolectado_en)
 SELECT c, s.id, s.url || '/' || x.g, 'h-ev-' || x.g, 'Noticia ' || x.g, now() - interval '1 hour'
   FROM ids, (VALUES ('LP-1', 'e-ofi'), ('LP-2', 'e-pre'), ('LP-3', 'e-pre'), ('LP-X', 'e-pre'), ('SC-1', 'e-pre'),
-                    ('SC-2', 'e-ofi'), ('CB-1', 'e-pre'), ('NAC', 'e-ofi')) x(g, f),
+                    ('SC-2', 'e-ofi'), ('SC-Y', 'e-pre'), ('CB-1', 'e-pre'), ('NAC', 'e-ofi')) x(g, f),
        vigilante.sources s WHERE s.codigo = x.f AND s.cliente_id = ids.c;
 INSERT INTO vigilante.signal_raw_items (signal_id, raw_item_id)
 SELECT g.id, r.id FROM vigilante.signals g JOIN vigilante.raw_items r ON r.content_hash = 'h-ev-' || g.codigo

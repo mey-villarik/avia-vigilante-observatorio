@@ -22,6 +22,7 @@ Todo es **interno**. Nada sale a la web pública ni a Telegram sin que una perso
   - Con fechas de evento, va del inicio al fin. Si no tiene fin, cuenta todo el día del inicio.
   - Sin fechas de evento, va desde la última noticia hasta 72 h después (`eventos_horizonte_horas`).
   - El plazo de una convocatoria no cuenta, porque es una fecha límite y no algo que pase en el territorio.
+  - Una **oportunidad sin fechas** (un anuncio, una programación habitual de un hotel) no entra, porque no pasa en unas fechas concretas. Se puede cambiar con `eventos_oportunidad_sin_fecha = true`.
 - **Territorio**: el departamento. Una ciudad o zona cuenta dentro de su departamento.
 - **Señales nacionales** (`alcance_total`, o territorio «Bolivia»): se suman a los departamentos que ya tienen alguna señal propia en esa ventana. Se puede apagar con `eventos_incluir_nacional = false`.
 - **Agrupación**: en cada departamento se unen las ventanas que se solapan. Un grupo es un evento si tiene 2 señales o más y al menos una del propio departamento.
@@ -37,6 +38,7 @@ Todo es **interno**. Nada sale a la web pública ni a Telegram sin que una perso
 
 ```
 peso de cada señal = prioridad (alta 3, media 2, baja 1) × certeza (confirmado 1, convocado 0,8, posible 0,5, rumor 0,25)
+   (en la misma categoría, la señal más fuerte cuenta entera y cada una de las demás la mitad)
 puntaje = 10 × suma de pesos
         + 8 por cada categoría distinta después de la primera
         + 15 si la ventana ya empezó o empieza en 48 h (8 si empieza en 7 días)
@@ -124,6 +126,7 @@ La base solo comprueba que la respuesta está completa y la recorta. Lo que no e
 | `eventos_umbral_alta` | 70 | Desde aquí, alerta emergente |
 | `eventos_umbral_media` | 45 | Desde aquí, prioridad media |
 | `eventos_espera_hermes_min` | 20 | Minutos que el panel espera la interpretación antes de avisar igual |
+| `eventos_oportunidad_sin_fecha` | false | Si es true, las oportunidades sin fechas de evento también entran |
 
 ## Skills de Hermes para decidir
 

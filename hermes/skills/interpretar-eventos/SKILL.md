@@ -88,9 +88,9 @@ Reglas de la recomendación (las mismas que en el resto de AVIA):
 
 ## La prioridad
 
-La base la calcula con reglas fijas (el desglose viene en `calculo`): 10 × la suma de prioridad × certeza de cada señal, más 8 por cada categoría distinta después de la primera, más 15 si empieza en 48 h (8 si en 7 días), más 5 si hay fuente oficial; máximo 100. Desde 70 es alta y sale como **alerta emergente** en el panel.
+La base la calcula con reglas fijas (el desglose viene en `calculo`): 10 × la suma de prioridad × certeza de cada señal (dentro de una misma categoría, las señales después de la primera cuentan la mitad), más 8 por cada categoría distinta después de la primera, más 15 si empieza en 48 h (8 si en 7 días), más 5 si hay fuente oficial; máximo 100. Desde 70 es alta y sale como **alerta emergente** en el panel.
 
-Cámbiala solo si sabes algo que la regla no ve (las señales están en zonas distintas del departamento, o una depende de la otra). Un nivel como máximo, siempre con motivo. La base rechaza saltos de dos niveles.
+Cámbiala solo si sabes algo que la regla no ve (las señales están en zonas distintas del departamento, dos señales cuentan el mismo hecho, o una depende de la otra). Un nivel como máximo, siempre con motivo. El motivo, en 2 frases como máximo (la base lo corta a 600 caracteres). La base rechaza saltos de dos niveles.
 
 ## Si la base rechaza tu respuesta
 
