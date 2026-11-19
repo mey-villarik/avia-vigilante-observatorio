@@ -1,6 +1,6 @@
 -- =============================================================================
 -- AVIA Vigilante · Señales en tres columnas, pase en bloque y menos trabajo manual
--- Requiere 01 a 18. Se puede ejecutar más de una vez.
+-- Requiere 01 a 17 (el 18 no hace falta). Se puede ejecutar más de una vez.
 --
 -- Decisiones de Meysel (19-11-2026): menos gestión humana y AVIA como protagonista.
 --   1. La pestaña Señales muestra solo tres columnas:
@@ -67,7 +67,8 @@ BEGIN
      AND NEW.fuente_oficial AND NOT coalesce(NEW.es_escenario, false)
      AND NEW.estado IN ('detectada', 'en_analisis', 'en_verificacion')
      AND NOT coalesce(NEW.estado_manual, false)
-     AND NOT (NEW.requiere_revision AND NEW.revision_decidida_en IS NULL) THEN
+     -- to_jsonb: funciona aunque no se haya ejecutado el 18 (columna revision_decidida_en)
+     AND NOT (NEW.requiere_revision AND (to_jsonb(NEW) ->> 'revision_decidida_en') IS NULL) THEN
     NEW.estado := 'confirmada';
   END IF;
   RETURN NEW;

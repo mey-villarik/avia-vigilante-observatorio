@@ -39,6 +39,6 @@ Actúan sobre las señales visibles (respetan búsqueda, naturaleza, departament
 
 ## Instalar
 
-1. Supabase, SQL Editor: pegar entero `db/generico/29_pase_en_bloque.sql` y Run (necesita del 01 al 18). Al terminar ya quita «Por aprobar» y pasa a Confirmadas las oficiales que había.
+1. Supabase, SQL Editor: pegar entero `db/generico/29_pase_en_bloque.sql` y Run (necesita del 01 al 17; el 18 no hace falta). Al terminar ya quita «Por aprobar» y pasa a Confirmadas las oficiales que había.
 2. Opcional: `99_prueba_pase_en_bloque.sql` (termina en ROLLBACK, no deja nada).
 3. VPS: `cd /root/avia-repo && git fetch origin && git checkout claude/project-thread-emz0kn && git pull && bash web/desplegar.sh`
