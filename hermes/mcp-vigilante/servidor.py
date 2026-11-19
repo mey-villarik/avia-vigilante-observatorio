@@ -23,7 +23,7 @@ import sys
 import urllib.error
 import urllib.request
 
-VERSION = '2.2.0'
+VERSION = '2.3.0'
 
 INSTRUCCIONES = (
     'Herramientas del Vigilante AVIA sobre la base de datos del observatorio. Eres el agente investigador: '
@@ -289,6 +289,45 @@ HERRAMIENTAS = [
                     '«¿qué ha cambiado?» o preparar una decisión.',
      'inputSchema': {'type': 'object', 'properties': {'dias': {'type': 'integer', 'minimum': 1, 'maximum': 30, 'default': 3}}},
      'fn': 'cambios_abiertos', 'args': lambda a: {'p_dias': a.get('dias', 3)}},
+    # 2.3 (migración 32): ficha de aprobación de riesgos antes de publicar (skill avia-ficha-aprobacion).
+    {'name': 'fichas_por_preparar',
+     'description': 'Riesgos sin publicar que esperan tu ficha de aprobación: cada uno con su certeza, sus noticias (con '
+                    'fuente, tipo y peso_max, el techo de peso que permite esa fuente), fuentes distintas y la ficha anterior '
+                    'si llegaron noticias nuevas. Quedan reservados 30 minutos: ciérralos con guardar_ficha_aprobacion.',
+     'inputSchema': {'type': 'object', 'properties': {'limite': {'type': 'integer', 'minimum': 1, 'maximum': 10, 'default': 5}}},
+     'fn': 'fichas_por_preparar', 'args': lambda a: {'p_limite': a.get('limite', 5)}},
+    {'name': 'guardar_ficha_aprobacion',
+     'description': 'Guarda la ficha de un riesgo (SEN-xxxx) para la persona que decide si se publica. La base comprueba que '
+                    'las noticias citadas son de la señal, que el peso no pasa su techo (5 oficial, 4 organismo internacional, '
+                    '3 medio, 2 búsqueda, 1 no oficial) y la regla de oro: con U3 y peso < 4, o U4 y peso < 5, no se sugiere '
+                    'publicar. No publica ni mueve la señal.',
+     'inputSchema': {'type': 'object', 'properties': {
+         'codigo': {'type': 'string', 'description': 'SEN-xxxx'},
+         'ficha': {'type': 'object', 'properties': {
+             'afirmacion': {'type': 'string', 'description': 'Lo que diría la alerta, en una frase (máx. 200 caracteres)'},
+             'evidencia': {'type': 'object', 'properties': {
+                 'noticias': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'ids de las noticias que la sostienen'},
+                 'peso': {'type': 'integer', 'minimum': 1, 'maximum': 5},
+                 'por_que': {'type': 'string', 'description': 'Por qué ese peso, en una frase'}},
+                 'required': ['noticias', 'peso', 'por_que']},
+             'falta': {'type': 'array', 'items': {'type': 'string'}, 'description': '0 a 4: dato o documento que cerraría la duda'},
+             'riesgo': {'type': 'object', 'properties': {'nivel': {'type': 'string', 'enum': ['U1', 'U2', 'U3', 'U4']},
+                                                         'motivo': {'type': 'string'}}, 'required': ['nivel', 'motivo']},
+             'sugerencia': {'type': 'object', 'properties': {
+                 'decision': {'type': 'string', 'enum': ['publicar', 'esperar', 'no_publicar']},
+                 'motivo': {'type': 'string'}}, 'required': ['decision', 'motivo']},
+             'texto_prudente': {'type': 'string', 'description': 'Cómo contarlo sin alarmismo (máx. 320 caracteres)'},
+             'verificar_con': {'type': 'string', 'description': 'Entidad oficial con quien confirmarlo'}},
+             'required': ['afirmacion', 'evidencia', 'riesgo', 'sugerencia', 'texto_prudente']}},
+         'required': ['codigo', 'ficha']},
+     'fn': 'guardar_ficha_aprobacion',
+     'args': lambda a: {'p_codigo': a['codigo'], 'p_ficha': a['ficha'],
+                        'p_modelo': os.environ.get('HERMES_MODELO') or os.environ.get('LLM_MODEL') or 'hermes'}},
+    {'name': 'ficha_senal',
+     'description': 'Lee la ficha de aprobación de una señal (SEN-xxxx) sin reservarla. Úsala para responder «¿publico esta '
+                    'alerta?» o «¿qué tan sólida es?».',
+     'inputSchema': {'type': 'object', 'properties': {'codigo': {'type': 'string'}}, 'required': ['codigo']},
+     'fn': 'ficha_senal_hermes', 'args': lambda a: {'p_codigo': a['codigo']}},
 ]
 POR_NOMBRE = {h['name']: h for h in HERRAMIENTAS}
 

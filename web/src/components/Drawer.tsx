@@ -15,6 +15,7 @@ import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 import { afirmaOperativo, recoDe } from '../lib/recomendacion';
 import { EXPLICA as PULSO_EXPLICA, calcularPulso, factoresTexto, masPesan } from '../lib/pulso';
+import { RIESGO_TXT, SUGERENCIA_TXT, useFicha } from '../services/fichas';
 
 function Head({ icon, children }: { icon?: string; children: ReactNode }) {
   const closeDrawer = useStore((s) => s.closeDrawer);
@@ -190,6 +191,7 @@ function SenalDetalle({ id }: { id: string }) {
             <span><b>{afirmaOperativo(o.t) && recoDe(s).afirma_sin_verificar ? 'Sin confirmar: ' : ''}{o.t}</b><small>{o.d}</small></span>
           </label>
         ))}
+        {canDecide(role) && real && s.naturaleza !== 'oportunidad' && !s.escenario && s.estado !== 'publicada' && <FichaAvia codigo={s.id} />}
         {canDecide(role) ? (
           <>
             <div className="field">
@@ -305,6 +307,44 @@ function Reco({ s }: { s: Parameters<typeof recoDe>[0] }) {
       <p><small>Verificar con</small> {r.verificar_con}{r.dato_oficial ? ` · último dato oficial: ${fechaBolivia(r.dato_oficial)}` : ''}</p>
       <p><small>Falta saber</small></p>
       {r.falta_saber.length ? <ul>{r.falta_saber.map((f) => <li key={f}>{f}</li>)}</ul> : <p className="note" style={{ margin: 0 }}>Nada pendiente según las fuentes.</p>}
+    </div>
+  );
+}
+
+// Ficha de aprobación de AVIA (32): seis líneas para decidir si se publica un riesgo.
+// La base devuelve null si la señal no lleva ficha (prioridad baja, ya publicada…) o si falta el 32.
+function FichaAvia({ codigo }: { codigo: string }) {
+  const { ficha: f, error } = useFicha(codigo, true);
+  if (error) return <p className="note" style={{ margin: 0 }}>No se pudo leer la ficha de AVIA: {error}</p>;
+  if (!f) return null;
+  if (f.preparando || !f.sugerencia || !f.evidencia || !f.riesgo) {
+    return <div className="ficha"><small>Ficha de AVIA</small><p className="note" style={{ margin: 0 }}>AVIA está preparando la ficha de evidencia de esta señal.</p></div>;
+  }
+  return (
+    <div className={`ficha sug-${f.sugerencia.decision}`}>
+      <div className="ficha-h">
+        <small>Ficha de AVIA</small>
+        <b>{SUGERENCIA_TXT[f.sugerencia.decision]}</b>
+        <span className="tag">{RIESGO_TXT[f.riesgo.nivel]}</span>
+        <span className="tag">Evidencia {f.evidencia.peso}/5</span>
+      </div>
+      {f.desactualizada && <p className="note" style={{ margin: 0 }}>Llegaron noticias nuevas: AVIA está rehaciendo la ficha.</p>}
+      <ol>
+        <li><small>Afirmación</small> {f.afirmacion}</li>
+        <li><small>Evidencia</small> {f.evidencia.por_que}
+          {f.noticias_citadas?.length ? (
+            <> ({f.noticias_citadas.map((n, i) => (
+              <span key={n.id}>{i ? ', ' : ''}{n.url ? <a href={n.url} target="_blank" rel="noreferrer">{n.fuente}</a> : n.fuente}</span>
+            ))})</>
+          ) : null}
+        </li>
+        <li><small>Falta</small> {f.falta?.length ? f.falta.join('; ') : 'nada pendiente'}</li>
+        <li><small>Riesgo</small> {f.riesgo.motivo}</li>
+        <li><small>Sugerencia</small> {f.sugerencia.motivo}</li>
+        <li><small>Texto prudente</small> «{f.texto_prudente}»</li>
+      </ol>
+      {f.verificar_con && <p style={{ margin: 0 }}><small>Verificar con</small> {f.verificar_con}</p>}
+      <p className="note" style={{ margin: 0 }}>Es una sugerencia de AVIA{f.preparada_en ? ` · ${ago(Math.max(0, Math.round((Date.now() - Date.parse(f.preparada_en)) / 60000)))}` : ''}. Decides tú.</p>
     </div>
   );
 }
