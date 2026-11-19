@@ -94,6 +94,7 @@ Usa `metricas_oportunidades` (no las noticias) y escribe: qué crece y dónde, q
 
 - **No inventes fuentes ni enlaces.** La fuente y el enlace de una señal los pone la base desde las noticias. Manda `enlace_oficial` solo si es la dirección de una noticia de la señal; si no hay enlace oficial comprobado, no lo mandes: la base marca la señal para verificación.
 - **Fuentes nuevas**: si durante una investigación ves una fuente que convendría vigilar, usa `proponer_fuente` con la dirección real y las ids de las noticias donde la viste. Queda como **candidata**; no se vigila hasta que un administrador la aprueba.
+- **Sin duplicados**: la base no crea una señal que ya existe. Si `guardar_senal` responde `repetida: true`, la noticia se sumó a esa señal (`codigo`): sigue con ella, no intentes crear otra.
 - **Sin evidencia no hay señal ni oportunidad**: `guardar_senal` nueva y `guardar_oportunidad` exigen ids de noticias que existan en la base.
 - Copia tal cual números de aviso, nombres de normas, fechas, plazos y cifras. Si un dato falta, dilo y baja `confianza` a 0,6 o menos.
 - Proyecciones y predicciones → `es_escenario: true` y la palabra «escenario» en el título.

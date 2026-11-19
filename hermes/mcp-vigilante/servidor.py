@@ -147,7 +147,9 @@ HERRAMIENTAS = [
     {'name': 'guardar_senal',
      'description': 'Actualiza una señal existente (con codigo) tras investigar, o guarda una nueva si hay noticias '
                     'recogidas que la sostienen (noticias = sus ids; sin ellas la base la rechaza). La fuente, si es '
-                    'oficial y el enlace los pone la base. Queda en «Detectada» hasta que una persona la revise.',
+                    'oficial y el enlace los pone la base. Queda en «Detectada» hasta que una persona la revise. '
+                    'Si ya había una señal para ese hecho (misma noticia o título muy parecido), no crea otra: '
+                    'devuelve su codigo con repetida=true y suma las noticias como evidencia.',
      'inputSchema': {'type': 'object', 'properties': {'senal': SENAL}, 'required': ['senal']},
      'fn': 'guardar_senal', 'args': lambda a: {'p_senal': a['senal']}},
     {'name': 'buscar_senales',
