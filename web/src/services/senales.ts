@@ -10,8 +10,8 @@ const PASOS: Record<Etapa, Etapa[]> = {
   detectada: ['en_analisis'],
   en_analisis: ['en_verificacion', 'confirmada'],
   en_verificacion: ['confirmada', 'publicada'],
-  confirmada: ['publicada'],
-  publicada: ['en_verificacion'],
+  confirmada: ['publicada', 'en_analisis'],
+  publicada: ['en_verificacion', 'confirmada'],
   descartada: [],
 };
 export const transicionValida = (de: Etapa, a: Etapa) => de === a || a === 'descartada' || PASOS[de].includes(a);
@@ -55,41 +55,46 @@ export function columnaDe(e: Etapa): Columna | null {
   return null;
 }
 
+/** Destino de un pase: la etapa con la que se entra en cada columna */
+export type Destino = 'en_analisis' | 'confirmada' | 'publicada';
+export const DESTINO: Record<Columna, Destino> = { detectadas: 'en_analisis', confirmadas: 'confirmada', publicadas: 'publicada' };
+const NUM: Record<Columna, number> = { detectadas: 1, confirmadas: 2, publicadas: 3 };
+
 /**
- * Por qué una señal NO puede pasar en bloque a «a» (null = sí puede).
- * Mismas reglas que vigilante.pasar_senales() (db/generico/29_pase_en_bloque.sql):
- * las alertas de riesgo y los escenarios que esperan aprobación se aprueban una por una;
- * lo demás pasa (pulsar el botón es la aprobación). Un escenario nunca se publica.
+ * Por qué una señal NO puede pasar a «a» (null = sí puede). Mismas reglas que
+ * vigilante.pasar_senales() (db/generico/29_pase_en_bloque.sql): ya no hay aprobación
+ * previa; solo un escenario nunca se publica.
  */
-export const CATEGORIAS_RIESGO = ['clima', 'salud', 'vial', 'seguridad'];
-/** espera aprobación y además es un riesgo o un escenario: no pasa en bloque */
-export function aprobarUnaPorUna(s: { estado: Etapa; categoria?: string; sla?: number | null; revisionVencida?: boolean; escenario?: boolean }): boolean {
-  return columnaDe(s.estado) === 'detectadas' && Boolean(s.sla || s.revisionVencida)
-    && (Boolean(s.escenario) || CATEGORIAS_RIESGO.includes(s.categoria ?? ''));
-}
-export function motivoNoPasa(s: { estado: Etapa; categoria?: string; sla?: number | null; revisionVencida?: boolean; escenario?: boolean }, a: 'confirmada' | 'publicada'): string | null {
+export function motivoNoPasa(s: { estado: Etapa; escenario?: boolean }, a: Destino): string | null {
   const col = columnaDe(s.estado);
-  if (aprobarUnaPorUna(s)) return 'alerta de riesgo o escenario: se aprueba una por una desde su ficha';
-  if (a === 'confirmada' && col !== 'detectadas') return 'ya no está en Detectadas';
-  if (a === 'publicada' && s.estado !== 'confirmada') return 'no está en Confirmadas';
+  if (!col) return 'está descartada';
+  if (col === columnaDe(a)) return 'ya está en esa columna';
   if (a === 'publicada' && s.escenario) return 'es un escenario: no se publica';
   return null;
 }
 
 export interface ResultadoPase { movidas: string[]; omitidas: { codigo: string; motivo: string }[] }
 
-/** etapas intermedias que recorre una señal hasta «a» (las etapas no se saltan) */
-export function pasosHasta(de: Etapa, a: 'confirmada' | 'publicada'): Etapa[] {
-  const camino: Etapa[] = ['en_analisis', 'confirmada', 'publicada'];
-  const desde = de === 'detectada' ? 0 : de === 'confirmada' ? 2 : 1;
-  return camino.slice(desde, camino.indexOf(a) + 1);
+/** etapas que recorre una señal hasta «a», sin saltarse ninguna (en los dos sentidos) */
+export function pasosHasta(de: Etapa, a: Destino): Etapa[] {
+  const pasos: Etapa[] = [];
+  let e = de;
+  for (let i = 0; i < 4; i++) {
+    const c = columnaDe(e), fin = columnaDe(a);
+    if (!c || !fin || c === fin) break;
+    e = NUM[c] < NUM[fin]
+      ? (e === 'detectada' ? 'en_analisis' : c === 'detectadas' ? 'confirmada' : 'publicada')
+      : (c === 'publicadas' ? 'confirmada' : 'en_analisis');
+    pasos.push(e);
+  }
+  return pasos;
 }
 
 /**
  * Pasa varias señales a Confirmadas o Publicadas en una sola llamada.
  * Si la base aún no tiene el 29, las mueve una a una con mover_senal (mismo resultado, más lento).
  */
-export async function pasarSenales(senales: { id: string; estado: Etapa }[], a: 'confirmada' | 'publicada', nota = 'Pase en bloque'): Promise<ResultadoPase> {
+export async function pasarSenales(senales: { id: string; estado: Etapa }[], a: Destino, nota = 'Pase en bloque'): Promise<ResultadoPase> {
   const { data, error } = await rpc('pasar_senales', { p_codigos: senales.map((s) => s.id), p_a: a, p_nota: nota });
   if (!error) {
     const r = data as ResultadoPase;

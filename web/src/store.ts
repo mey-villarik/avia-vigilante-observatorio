@@ -13,7 +13,7 @@ import {
 import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
-import { decidirSenal, leerEstados, leerMovimientos, motivoNoPasa, moverSenal, pasarSenales, pasosHasta, siguientesPasos, transicionValida } from './services/senales';
+import { decidirSenal, leerEstados, leerMovimientos, motivoNoPasa, moverSenal, type Destino, pasarSenales, pasosHasta, siguientesPasos, transicionValida } from './services/senales';
 import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
@@ -142,10 +142,10 @@ interface Actions {
   decideOpportunity: (id: number, estado: EstadoOportunidad) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
   /**
-   * Pasa varias señales a Confirmadas o Publicadas de una vez (botón entre columnas).
-   * Omite lo que espera aprobación y los escenarios al publicar. Devuelve cuántas movió.
+   * Pasa una o varias señales a otra columna, en los dos sentidos (botones entre columnas
+   * y arrastrar). Solo omite los escenarios al publicar. Devuelve cuántas movió.
    */
-  passSignals: (ids: string[], to: 'confirmada' | 'publicada') => Promise<number>;
+  passSignals: (ids: string[], to: Destino) => Promise<number>;
   /** el analista aprueba (y se publica) o rechaza una señal que espera revisión */
   decideReview: (id: string, aprobar: boolean, note?: string) => Promise<void>;
   addEvaluatedSignal: (r: Evaluacion) => string;
@@ -534,7 +534,7 @@ export const useStore = create<Store>()((set, get) => {
       const aptas = antes.filter((s) => !motivoNoPasa(s, to));
       const omitidas = antes.length - aptas.length;
       if (!aptas.length) {
-        get().toast(omitidas ? `Ninguna se puede pasar: ${motivoNoPasa(antes[0], to)}.` : 'No hay señales para pasar.');
+        get().toast(omitidas ? `No se puede: ${motivoNoPasa(antes[0], to)}.` : 'No hay señales para pasar.');
         return 0;
       }
       const nota = 'Pase en bloque';
@@ -546,10 +546,10 @@ export const useStore = create<Store>()((set, get) => {
           let de = x.estado;
           const hist = [...(x.historial ?? [])];
           for (const a of pasos) { hist.unshift({ de, a, quien, cuando: clock(0), nota }); de = a; }
-          return { ...x, estado: to, sla: null, revisionVencida: false, historial: hist };
+          return { ...x, estado: de, sla: null, revisionVencida: false, historial: hist };
         }),
       });
-      const destino = to === 'confirmada' ? 'Confirmadas' : 'Publicadas';
+      const destino = to === 'en_analisis' ? 'Detectadas' : to === 'confirmada' ? 'Confirmadas' : 'Publicadas';
       const conBd = Boolean(get().perfil) && get().origen === 'vps';
       let n = aptas.length;
       let falladas = 0;
@@ -569,7 +569,7 @@ export const useStore = create<Store>()((set, get) => {
       }
       logEvent({ t: 0, k: 'check', w: `${quien} pasó ${n} señal(es) a «${destino}»`, d: aptas.slice(0, 6).map((s) => s.id).join(', ') + (aptas.length > 6 ? '…' : '') });
       const quedan = omitidas + falladas;
-      get().toast(`${n} señal(es) → ${destino}.` + (quedan ? ` ${quedan} se quedaron: las alertas de riesgo se aprueban una por una${to === 'publicada' ? ' y los escenarios no se publican' : ''}.` : ''));
+      get().toast(`${n} señal(es) → ${destino}.` + (quedan ? ` ${quedan} se quedaron${to === 'publicada' ? ' (los escenarios no se publican)' : ''}.` : ''));
       return n;
     },
     decideReview: async (id, aprobar, note = '') => {
