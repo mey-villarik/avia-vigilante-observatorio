@@ -79,6 +79,8 @@ Hermes corre en el contenedor `hermes`; `/root/.hermes` del VPS es `/opt/data` d
 mkdir -p /root/.hermes/avia
 curl -fsSL https://raw.githubusercontent.com/mey-villarik/avia-vigilante-observatorio/claude/project-thread-z696h2/hermes/mcp-vigilante/servidor.py -o /root/.hermes/avia/servidor.py
 install -m 600 /root/avia/supabase.env /root/.hermes/avia/supabase.env
+# Hermes trabaja con su propio usuario (uid 10000): sin esto el MCP no puede leer el .env (PermissionError)
+chown -R 10000:10000 /root/.hermes/avia
 
 # probar que responde (debe listar 9 herramientas)
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \

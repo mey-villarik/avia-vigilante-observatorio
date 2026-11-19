@@ -74,9 +74,27 @@ La base solo comprueba que la respuesta está completa y la recorta. Lo que no e
    cd /root/avia-repo && git fetch origin claude/project-thread-1uhjud && git checkout FETCH_HEAD -- hermes/
    diff hermes/analizador/analizador.py /root/avia/analizador.py   # revisar antes de copiar
    cp hermes/analizador/analizador.py /root/avia/analizador.py
-   cp hermes/mcp-vigilante/servidor.py <ruta donde Hermes tiene el MCP avia-vigilante>
+   cp hermes/mcp-vigilante/servidor.py /root/.hermes/avia/servidor.py   # si ya lo tienes conectado
    ```
    El analizador ya tiene su propio candado. **No le pongas flock en el crontab.**
+   Si Hermes aún no tiene el MCP `avia-vigilante` (`grep -n -A6 "^mcp_servers" /root/.hermes/config.yaml` no devuelve nada sin `#`), conéctalo así. `/root/.hermes` del VPS es `/opt/data` dentro del contenedor, y Hermes trabaja con el usuario uid 10000, que debe poder leer el `.env`:
+   ```bash
+   mkdir -p /root/.hermes/avia
+   cp hermes/mcp-vigilante/servidor.py /root/.hermes/avia/servidor.py
+   install -m 600 /root/avia/supabase.env /root/.hermes/avia/supabase.env
+   chown -R 10000:10000 /root/.hermes/avia
+   cat >> /root/.hermes/config.yaml <<'YAML'
+
+   mcp_servers:
+     avia-vigilante:
+       command: python3
+       args: ["/opt/data/avia/servidor.py"]
+       env:
+         AVIA_SUPABASE_ENV: /opt/data/avia/supabase.env
+   YAML
+   docker restart hermes
+   ```
+   Si el MCP no arranca, mira `docker exec hermes tail /opt/data/logs/mcp-stderr.log`.
 3. **VPS: skill**. Copia la carpeta y reinicia Hermes:
    ```bash
    cp -r /root/avia-repo/hermes/skills/interpretar-eventos /root/.hermes/skills/
