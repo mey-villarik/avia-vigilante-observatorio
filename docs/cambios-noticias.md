@@ -31,7 +31,7 @@ Todo es **interno**. No toca la web pública ni Telegram.
 - **Ventana flotante** con alarma (tres tonos, dos veces): tipo de cambio, importancia, **Antes** (tachado) y **Ahora**, la señal, las noticias que lo traen y, cuando llega, la lectura de AVIA. Si la señal está **publicada**, avisa en rojo de que la alerta pública aún dice lo de antes.
   - **Entendido** lo marca como visto para esa persona. **Ver la señal** abre su ficha. **No es un cambio…** lo descarta para todo el equipo, con motivo.
   - Si a la vez hay una alerta de evento, sale primero la del evento y después la del cambio.
-- **Botón «Cambios N»** junto a «Eventos»: N = cambios sin ver; rojo y con el punto parpadeando si alguno es de importancia alta. Abre la lista de los últimos 3 días, con «Marcar todo como visto» y el interruptor de la alarma.
+- **Botón «Cambios N»** junto a «Eventos»: N = cambios sin ver; rojo y con el punto parpadeando si alguno es de importancia alta. Abre la lista de las últimas 24 horas (desde el 35; antes 3 días), con «Marcar todo como visto» y el interruptor de la alarma.
 - La **pestaña del navegador** también avisa: «(2) Cambios · ORBITA».
 - La **alarma viene activada**. Los navegadores no dejan sonar nada hasta que la persona ha hecho clic una vez en la página; después suena siempre.
 - Solo analistas y administradores.
@@ -64,13 +64,25 @@ Si la señal que cambia forma parte de un evento compuesto, el evento vuelve a H
    Si prefieres una tarea aparte, créala con el prompt de los cambios y pon su id en `HERMES_CRON_CAMBIOS` en `/root/avia/supabase.env`.
 6. **Web**: publícala como siempre (`bash /root/avia-repo/web/desplegar.sh claude/project-thread-ujemax`).
 
+## 24 horas en la lista (35)
+
+Pedido de Meysel (2026-11-20): *«los cambios también quiero que se quiten de la lista a las 24 horas, se guarden en la BD pero no se muestren, para evitar listas muy largas»*.
+
+- Cada cambio se ve en la lista «Cambios» durante `cambios_horas_panel` (24) desde que se detectó. Las repeticiones (otra noticia con el mismo cambio) no alargan el plazo.
+- Pasado ese tiempo no se borra ni se descarta: sigue en `vigilante.cambios_senal`, y AVIA lo sigue viendo por el MCP (`cambios_abiertos`, 3 días por defecto).
+- «Marcar todo como visto» marca solo los que se ven en la lista.
+- Igual que los eventos (34, `docs/eventos-dinamicos.md`).
+
+Ponerlo en marcha: SQL Editor de Supabase → pega entero `db/generico/35_cambios_24h.sql` → Run (necesita el 31; se puede ejecutar varias veces), y desplegar la web. Prueba: `99_prueba_cambios_24h.sql`.
+
 ## Parámetros (`vigilante.parametros`, por cliente o por defecto)
 
 | Clave | Por defecto | Qué hace |
 | --- | --- | --- |
 | `cambios_alerta_desde` | `"baja"` | Importancia mínima para que salga la ventana con sonido (`baja` = todos; `media`; `alta`). Los demás solo se marcan en el botón |
 | `cambios_espera_hermes_min` | `0` | Minutos que la ventana espera a la interpretación de AVIA |
-| `cambios_dias_panel` | `3` | Días que un cambio sigue en la lista |
+| `cambios_horas_panel` | `24` | Horas que un cambio se ve en la lista desde que se detectó (35). Después sigue guardado en la base y AVIA lo ve por el MCP |
+| `cambios_dias_panel` | `3` | Ya no se usa desde el 35 |
 | `cambios_repetido_horas` | `24` | Un cambio igual en la misma señal dentro de este plazo se junta con el anterior |
 | `cambios_parecido_min` | `0.25` | Parecido de títulos para mandar una señal al clasificador como posible relacionada |
 | `cambios_buscar_dias` | `30` | Antigüedad máxima de esas señales |

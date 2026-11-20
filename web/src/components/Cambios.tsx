@@ -219,7 +219,8 @@ export function ListaCambios() {
             {pendientes > 0 && <button className="btn ghost" onClick={() => void marcarVisto(null)}><Icon name="check" /> Marcar todo como visto</button>}
           </div>
           {error && <p className="evc-error" role="alert">{error}</p>}
-          {cambios.length === 0 && <p className="muted">No hay cambios en los últimos días. Aparecen cuando una noticia nueva cambia una señal que ya existía: otra fecha, una cancelación, un desvío, el fin de una alerta…</p>}
+          {cambios.length === 0 && <p className="muted">No hay cambios de las últimas 24 horas. Aparecen cuando una noticia nueva cambia una señal que ya existía: otra fecha, una cancelación, un desvío, el fin de una alerta…</p>}
+          {cambios.length > 0 && !actual && <p className="muted small">Cada cambio se ve aquí 24 horas desde que se detecta. Después queda guardado y AVIA lo sigue teniendo en cuenta.</p>}
           {actual ? (
             <>
               <button className="linklike" onClick={() => setSel(null)}>← Todos los cambios</button>

@@ -49,6 +49,8 @@ export interface Cambio {
   esperando_hermes: boolean;
   /** esta persona ya pulsó «Entendido» */
   visto: boolean;
+  /** cuándo deja de verse en el panel (24 h desde que se detectó; sigue guardado en la base) */
+  oculta_en?: string;
 }
 
 export const TIPO_CAMBIO_TXT: Record<TipoCambio, string> = {
@@ -138,7 +140,7 @@ export const useCambios = create<CambiosState>((set, get) => ({
     }
     const antes = new Set(get().cambios.map((c) => c.codigo));
     const primera = !get().cargadoUnaVez;
-    const cambios = (Array.isArray(data) ? data : []) as Cambio[];
+    const cambios = visibles((Array.isArray(data) ? data : []) as Cambio[]);
     set({ cambios, error: null, cargadoUnaVez: true });
     // suena cuando aparece un cambio nuevo sin ver (y al entrar, si hay alguno pendiente)
     if (get().sonido && cambios.some((c) => c.alerta && !c.visto && (primera || !antes.has(c.codigo)))) sonarAlarma();
@@ -163,6 +165,9 @@ export const useCambios = create<CambiosState>((set, get) => ({
     if (v) sonarAlarma();
   },
 }));
+
+/** Fuera los que ya pasaron sus 24 h en el panel (la base ya los quita; esto cubre el rato entre consultas) */
+const visibles = (cs: Cambio[]) => cs.filter((c) => !c.oculta_en || Date.parse(c.oculta_en) > Date.now());
 
 /** El cambio sin ver más antiguo primero: se leen en el orden en que pasaron */
 export const cambioPendiente = (cs: Cambio[]) => [...cs].reverse().find((c) => c.alerta && !c.visto) ?? null;
