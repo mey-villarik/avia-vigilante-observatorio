@@ -1,6 +1,6 @@
 // Contenido de cada panel del tablero Panorama. Para añadir un panel:
 // 1) defínelo en PANELS (src/data/demo.ts), 2) añade su cuerpo en PANEL_BODY y su meta en PANEL_META.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
 import { activeSignals, canDecide, pendingDecision, useContadores, useSintesisDia, useStore } from '../store';
@@ -8,7 +8,11 @@ import { CERTEZAS } from '../lib/certeza';
 import type { ItemSintesis } from '../types';
 import { horaBolivia } from '../lib/contadores';
 import { puntuacionesDe } from '../lib/puntuaciones';
-import { plazoTexto, scoreOf } from '../lib/util';
+import { esReciente, plazoTexto, scoreOf } from '../lib/util';
+import { useEventos } from '../services/eventos';
+import { useCambios } from '../services/cambios';
+import { resumenRegion } from '../lib/regiones';
+import { MapaBolivia } from '../views/Mapa';
 import { calcularPulso, posicionVigilancia } from '../lib/pulso';
 import { leerVotos, type VotoPublicacion } from '../services/senales';
 import { supabase } from '../services/auth';
@@ -179,37 +183,23 @@ function Riesgos() {
   return <SigList list={l} opp={false} />;
 }
 
-const MAP_POS: Record<string, string> = {
-  Pando: '1/1/2/3', 'La Paz': '2/1/4/2', Beni: '2/2/3/4', Cochabamba: '3/2/4/3', 'Santa Cruz': '3/3/5/5',
-  Oruro: '4/1/5/2', Chuquisaca: '4/2/5/3', Potosí: '5/1/6/2', Tarija: '5/2/6/3',
-};
-
 function Mapa() {
-  const a = activeSignals(useStore((s) => s.senales));
-  const setSigFilter = useStore((s) => s.setSigFilter);
-  const go = useStore((s) => s.go);
+  const senales = useStore((s) => s.senales);
+  const fichas = useStore((s) => s.oportunidades);
+  const eventos = useEventos((s) => s.eventos);
+  const cambios = useCambios((s) => s.cambios);
+  const { go, setMapaSel } = useStore.getState();
+  const por = useMemo(() => {
+    const a = activeSignals(senales).filter((s) => esReciente(s));
+    return Object.fromEntries(DEPS.map((d) => [d, resumenRegion(d, a, fichas, eventos, cambios)]));
+  }, [senales, fichas, eventos, cambios]);
   return (
     <>
-      <div className="bomap" role="list">
-        {DEPS.map((d) => {
-          const ss = a.filter((s) => s.deps.includes(d));
-          const o = ss.filter((s) => s.naturaleza !== 'riesgo').length;
-          const r = ss.filter((s) => s.naturaleza === 'riesgo').length;
-          const tone = r > o ? 'var(--risk-soft)' : o ? 'var(--opp-soft)' : 'transparent';
-          return (
-            <button key={d} className="dep" role="listitem" style={{ gridArea: MAP_POS[d] }} aria-label={`${d}: ${o} oportunidades, ${r} riesgos`}
-              onClick={() => { setSigFilter({ nat: 'all', dep: d, q: '' }); go('senales'); }}>
-              <span className="heat" style={{ background: tone, opacity: Math.min(1, 0.4 + (o + r) * 0.2) }} />
-              <span className="dn">{d}</span>
-              <span className="dc"><span className="o">▲{o}</span><span className="r">●{r}</span></span>
-            </button>
-          );
-        })}
-      </div>
+      <MapaBolivia compacto por={por} sel={null} onSel={(d) => { setMapaSel(d); go('mapa'); }} />
       <div className="map-legend">
         <span><i style={{ background: 'var(--opp)' }} />▲ oportunidades</span>
         <span><i style={{ background: 'var(--risk)' }} />● riesgos</span>
-        <span>Toca un departamento para ver sus señales</span>
+        <span>Toca un departamento para ver su resumen</span>
       </div>
     </>
   );
@@ -328,7 +318,7 @@ export function usePanelMeta(id: PanelId): string {
   const nPend = pendingDecision(useStore((s) => s.senales)).length;
   const meta: Record<PanelId, string> = {
     sintesis: 'Borrador de AVIA', fuentes: `${nFuentes} fuentes`, oportunidades: 'por puntuación', riesgos: 'vigentes',
-    mapa: 'esquema', evolucion: real ? 'VPS' : 'demo', decision: `${nPend} pendientes`, actividad: real ? 'VPS' : 'en vivo', temas: real ? 'VPS' : '7 días',
+    mapa: '9 departamentos', evolucion: real ? 'VPS' : 'demo', decision: `${nPend} pendientes`, actividad: real ? 'VPS' : 'en vivo', temas: real ? 'VPS' : '7 días',
     cadena: 'hoy', pulso: 'índice', categorias: 'activas', valoracion: 'web pública',
   };
   return meta[id];
