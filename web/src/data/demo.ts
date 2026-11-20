@@ -76,7 +76,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
  cadena:{t:'Cadena del conocimiento',i:'cadena',d:'De la noticia a la señal, la alerta y la recomendación.',w:4},
  oportunidades:{t:'Oportunidades abiertas',i:'oportunidades',d:'Las oportunidades con mejor puntuación y su plazo.',w:6},
  riesgos:{t:'Riesgos activos',i:'riesgo',d:'Riesgos confirmados o en verificación.',w:6},
- mapa:{t:'Mapa por departamento',i:'mapa',d:'Esquema de Bolivia con señales por departamento.',w:5},
+ mapa:{t:'Mapa por departamento',i:'mapa',d:'Mapa de Bolivia con señales por departamento; abre la vista Mapa.',w:5},
  evolucion:{t:'Evolución diaria',i:'analisis',d:'Señales detectadas, oportunidades y riesgos por día.',w:7},
  decision:{t:'Pendiente de tu decisión',i:'decision',d:'Señales que esperan verificación humana.',w:6},
  actividad:{t:'Actividad reciente',i:'actividad',d:'Registro de comprobaciones y decisiones.',w:6},
@@ -93,6 +93,7 @@ export const PRESETS: Record<string, Preset> = {
 
 export const VIEWS: [VistaId, string, string][] = [
   ['panorama', 'Panorama', 'panorama'],
+  ['mapa', 'Mapa', 'mapa'],
   ['fuentes', 'Fuentes', 'fuentes'],
   ['senales', 'Señales', 'senales'],
   ['oportunidades', 'Oportunidades', 'oportunidades'],

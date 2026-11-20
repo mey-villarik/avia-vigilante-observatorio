@@ -63,6 +63,8 @@ interface State {
   srcFilter: 'all' | 'problemas' | EstadoFuente;
   srcQ: string;
   sigFilter: SigFilter;
+  /** departamento elegido en la vista Mapa (null = todo Bolivia) */
+  mapaSel: string | null;
   analysis: Analisis;
   live: boolean;
   fs: number;
@@ -125,6 +127,7 @@ interface Actions {
   setSrcFilter: (f: State['srcFilter']) => void;
   setSrcQ: (q: string) => void;
   setSigFilter: (f: Partial<SigFilter>) => void;
+  setMapaSel: (d: string | null) => void;
   setAnalysis: (a: Partial<Analisis>) => void;
   recheck: (id: string, quiet?: boolean) => void;
   checkAll: () => void;
@@ -229,6 +232,7 @@ export const useStore = create<Store>()((set, get) => {
     srcFilter: 'all',
     srcQ: '',
     sigFilter: { nat: 'all', dep: 'all', q: '', periodo: 'recientes' },
+    mapaSel: null,
     analysis: { type: 'panorama', scope: 'all', dep: 'all', text: '', q: '' },
     live: true,
     fs: storage.get('fs', 1),
@@ -341,6 +345,7 @@ export const useStore = create<Store>()((set, get) => {
     setSrcFilter: (f) => set({ srcFilter: f }),
     setSrcQ: (q) => set({ srcQ: q }),
     setSigFilter: (f) => set({ sigFilter: { ...get().sigFilter, ...f } }),
+    setMapaSel: (d) => set({ mapaSel: d }),
     setAnalysis: (a) => set({ analysis: { ...get().analysis, ...a } }),
 
     recheck: (id, quiet) => {
