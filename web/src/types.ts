@@ -6,7 +6,7 @@ export type Naturaleza = 'oportunidad' | 'riesgo' | 'mixta';
 export type Etapa = 'detectada' | 'en_analisis' | 'en_verificacion' | 'confirmada' | 'publicada' | 'descartada';
 export type Prioridad = 'alta' | 'media' | 'baja';
 export type Rol = 'visor' | 'analista' | 'admin';
-export type VistaId = 'panorama' | 'mapa' | 'fuentes' | 'senales' | 'oportunidades' | 'analisis' | 'bitacora';
+export type VistaId = 'panorama' | 'mapa' | 'fuentes' | 'senales' | 'oportunidades' | 'internacional' | 'analisis' | 'bitacora';
 export type CategoriaId =
   | 'clima' | 'salud' | 'vial' | 'seguridad' | 'conectividad'
   | 'eventos' | 'financiacion' | 'mercado' | 'normativa' | 'turismo';
