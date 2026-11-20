@@ -10,7 +10,7 @@ import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
-import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
+import { porqueAvia, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 import { afirmaOperativo, recoDe } from '../lib/recomendacion';
@@ -368,15 +368,17 @@ function Puntos({ s }: { s: Parameters<typeof puntuacionesDe>[0] }) {
     <>
       <div className="sect">Puntuaciones</div>
       <div className="puntos">
-        <div className={`punto n-${p.fiabilidad.nivel}`} title={EXPLICA.fiabilidad}>
+        <div className={`punto n-${p.fiabilidad.nivel}`} title={porqueAvia('fiabilidad', p)}>
           <small>Fiabilidad de la evidencia</small>
           <b className="mono">{p.fiabilidad.valor}/100 · {p.fiabilidad.nivel}</b>
-          <ul>{p.fiabilidad.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
+          {p.fiabilidad.avia
+            ? <p className="avia-porque">{porqueAvia('fiabilidad', p)}</p>
+            : <ul>{p.fiabilidad.motivos.map((m) => <li key={m}>{m}</li>)}</ul>}
         </div>
-        <div className={`punto ${p.probabilidad.valor == null ? 'n-sin' : 'n-' + p.probabilidad.nivel}`} title={EXPLICA.probabilidad}>
+        <div className={`punto ${p.probabilidad.valor == null ? 'n-sin' : 'n-' + p.probabilidad.nivel}`} title={porqueAvia('probabilidad', p)}>
           <small>{p.probabilidad.origen ? 'Probabilidad de que ocurra' : 'Probabilidad'}</small>
           <b className="mono">{prob}</b>
-          <p>{p.probabilidad.justificacion}</p>
+          {p.probabilidad.avia ? <p className="avia-porque">{porqueAvia('probabilidad', p)}</p> : <p>{p.probabilidad.justificacion}</p>}
           {p.probabilidad.origen && (
             <p className="note" style={{ margin: '4px 0 0' }}>
               {p.probabilidad.origen === 'avia'
@@ -385,13 +387,13 @@ function Puntos({ s }: { s: Parameters<typeof puntuacionesDe>[0] }) {
             </p>
           )}
         </div>
-        <div className={`punto ${p.impacto.nivel === 'sin datos' ? 'n-sin' : ''}`} title={EXPLICA.impacto}>
+        <div className={`punto ${p.impacto.nivel === 'sin datos' ? 'n-sin' : ''}`} title={porqueAvia('impacto', p)}>
           <small>Impacto turístico</small>
           <b>{p.impacto.nivel === 'sin datos' ? 'Sin datos' : p.impacto.nivel[0].toUpperCase() + p.impacto.nivel.slice(1)}</b>
-          <p>{p.impacto.motivo}</p>
+          {p.impacto.avia ? <p className="avia-porque">{porqueAvia('impacto', p)}</p> : <p>{p.impacto.motivo}</p>}
         </div>
       </div>
-      <p className="note" style={{ margin: '4px 0 0' }}>Pasa el ratón por cada puntuación para ver cómo se calcula.</p>
+      <p className="note" style={{ margin: '4px 0 0' }}>Pasa el ratón por cada puntuación para ver por qué, según AVIA. Si AVIA aún no lo explicó, sale solo el número.</p>
     </>
   );
 }

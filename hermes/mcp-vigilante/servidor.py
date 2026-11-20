@@ -23,7 +23,7 @@ import sys
 import urllib.error
 import urllib.request
 
-VERSION = '2.4.0'
+VERSION = '2.4.1'
 
 INSTRUCCIONES = (
     'Herramientas del Vigilante AVIA sobre la base de datos del observatorio. Eres el agente investigador: '
@@ -332,18 +332,23 @@ HERRAMIENTAS = [
     {'name': 'probabilidades_por_ajustar',
      'description': 'Señales confirmadas con la probabilidad base de la base de datos sin ajustar: base, factores (peso de la '
                     'fuente, fuentes distintas, tasa de la categoría) y 3 líneas de contexto (época, zona, historial). '
+                    'Desde la migración 36 traen también fiabilidad (valor, fuentes con su tipo), impacto (nivel, motivo) y, si ya '
+                    'la ajustaste, ya_ajustada (solo faltan las razones). '
                     'Quedan reservadas 30 minutos: ciérralas con guardar_probabilidades.',
      'inputSchema': {'type': 'object', 'properties': {'limite': {'type': 'integer', 'minimum': 1, 'maximum': 10, 'default': 10}}},
      'fn': 'probabilidades_por_ajustar', 'args': lambda a: {'p_limite': a.get('limite', 10)}},
     {'name': 'guardar_probabilidades',
-     'description': 'Guarda en lote la probabilidad de ocurrencia ajustada y su razón (una frase). La base la acota a ±0,20 '
+     'description': 'Guarda en lote la probabilidad de ocurrencia ajustada y el porqué, en texto, de la probabilidad, la '
+                    'fiabilidad y el impacto (lo que va tras «porque», sin fórmula ni número). La base la acota a ±0,20 '
                     'de su cálculo y a 0,05-0,95, y devuelve las guardadas y los errores.',
      'inputSchema': {'type': 'object', 'properties': {
          'resultados': {'type': 'array', 'items': {'type': 'object', 'properties': {
              'codigo': {'type': 'string', 'description': 'SEN-xxxx'},
              'prob': {'type': 'number', 'minimum': 0, 'maximum': 1},
-             'razon': {'type': 'string', 'description': 'Una frase, máx. 160 caracteres'}},
-             'required': ['codigo', 'prob', 'razon']}}},
+             'razon': {'type': 'string', 'description': 'Por qué esa probabilidad: lo que va tras «porque», máx. 160 caracteres'},
+             'razon_fiabilidad': {'type': 'string', 'description': 'Por qué esa fiabilidad: lo que va tras «porque», máx. 160'},
+             'razon_impacto': {'type': 'string', 'description': 'Por qué ese impacto turístico: lo que va tras «porque», máx. 160'}},
+             'required': ['codigo', 'prob', 'razon', 'razon_fiabilidad', 'razon_impacto']}}},
          'required': ['resultados']},
      'fn': 'guardar_probabilidades',
      'args': lambda a: {'p_resultados': a['resultados'],
