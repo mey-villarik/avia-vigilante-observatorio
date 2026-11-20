@@ -5,22 +5,23 @@ import { COLUMNAS, DESTINO, columnaDe, motivoNoPasa, type Columna, type Destino 
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
 import { CertezaTag, NatPill } from '../components/common';
-import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
+import { porqueAvia, porqueFrase, puntuacionesDe } from '../lib/puntuaciones';
 
 /** Probabilidad de que ocurra y por qué (solo señales confirmadas, db/generico/33_probabilidad_senales.sql) */
 function Probabilidad({ s }: { s: Senal }) {
   if (s.estado !== 'confirmada') return null;
-  const p = puntuacionesDe(s).probabilidad;
+  const pun = puntuacionesDe(s);
+  const p = pun.probabilidad;
   if (p.valor == null || !p.origen) return null;
   const pct = Math.round(p.valor * 100);
   return (
-    <span className={`cprob ${p.origen}`} title={EXPLICA.probabilidad}>
+    <span className={`cprob ${p.origen}`} title={porqueAvia('probabilidad', pun)}>
       <span className="cprob-h">
         <b className="mono">{pct} %</b> probable
         <span className="cprob-o">{p.origen === 'avia' ? 'AVIA' : 'cálculo base'}</span>
       </span>
       <span className="cprob-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
-      <span className="cprob-r">{p.justificacion}</span>
+      <span className="cprob-r">{p.avia ? porqueFrase(p.avia) : 'AVIA todavía no ha explicado el porqué.'}</span>
     </span>
   );
 }
