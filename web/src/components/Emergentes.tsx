@@ -1,13 +1,21 @@
-// Alerta emergente: un evento compuesto de prioridad alta que la persona aún no ha visto.
-// No dice «nueva señal»: trae ya la interpretación de AVIA (qué pasa, a quién afecta, qué hacer).
-// También la lista de todos los eventos abiertos, que se abre desde la barra superior.
+// Alerta de evento: en cuanto la base detecta un evento compuesto (o le entran señales nuevas), salta
+// una ventana flotante con alarma sonora. La interpretación de AVIA (qué pasa, a quién afecta, qué hacer)
+// aparece en la misma ventana cuando llega. El evento se queda en la lista de Eventos 24 h desde que se
+// detectó; después sigue guardado en la base pero ya no se muestra aquí (db/generico/34_eventos_dinamicos.sql).
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
-import { alertaPendiente, EVENTOS_MS, TIPO_TXT, useEventos, type EventoCompuesto } from '../services/eventos';
+import { alertaPendiente, EVENTOS_MS, eventosSinVer, TIPO_TXT, useEventos, type EventoCompuesto } from '../services/eventos';
 import { Icon } from './Icon';
 
 const TZ = 'America/La_Paz';
 const dia = (iso: string) => new Date(iso).toLocaleString('es-BO', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+/** «hace 5 min», «hace 3 h» */
+function hace(iso?: string): string {
+  if (!iso) return '';
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  return min < 1 ? 'ahora mismo' : min < 60 ? `hace ${min} min` : `hace ${Math.round(min / 60)} h`;
+}
 
 function ventana(e: EventoCompuesto): string {
   const ini = Date.parse(e.ventana_inicio);
@@ -15,7 +23,7 @@ function ventana(e: EventoCompuesto): string {
   return `${desde} · hasta ${dia(e.ventana_fin)}`;
 }
 
-/** Pide los eventos cada minuto mientras hay sesión de analista o administrador */
+/** Pide los eventos cada 30 s mientras hay sesión de analista o administrador, y al volver a la pestaña */
 export function useEventosEmergentes() {
   const perfil = useStore((s) => s.perfil);
   const staff = perfil != null && perfil.rol !== 'visor';
@@ -23,7 +31,9 @@ export function useEventosEmergentes() {
     if (!staff) { useEventos.setState({ eventos: [] }); return; }
     void useEventos.getState().cargar();
     const t = setInterval(() => void useEventos.getState().cargar(), EVENTOS_MS);
-    return () => clearInterval(t);
+    const vis = () => { if (document.visibilityState === 'visible') void useEventos.getState().cargar(); };
+    document.addEventListener('visibilitychange', vis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis); };
   }, [staff]);
 }
 
@@ -119,14 +129,17 @@ export function AlertaEmergente() {
   if (!e) return null;
   const quedan = eventos.filter((x) => x.alerta && !x.visto).length - 1;
   const verSenal = (codigo: string) => { void marcarVisto(e.codigo); openDrawer({ kind: 'senal', id: codigo }); };
+  const verEnLista = () => { void marcarVisto(e.codigo); useEventos.getState().setListaAbierta(true, e.codigo); };
+  // «nuevo» llega con el 34; sin él, la versión dice si es una actualización
+  const nuevo = e.nuevo ?? e.version === 1;
   return (
     <>
       <div className="scrim evc-scrim" />
-      <div className="evc-modal" role="alertdialog" aria-modal="true" aria-labelledby="evc-t" aria-describedby="evc-d"
+      <div className="evc-modal cam-modal" role="alertdialog" aria-modal="true" aria-labelledby="evc-t" aria-describedby="evc-d"
         onKeyDown={(ev) => { if (ev.key === 'Escape') void marcarVisto(e.codigo); }}>
         <div className={`evc-h t-${e.tipo}`}>
           <Icon name="riesgo" />
-          <span>Alerta emergente · {e.codigo}{e.version > 1 ? ` · actualizada (v${e.version})` : ''}</span>
+          <span>{nuevo ? 'Evento nuevo detectado' : `Evento actualizado (v${e.version}): entraron señales nuevas`} · {e.codigo} · {hace(e.version_en ?? e.detectado)}</span>
           {quedan > 0 && <span className="evc-mas">+{quedan} más</span>}
         </div>
         <div className="evc-b">
@@ -135,6 +148,7 @@ export function AlertaEmergente() {
         </div>
         <div className="evc-f">
           <Descartar codigo={e.codigo} onHecho={() => undefined} />
+          <button className="btn ghost" onClick={verEnLista}>Ver en Eventos</button>
           <button ref={boton} className="btn primary" onClick={() => void marcarVisto(e.codigo)}><Icon name="check" /> Entendido</button>
         </div>
       </div>
@@ -142,18 +156,20 @@ export function AlertaEmergente() {
   );
 }
 
-/** Lista de eventos abiertos (botón «Eventos» de la barra superior) */
+/** Lista de eventos de las últimas 24 h (botón «Eventos» de la barra superior) */
 export function ListaEventos() {
   const abierta = useEventos((s) => s.listaAbierta);
+  const sel = useEventos((s) => s.listaSel);
   const eventos = useEventos((s) => s.eventos);
   const sonido = useEventos((s) => s.sonido);
   const error = useEventos((s) => s.error);
-  const { setListaAbierta, setSonido } = useEventos.getState();
+  const { setListaAbierta, setSonido, marcarVisto } = useEventos.getState();
+  const setSel = (codigo: string | null) => useEventos.setState({ listaSel: codigo });
   const openDrawer = useStore((s) => s.openDrawer);
-  const [sel, setSel] = useState<string | null>(null);
   if (!abierta) return null;
-  const cerrar = () => { setListaAbierta(false); setSel(null); };
+  const cerrar = () => setListaAbierta(false);
   const actual = eventos.find((e) => e.codigo === sel) ?? null;
+  const pendientes = eventosSinVer(eventos);
   return (
     <>
       <div className="scrim" onClick={cerrar} />
@@ -164,9 +180,13 @@ export function ListaEventos() {
           <button className="icon-btn" aria-label="Cerrar" onClick={cerrar}><Icon name="close" /></button>
         </div>
         <div className="evc-b">
-          <label className="evc-sonido"><input type="checkbox" checked={sonido} onChange={(e) => setSonido(e.target.checked)} /> Sonido al llegar una alerta</label>
+          <div className="cam-barra">
+            <label className="evc-sonido"><input type="checkbox" checked={sonido} onChange={(e) => setSonido(e.target.checked)} /> Alarma sonora al detectar un evento</label>
+            {pendientes > 0 && <button className="btn ghost" onClick={() => void marcarVisto(null)}><Icon name="check" /> Marcar todo como visto</button>}
+          </div>
           {error && <p className="evc-error" role="alert">{error}</p>}
-          {eventos.length === 0 && <p className="muted">No hay eventos abiertos. Aparecen cuando dos o más señales activas coinciden en el mismo departamento y en las mismas fechas.</p>}
+          {eventos.length === 0 && <p className="muted">No hay eventos de las últimas 24 horas. Aparecen cuando dos o más señales activas coinciden en el mismo departamento y en las mismas fechas, y saltan con alarma en cuanto se detectan.</p>}
+          {eventos.length > 0 && !actual && <p className="muted small">Cada evento se ve aquí 24 horas desde que se detecta (o desde que le entran señales nuevas). Después queda guardado y AVIA lo sigue teniendo en cuenta.</p>}
           {actual ? (
             <>
               <button className="linklike" onClick={() => setSel(null)}>← Todos los eventos</button>
@@ -177,11 +197,11 @@ export function ListaEventos() {
           ) : (
             <ul className="evc-lista">
               {eventos.map((e) => (
-                <li key={e.codigo}>
-                  <button onClick={() => setSel(e.codigo)}>
+                <li key={e.codigo} className={e.visto ? '' : 'cam-nuevo'}>
+                  <button onClick={() => { setSel(e.codigo); if (!e.visto) void marcarVisto(e.codigo); }}>
                     <span className={`tag p-${e.prioridad}`}>{e.prioridad}</span>
-                    <span className="evc-lt"><b>{e.titular ?? `${TIPO_TXT[e.tipo]} en ${e.territorio}`}</b>
-                      <small>{e.codigo} · {TIPO_TXT[e.tipo]} · {e.senales.length} señales · {ventana(e)}{e.esperando_hermes ? ' · AVIA interpretando' : ''}</small></span>
+                    <span className="evc-lt"><b>{!e.visto && <span className="cam-punto" aria-label="sin ver" />}{e.titular ?? `${TIPO_TXT[e.tipo]} en ${e.territorio}`}</b>
+                      <small>{e.codigo} · {TIPO_TXT[e.tipo]} · {e.senales.length} señales · detectado {hace(e.version_en ?? e.detectado)}{e.version > 1 ? ` (v${e.version})` : ''} · {ventana(e)}{e.esperando_hermes ? ' · AVIA interpretando' : ''}</small></span>
                   </button>
                 </li>
               ))}

@@ -58,6 +58,8 @@ La base solo comprueba que la respuesta está completa y la recorta. Lo que no e
 
 ## Qué ve el panel (paso 4)
 
+> **Con el 34 (eventos dinámicos) esto cambia**: avisan todos los eventos al momento, con alarma activada, y la lista enseña los de las últimas 24 h. Ver `docs/eventos-dinamicos.md`.
+
 - **Botón «Eventos N»** en la barra superior: rojo si hay alguno de prioridad alta. Abre la lista de eventos abiertos con su ficha.
 - **Ventana de alerta**: sale sola para cada evento de prioridad **alta** que la persona aún no ha visto. Aparece cuando Hermes ya lo interpretó, o pasados 20 minutos sin interpretación (`eventos_espera_hermes_min`), en cuyo caso muestra las señales y avisa de que AVIA aún no lo ha interpretado.
   - **Entendido** la marca como vista para esa persona.

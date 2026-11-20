@@ -1,6 +1,8 @@
 // Alertas emergentes: eventos compuestos (db/generico/28_eventos_compuestos.sql).
 // La base detecta que 2 o más señales coinciden en territorio y fechas; Hermes (AVIA) escribe qué
-// significan, a quién afectan y qué hacer. Aquí se piden cada minuto y se guarda quién ya los vio.
+// significan, a quién afectan y qué hacer. Aquí se piden cada 30 segundos y se guarda quién ya los vio.
+// Desde el 34 (eventos dinámicos) cada evento nuevo salta con alarma al momento, sin esperar a AVIA,
+// y se ve 24 h en la ventana de Eventos; después sigue guardado en la base.
 // Solo analistas y administradores: la base devuelve [] a un visor.
 import { create } from 'zustand';
 import { supabase, traducir } from './auth';
@@ -33,11 +35,16 @@ export interface EventoCompuesto {
   version: number; titular: string | null; interpretacion: Interpretacion | null;
   interpretado_en: string | null; detectado: string; actualizado: string;
   senales: SenalEvento[];
-  /** prioridad alta y (interpretado, o Hermes tarda más de lo previsto) */
+  /** sale como ventana con alarma (34: todos al momento; 28: solo prioridad alta e interpretados) */
   alerta: boolean;
   esperando_hermes: boolean;
   /** esta persona ya pulsó «Entendido» en esta versión */
   visto: boolean;
+  /** 34: esta persona no lo ha visto en ninguna versión (si no, es una actualización) */
+  nuevo?: boolean;
+  /** 34: cuándo se detectó o entraron señales nuevas, y cuándo deja de mostrarse en el panel */
+  version_en?: string;
+  oculta_en?: string;
 }
 
 export const TIPO_TXT: Record<TipoEvento, string> = {
@@ -46,8 +53,8 @@ export const TIPO_TXT: Record<TipoEvento, string> = {
   confluencia: 'Confluencia riesgo + oportunidad',
 };
 
-/** cada cuánto se piden los eventos */
-export const EVENTOS_MS = 60 * 1000;
+/** cada cuánto se piden los eventos (como los cambios: tienen que verse rápido) */
+export const EVENTOS_MS = 30 * 1000;
 
 const rpc = (fn: string, args?: Record<string, unknown>) => {
   if (!supabase) throw new Error('El acceso no está configurado.');
@@ -57,26 +64,30 @@ const rpc = (fn: string, args?: Record<string, unknown>) => {
 const noInstalado = (m: string) => /eventos_emergentes|marcar_evento_visto|descartar_evento/.test(m)
   && /(not find|no existe|does not exist|schema cache)/i.test(m);
 
+// La alarma de eventos viene ACTIVADA (como la de cambios); se puede apagar en la lista de Eventos.
 const SONIDO_KEY = 'orbita.eventos.sonido';
 function leerSonido(): boolean {
-  try { return localStorage.getItem(SONIDO_KEY) === '1'; } catch { return false; }
+  try { return localStorage.getItem(SONIDO_KEY) !== '0'; } catch { return true; }
 }
 
-/** Un aviso corto de dos tonos (sin archivos de audio). Si el navegador lo bloquea, no pasa nada. */
+/** Alarma de evento: tono alto-bajo tres veces, como una sirena corta (distinta de la de cambios, que sube).
+ *  Sin archivos de audio. Si el navegador la bloquea (aún no se ha tocado la página), no pasa nada. */
 export function sonarAviso(): void {
   try {
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
-    [[880, 0], [660, 0.18]].forEach(([f, t]) => {
+    void ctx.resume?.();
+    const tonos: [number, number][] = [[988, 0], [740, 0.2], [988, 0.4], [740, 0.6], [988, 0.8], [740, 1.0]];
+    tonos.forEach(([f, t]) => {
       const o = ctx.createOscillator(); const g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
+      o.type = 'square'; o.frequency.value = f;
       g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
-      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.16);
-      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.18);
+      g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.18);
+      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.19);
     });
-    setTimeout(() => void ctx.close(), 600);
+    setTimeout(() => void ctx.close(), 1500);
   } catch { /* sin sonido */ }
 }
 
@@ -85,13 +96,17 @@ interface EventosState {
   /** false si la base aún no tiene el 28 */
   disponible: boolean;
   error: string | null;
-  /** lista abierta desde la barra superior */
+  /** lista abierta desde la barra superior, y el evento elegido en ella */
   listaAbierta: boolean;
+  listaSel: string | null;
   sonido: boolean;
+  /** ya se pidió una vez (para que al entrar suene si hay eventos sin ver) */
+  cargadoUnaVez: boolean;
   cargar: () => Promise<void>;
-  marcarVisto: (codigo: string) => Promise<void>;
+  /** null = todos los que se ven en el panel */
+  marcarVisto: (codigo: string | null) => Promise<void>;
   descartar: (codigo: string, motivo: string) => Promise<void>;
-  setListaAbierta: (v: boolean) => void;
+  setListaAbierta: (v: boolean, codigo?: string | null) => void;
   setSonido: (v: boolean) => void;
 }
 
@@ -100,7 +115,9 @@ export const useEventos = create<EventosState>((set, get) => ({
   disponible: true,
   error: null,
   listaAbierta: false,
+  listaSel: null,
   sonido: leerSonido(),
+  cargadoUnaVez: false,
   cargar: async () => {
     if (!supabase || !get().disponible) return;
     let data: unknown; let error: { message: string } | null;
@@ -110,15 +127,16 @@ export const useEventos = create<EventosState>((set, get) => ({
       set({ error: traducir(error.message) });
       return;
     }
-    const antes = new Set(get().eventos.filter((e) => e.alerta && !e.visto).map((e) => e.codigo + ':' + e.version));
-    const eventos = (Array.isArray(data) ? data : []) as EventoCompuesto[];
-    set({ eventos, error: null });
-    // suena solo cuando aparece una alerta nueva (no en cada consulta)
-    if (get().sonido && eventos.some((e) => e.alerta && !e.visto && !antes.has(e.codigo + ':' + e.version))) sonarAviso();
+    const antes = new Set(get().eventos.filter((e) => e.alerta).map((e) => e.codigo + ':' + e.version));
+    const primera = !get().cargadoUnaVez;
+    const eventos = visibles((Array.isArray(data) ? data : []) as EventoCompuesto[]);
+    set({ eventos, error: null, cargadoUnaVez: true });
+    // suena cuando se detecta un evento nuevo (o le entran señales nuevas), y al entrar si hay alguno sin ver
+    if (get().sonido && eventos.some((e) => e.alerta && !e.visto && (primera || !antes.has(e.codigo + ':' + e.version)))) sonarAviso();
   },
   marcarVisto: async (codigo) => {
     // se oculta al momento; si la base falla, vuelve a salir en la siguiente consulta
-    set({ eventos: get().eventos.map((e) => (e.codigo === codigo ? { ...e, visto: true } : e)) });
+    set({ eventos: get().eventos.map((e) => (codigo === null || e.codigo === codigo ? { ...e, visto: true } : e)) });
     try {
       const { error } = await rpc('marcar_evento_visto', { p_codigo: codigo });
       if (error) set({ error: traducir(error.message) });
@@ -129,7 +147,7 @@ export const useEventos = create<EventosState>((set, get) => ({
     if (error) throw new Error(traducir(error.message));
     set({ eventos: get().eventos.filter((e) => e.codigo !== codigo) });
   },
-  setListaAbierta: (v) => set({ listaAbierta: v }),
+  setListaAbierta: (v, codigo = null) => set({ listaAbierta: v, listaSel: v ? codigo : null }),
   setSonido: (v) => {
     try { localStorage.setItem(SONIDO_KEY, v ? '1' : '0'); } catch { /* solo en esta sesión */ }
     set({ sonido: v });
@@ -137,5 +155,9 @@ export const useEventos = create<EventosState>((set, get) => ({
   },
 }));
 
-/** La primera alerta sin ver (la de más puntaje: la base ya las ordena) */
-export const alertaPendiente = (ev: EventoCompuesto[]) => ev.find((e) => e.alerta && !e.visto) ?? null;
+/** Fuera los que ya pasaron sus 24 h en el panel (la base ya los quita; esto cubre el rato entre consultas) */
+const visibles = (ev: EventoCompuesto[]) => ev.filter((e) => !e.oculta_en || Date.parse(e.oculta_en) > Date.now());
+
+/** La alerta sin ver más antigua primero: se leen en el orden en que se detectaron (la base da la más reciente primero) */
+export const alertaPendiente = (ev: EventoCompuesto[]) => [...ev].reverse().find((e) => e.alerta && !e.visto) ?? null;
+export const eventosSinVer = (ev: EventoCompuesto[]) => ev.filter((e) => !e.visto).length;
