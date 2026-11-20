@@ -21,7 +21,7 @@ function Probabilidad({ s }: { s: Senal }) {
         <span className="cprob-o">{p.origen === 'avia' ? 'AVIA' : 'cálculo base'}</span>
       </span>
       <span className="cprob-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
-      <span className="cprob-r">{p.avia ? porqueFrase(p.avia) : p.justificacion}</span>
+      <span className="cprob-r">{p.avia ? porqueFrase(p.avia) : 'AVIA todavía no ha explicado el porqué.'}</span>
     </span>
   );
 }

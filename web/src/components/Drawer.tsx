@@ -373,17 +373,19 @@ function Puntos({ s }: { s: Parameters<typeof puntuacionesDe>[0] }) {
           <b className="mono">{p.fiabilidad.valor}/100 · {p.fiabilidad.nivel}</b>
           {p.fiabilidad.avia
             ? <p className="avia-porque">{porqueAvia('fiabilidad', p)}</p>
-            : <ul>{p.fiabilidad.motivos.map((m) => <li key={m}>{m}</li>)}</ul>}
+            : <p>AVIA todavía no ha explicado el porqué.</p>}
         </div>
         <div className={`punto ${p.probabilidad.valor == null ? 'n-sin' : 'n-' + p.probabilidad.nivel}`} title={porqueAvia('probabilidad', p)}>
           <small>{p.probabilidad.origen ? 'Probabilidad de que ocurra' : 'Probabilidad'}</small>
           <b className="mono">{prob}</b>
-          {p.probabilidad.avia ? <p className="avia-porque">{porqueAvia('probabilidad', p)}</p> : <p>{p.probabilidad.justificacion}</p>}
+          {p.probabilidad.avia
+            ? <p className="avia-porque">{porqueAvia('probabilidad', p)}</p>
+            : <p>{p.probabilidad.origen ? 'AVIA todavía no ha explicado el porqué.' : p.probabilidad.justificacion}</p>}
           {p.probabilidad.origen && (
             <p className="note" style={{ margin: '4px 0 0' }}>
               {p.probabilidad.origen === 'avia'
                 ? `Ajustada por AVIA${p.probabilidad.base != null ? ` (la base calculó ${Math.round(p.probabilidad.base * 100)} %)` : ''}.`
-                : 'Cálculo de la base; AVIA la está ajustando.'}
+                : 'Número provisional de la base, a la espera de AVIA.'}
             </p>
           )}
         </div>
