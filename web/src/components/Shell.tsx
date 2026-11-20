@@ -170,12 +170,17 @@ function BotonEventos() {
   const disponible = useEventos((s) => s.disponible);
   const perfil = useStore((s) => s.perfil);
   if (!perfil || perfil.rol === 'visor' || !disponible) return null;
-  const altas = eventos.filter((e) => e.prioridad === 'alta').length;
+  // se queda encendido (y parpadea) mientras haya eventos sin ver, como «Cambios»
+  const pendientes = eventos.filter((e) => !e.visto);
+  const altas = pendientes.some((e) => e.prioridad === 'alta');
   return (
-    <button className={`pill ${altas ? 'st-CRIT' : eventos.length ? 'st-WARN' : 'st-UNKNOWN'}`}
-      title="Eventos: dos o más señales que coinciden en el mismo departamento y fechas"
+    <button className={`pill cam-pill ${pendientes.length ? (altas ? 'st-CRIT cam-vivo' : 'st-WARN cam-vivo') : 'st-UNKNOWN'}`}
+      title={pendientes.length
+        ? `${pendientes.length} ${pendientes.length === 1 ? 'evento nuevo' : 'eventos nuevos'} sin ver (de ${eventos.length} en las últimas 24 h)`
+        : 'Eventos de las últimas 24 h: dos o más señales que coinciden en el mismo departamento y fechas'}
+      aria-label={pendientes.length ? `Eventos: ${pendientes.length} sin ver de ${eventos.length}` : `Eventos: ${eventos.length}`}
       onClick={() => useEventos.getState().setListaAbierta(true)}>
-      <span className="d" /><span>Eventos {eventos.length}</span>
+      <span className="d" /><span>Eventos {pendientes.length ? `${pendientes.length} nuevo${pendientes.length === 1 ? '' : 's'}` : eventos.length}</span>
     </button>
   );
 }

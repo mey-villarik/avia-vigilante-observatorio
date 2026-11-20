@@ -187,7 +187,10 @@ BEGIN
   END IF;
   v := vigilante.eventos_emergentes();
   IF (v -> 0 ->> 'visto')::boolean THEN RAISE EXCEPTION 'La versión 2 debía volver a avisar'; END IF;
-  IF (v -> 0 ->> 'alerta')::boolean THEN RAISE EXCEPTION 'Sin interpretar y recién cambiado no debía ser alerta todavía'; END IF;
+  -- con el 34 (espera 0) la alarma sale al momento; con el 28 solo (espera 20) todavía no
+  IF (v -> 0 ->> 'alerta')::boolean <> (vigilante._entero(vigilante.param((SELECT c FROM ids), 'eventos_espera_hermes_min'), 20) = 0) THEN
+    RAISE EXCEPTION 'Alerta de la versión 2 no cuadra con eventos_espera_hermes_min: %', v -> 0 ->> 'alerta';
+  END IF;
   -- Santa Cruz descartado con las mismas señales: no vuelve
   IF (SELECT estado FROM vigilante.eventos_compuestos WHERE cliente_id = (SELECT c FROM ids) AND territorio_nombre = 'Santa Cruz') <> 'descartado' THEN
     RAISE EXCEPTION 'Santa Cruz descartado no debía reabrirse sin señales nuevas';

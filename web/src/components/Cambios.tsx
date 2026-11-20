@@ -3,7 +3,7 @@
 // persona la mira. La interpretación de AVIA llega después; la ventana no la espera.
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
-import { useEventos, alertaPendiente } from '../services/eventos';
+import { useEventos, alertaPendiente, eventosSinVer } from '../services/eventos';
 import { CAMBIOS_MS, cambioPendiente, sinVer, TIPO_CAMBIO_TXT, useCambios, type Cambio } from '../services/cambios';
 import { Icon } from './Icon';
 
@@ -19,6 +19,7 @@ export function useCambiosNoticias() {
   const perfil = useStore((s) => s.perfil);
   const staff = perfil != null && perfil.rol !== 'visor';
   const pendientes = useCambios((s) => sinVer(s.cambios));
+  const eventos = useEventos((s) => eventosSinVer(s.eventos));
   useEffect(() => {
     if (!staff) { useCambios.setState({ cambios: [] }); return; }
     void useCambios.getState().cargar();
@@ -28,11 +29,13 @@ export function useCambiosNoticias() {
     document.addEventListener('visibilitychange', vis);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis); };
   }, [staff]);
-  // la pestaña del navegador también avisa: «(2) Cambios · ORBITA»
+  // la pestaña del navegador también avisa: «(2) Cambios · ORBITA», «(1) Evento · ORBITA», «(3) Avisos · ORBITA»
   useEffect(() => {
-    const base = document.title.replace(/^\(\d+\) Cambios? · /, '');
-    document.title = pendientes > 0 ? `(${pendientes}) ${pendientes === 1 ? 'Cambio' : 'Cambios'} · ${base}` : base;
-  }, [pendientes]);
+    const base = document.title.replace(/^\(\d+\) (Cambios?|Eventos?|Avisos) · /, '');
+    const n = pendientes + eventos;
+    const que = pendientes && eventos ? 'Avisos' : pendientes ? (n === 1 ? 'Cambio' : 'Cambios') : (n === 1 ? 'Evento' : 'Eventos');
+    document.title = n > 0 ? `(${n}) ${que} · ${base}` : base;
+  }, [pendientes, eventos]);
 }
 
 function AntesAhora({ c }: { c: Cambio }) {
