@@ -4,7 +4,7 @@ Preparado el 2026-11-01.
 
 | Archivo | Para qué |
 | --- | --- |
-| `fuentes.yaml` | Catálogo de 7 fuentes en 6 canales: URL, acceso, frecuencia, qué buscar, palabras clave, severidad, aprobación, verificación y ejemplos. |
+| `fuentes.yaml` | Catálogo de 9 fuentes (3 internacionales con `internacional: true`): URL, acceso, frecuencia, qué buscar, palabras clave, severidad, aprobación, verificación y ejemplos. |
 | `skills/vigilancia-fuentes-bolivia/SKILL.md` | Skill 3.0 para Hermes Agent: agente investigador (tareas, oportunidades inferidas, radar). Ya no lee fuentes ni clasifica. |
 | `recolector/recolector.py` | Lee las fuentes sin IA y guarda lo nuevo en Supabase (cron del VPS). Ver `docs/recolector-mcp.md`. |
 | `mcp-vigilante/servidor.py` | MCP propio 2.0: las herramientas de AVIA (Hermes) sobre Supabase. |

@@ -181,6 +181,7 @@ fuentes:
 
   - id: ops_alertas
     canal: salud
+    internacional: true          # 2026-11-20 (SQL 37): fuente de fuera; el analizador evalúa el impacto en Bolivia
     nombre: OPS/OMS · alertas y actualizaciones epidemiológicas
     institucion: Organización Panamericana de la Salud
     tipo: organismo_internacional
@@ -447,3 +448,70 @@ fuentes:
     verificacion_fidelidad:
       - "Confirmar cierres con la aerolínea o el aeropuerto; las rutas nuevas, con la aerolínea."
     ejemplos: []   # completar cuando se active en semana 3
+
+  # ─────────────── FUENTES INTERNACIONALES (2026-11-20, SQL 37) ───────────────
+  # Apartado separado: lo que pasa fuera solo cuenta si llega a Bolivia. El analizador
+  # (prompt clasificador-1.8) decide para cada noticia impacto_bolivia = {hay_impacto, ambitos,
+  # via, nivel, plazo, refuerza}; sin impacto se descarta. Con impacto, la señal se ve en la
+  # vista «Internacional» y da contexto a las señales nacionales que refuerza.
+  # La tercera internacional es ops_alertas (arriba, canal salud).
+  - id: cepal_comunicados
+    canal: mercados
+    internacional: true
+    nombre: CEPAL · comunicados sobre la región y Bolivia
+    institucion: Comisión Económica para América Latina y el Caribe (CEPAL)
+    tipo: organismo_internacional
+    url: https://www.cepal.org/es/listado/cepal_pr
+    url_verificacion: encontrada_no_abierta   # ⚠️ listado de comunicados en cepal.org; comprobar desde el VPS
+    acceso:
+      metodo: http_html
+      timeout_s: 40
+      reintentos: 1
+      urls_alternativas: [https://www.cepal.org/es/comunicados]
+      respaldo: {metodo: google_news_rss, query: 'CEPAL (Bolivia OR "América del Sur" OR "América Latina") (crecimiento OR turismo OR inversión OR comercio OR proyecciones)'}
+    frecuencia_minutos: 720
+    que_buscar:
+      - proyecciones de crecimiento, inflación y comercio de Bolivia y de los países vecinos
+      - inversión extranjera, cooperación y financiamiento para la región
+      - informes de turismo en América Latina y el Caribe
+    palabras_clave: [Bolivia, América del Sur, América Latina y el Caribe, andina, turismo, crecimiento, proyecciones, inversión extranjera, comercio, exportaciones, litio, inflación, remesas, cooperación, financiamiento]
+    categoria: mercados
+    naturaleza_por_defecto: mixta
+    impacto_bolivia:
+      ambitos: [economia, turismo]
+      alto: "Cifra o medida que cambia ya la demanda turística o la inversión en Bolivia"
+      medio: "Proyección para Bolivia o la región con efecto en semanas"
+      bajo: "Contexto regional general"
+    requiere_aprobacion: false
+    verificacion_fidelidad:
+      - "Copiar cifras y fechas de corte tal cual; las proyecciones son escenario (es_escenario = true)."
+
+  - id: prensa_internacional
+    canal: prensa
+    internacional: true
+    nombre: Prensa internacional · BBC Mundo, Reuters y AP sobre Bolivia
+    institucion: BBC Mundo / Reuters / AP (vía Google News)
+    tipo: medio
+    url: "https://news.google.com/rss/search?q=(Bolivia OR boliviano OR \"región andina\" OR Titicaca OR Uyuni) (site:bbc.com OR site:reuters.com OR site:apnews.com) when:1d"
+    url_verificacion: no_verificada   # Google News acepta site:; Reuters y AP pueden llegar en inglés (el clasificador escribe en español)
+    acceso:
+      metodo: google_news_rss
+      query: '(Bolivia OR boliviano OR "región andina" OR Titicaca OR Uyuni) (site:bbc.com OR site:reuters.com OR site:apnews.com)'
+      hl: es-419
+      gl: BO
+    frecuencia_minutos: 60
+    que_buscar:
+      - clima extremo en los Andes (El Niño, La Niña, lluvias, sequía, incendios)
+      - política, conflictos y seguridad en Bolivia contados desde fuera (imagen del destino)
+      - economía y conectividad (vuelos, fronteras) de Bolivia y sus vecinos
+    palabras_clave: [Bolivia, boliviano, boliviana, andina, Andes, Titicaca, Uyuni, Perú, Chile, Argentina, Brasil, Paraguay, El Niño, La Niña]
+    categoria: seguridad
+    naturaleza_por_defecto: riesgo
+    impacto_bolivia:
+      ambitos: [turismo, clima, economia, infraestructura, salud]
+      alto: "Afecta ya a visitantes en Bolivia o a la imagen del destino en los mercados emisores"
+      medio: "Efecto probable en semanas"
+      bajo: "Contexto"
+    requiere_aprobacion: true   # fuente no oficial: corroborar con fuente boliviana antes de publicar
+    verificacion_fidelidad:
+      - "Un medio internacional no es fuente oficial: lo que afirme de Bolivia se corrobora con la fuente boliviana."

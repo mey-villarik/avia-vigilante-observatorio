@@ -97,6 +97,7 @@ export const VIEWS: [VistaId, string, string][] = [
   ['fuentes', 'Fuentes', 'fuentes'],
   ['senales', 'Señales', 'senales'],
   ['oportunidades', 'Oportunidades', 'oportunidades'],
+  ['internacional', 'Internacional', 'globo'],
   ['analisis', 'Análisis', 'analisis'],
   ['bitacora', 'Bitácora', 'bitacora'],
 ];

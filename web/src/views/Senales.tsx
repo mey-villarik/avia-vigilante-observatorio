@@ -4,7 +4,7 @@ import { CATS, DEPS } from '../data/demo';
 import { COLUMNAS, DESTINO, columnaDe, motivoNoPasa, type Columna, type Destino } from '../services/senales';
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
-import { CertezaTag, NatPill } from '../components/common';
+import { CertezaTag, IntlTag, NatPill } from '../components/common';
 import { porqueAvia, porqueFrase, puntuacionesDe } from '../lib/puntuaciones';
 
 /** Probabilidad de que ocurra y por qué (solo señales confirmadas, db/generico/33_probabilidad_senales.sql) */
@@ -34,7 +34,7 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       onDragEnd={onDragEnd}
       onClick={() => openDrawer({ kind: 'senal', id: s.id })}>
       <span className="cm">
-        <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span>
+        <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span><IntlTag codigo={s.id} />
         {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
         {s.revisionVencida && <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>}
         {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}
