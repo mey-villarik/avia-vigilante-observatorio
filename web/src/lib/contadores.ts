@@ -44,8 +44,11 @@ export interface Contadores {
   descartadas: number;
   /** noticias recogidas en las últimas 24 h */
   noticias_24h: number;
-  /** fuentes que AVIA vigila / en pausa o propuestas (desde el 39; la web cuenta las suyas con resumenFuentes) */
+  /** fuentes que AVIA vigila / en pausa o propuestas (desde el 39; la web cuenta las suyas con cifrasFuentes) */
   fuentes_activas?: number;
+  /** activas leídas (OK o AVISO) / sin leer (CRÍTICO o DESCONOCIDO), desde el 41; mismas reglas que cifrasFuentes() */
+  fuentes_leidas?: number;
+  fuentes_sin_leer?: number;
   fuentes_en_pausa?: number;
 }
 
@@ -119,16 +122,32 @@ export function textoSinVerificar(k: Contadores): string {
   return n ? `${n} ${n === 1 ? 'confirmada' : 'confirmadas'} sin verificar (una sola fuente)` : '';
 }
 
-/** Fuentes que AVIA vigila y en pausa (o propuestas sin aprobar): las mismas en todo el panel */
-export function resumenFuentes(fuentes: { estado: string }[]): { activas: number; enPausa: number; total: number } {
-  const enPausa = fuentes.filter((f) => f.estado === 'MANT').length;
-  return { activas: fuentes.length - enPausa, enPausa, total: fuentes.length };
+/** Una fuente activa está «leída» si en su última comprobación AVIA obtuvo respuesta (OK o AVISO).
+ *  Es la misma regla que la base (ultimo_exito_en con OK o WARN) y que vigilante.contadores() desde el 41. */
+export const fuenteLeida = (f: { estado: string }): boolean => f.estado === 'OK' || f.estado === 'WARN';
+
+export interface CifrasFuentes {
+  /** fuentes activas: las que AVIA vigila (sin las en pausa ni las propuestas sin aprobar) */
+  total: number;
+  /** activas que AVIA leyó en su última comprobación (OK o AVISO) */
+  leidas: number;
+  /** activas que AVIA no pudo leer (CRÍTICO) o que aún no ha leído (DESCONOCIDO); total = leídas + sin leer */
+  sinLeer: number;
+  /** en pausa o propuestas: no cuentan en total */
+  enPausa: number;
 }
 
-/** «33 fuentes activas · 6 en pausa» */
-export function textoFuentes(fuentes: { estado: string }[]): string {
-  const r = resumenFuentes(fuentes);
-  return `${r.activas} ${r.activas === 1 ? 'fuente activa' : 'fuentes activas'}${r.enPausa ? ` · ${r.enPausa} en pausa` : ''}`;
+/** LA cifra de fuentes del panel: encabezado, Pulso, pestaña Fuentes, Panorama y aviso de carga salen de aquí */
+export function cifrasFuentes(fuentes: { estado: string }[]): CifrasFuentes {
+  const activas = fuentes.filter((f) => f.estado !== 'MANT');
+  const leidas = activas.filter(fuenteLeida).length;
+  return { total: activas.length, leidas, sinLeer: activas.length - leidas, enPausa: fuentes.length - activas.length };
+}
+
+/** «28 de 33 fuentes leídas · 5 sin leer» (+ «· 6 en pausa» si se pide) */
+export function textoFuentes(fuentes: { estado: string }[], conPausa = true): string {
+  const r = cifrasFuentes(fuentes);
+  return `${r.leidas} de ${r.total} ${r.total === 1 ? 'fuente leída' : 'fuentes leídas'} · ${r.sinLeer} sin leer${conPausa && r.enPausa ? ` · ${r.enPausa} en pausa` : ''}`;
 }
 
 /** «14:05» en hora de Bolivia */

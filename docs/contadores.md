@@ -89,3 +89,21 @@ Regla única, en la base (`vigilante.respaldo_senal`, `db/generico/40_verificada
 3. Prueba opcional: `99_prueba_contadores.sql` (termina en ROLLBACK).
 4. VPS: copiar `hermes/avia-api/avia_api.py` a `/root/avia/avia_api.py` y `systemctl restart avia-api`; copiar `hermes/mcp-vigilante/servidor.py` donde lo use Hermes.
 5. Web: `web/desplegar.sh`.
+
+## Una sola cifra de fuentes (41)
+
+Meysel vio tres cifras de fuentes distintas: el encabezado daba una pastilla por estado (con las en pausa), el Pulso decía «leyendo bien X de Y» contando solo las OK, y la pestaña Fuentes mostraba un «Total» con las en pausa.
+
+Ahora las tres (y Panorama, el aviso de carga, el contador del menú y AVIA) dicen lo mismo: **«28 de 33 leídas · 5 sin leer»**.
+
+| Cifra | Qué cuenta |
+| --- | --- |
+| Activas | fuentes que AVIA vigila (sin las en pausa ni las propuestas sin aprobar) |
+| Leídas | activas cuya última comprobación dio OK o AVISO (AVIA obtuvo respuesta; la misma regla con la que la base pone `ultimo_exito_en`) |
+| Sin leer | activas en CRÍTICO (no se pudo leer) o DESCONOCIDO (aún sin comprobar) |
+
+Activas = leídas + sin leer. Las en pausa van aparte y no cuentan.
+
+Dónde vive: `web/src/lib/contadores.ts` → `cifrasFuentes()` (la web cuenta su propia lista, así la tabla de Fuentes cuadra con las cifras), `vigilante.contadores()` → `fuentes_leidas` y `fuentes_sin_leer` (`db/generico/41_cifra_fuentes.sql`), y `_cifras_fuentes` / `_fuentes_txt` en `hermes/avia-api/avia_api.py` (si la base aún no tiene el 41, AVIA cuenta la lista de `vigilante_bd()` con la misma regla). En la pestaña Fuentes, los recuadros Activas / Leídas / Sin leer filtran la tabla; debajo queda el detalle por estado (leídas = OK + Aviso, sin leer = Crítico + Desconocido).
+
+Cualquier contador nuevo de fuentes usa `cifrasFuentes()`; no contar estados sueltos.

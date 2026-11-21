@@ -1,7 +1,8 @@
 // Barra lateral, barra superior y avisos.
-import type { EstadoFuente, Rol } from '../types';
-import { PRESETS, STATE_TXT, VIEWS } from '../data/demo';
-import { activeSignals, countStates, isAdmin, pendingDecision, useStore } from '../store';
+import type { Rol } from '../types';
+import { PRESETS, VIEWS } from '../data/demo';
+import { cifrasFuentes, textoFuentes } from '../lib/contadores';
+import { activeSignals, isAdmin, pendingDecision, useStore } from '../store';
 import { accesoConfigurado, salir } from '../services/auth';
 import { ROLE_NAME } from '../lib/util';
 import { Icon } from './Icon';
@@ -34,9 +35,10 @@ export function Sidebar() {
   const perfil = useStore((s) => s.perfil);
   const { go, applyPreset, setRole, openDrawer } = useStore.getState();
 
-  const c = countStates(fuentes);
+  const cf = cifrasFuentes(fuentes);
   const cnt: Partial<Record<string, [number, boolean]>> = {
-    fuentes: [c.CRIT + c.WARN + fuentes.filter((f) => f.sinLeer).length, c.CRIT > 0],
+    // las mismas «sin leer» que el encabezado, el Pulso y la pestaña Fuentes
+    fuentes: [cf.sinLeer, fuentes.some((f) => f.estado === 'CRIT')],
     senales: [pendingDecision(senales).length, false],
     oportunidades: [activeSignals(senales).filter((s) => s.naturaleza !== 'riesgo' && s.plazo).length, false],
   };
@@ -102,7 +104,6 @@ export function Sidebar() {
   );
 }
 
-const ESTADOS: EstadoFuente[] = ['OK', 'WARN', 'CRIT', 'UNKNOWN', 'MANT'];
 
 export function Topbar() {
   const view = useStore((s) => s.view);
@@ -116,7 +117,7 @@ export function Topbar() {
   const errorDatos = useStore((s) => s.errorDatos);
   const { go, setLive, setSearchOpen, setPrefs, openDrawer, setSideOpen, loadRemote } = useStore.getState();
   const minGen = generado ? (Date.now() - Date.parse(generado)) / 60000 : null;
-  const c = countStates(fuentes);
+  const cf = cifrasFuentes(fuentes);
   const crumb = (VIEWS.find((v) => v[0] === view) ?? VIEWS[0])[1];
 
   return (
@@ -127,9 +128,10 @@ export function Topbar() {
         </button>
         <div className="crumb"><span className="hide-sm">ORBITA</span><span className="hide-sm">/</span><strong>{crumb}</strong></div>
         <div className="top-right">
-          <button className="health" title="Estado de las fuentes vigiladas" onClick={() => go('fuentes')}>
+          <button className="health" title={`Fuentes activas: ${textoFuentes(fuentes)}`} onClick={() => go('fuentes')}>
             <span className="lbl">FUENTES</span>
-            <span>{ESTADOS.filter((k) => c[k]).map((k, i) => <span key={k}>{i > 0 && ' '}<span className={`pill st-${k}`} title={STATE_TXT[k]}>{c[k]}</span></span>)}</span>
+            <span className="pill st-OK" title="Leídas en la última comprobación / fuentes activas">{cf.leidas}/{cf.total}</span>
+            <span className={`pill st-${cf.sinLeer ? (fuentes.some((f) => f.estado === 'CRIT') ? 'CRIT' : 'WARN') : 'OK'}`} title="Fuentes activas sin leer">{cf.sinLeer} sin leer</span>
           </button>
           {origen === 'vps' ? (
             <button className={`pill hide-sm ${errorDatos ? 'st-WARN' : 'st-OK'}`}

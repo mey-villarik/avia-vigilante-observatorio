@@ -4,7 +4,7 @@ import { CATS, STATE_TXT, catName } from '../data/demo';
 import { METODO_TXT } from '../services/fuentes';
 import { conProblema, countStates, isAdmin, useStore } from '../store';
 import { ago, clock, norm } from '../lib/util';
-import { resumenFuentes } from '../lib/contadores';
+import { cifrasFuentes, fuenteLeida } from '../lib/contadores';
 import { Icon } from '../components/Icon';
 import { Histo, StPill } from '../components/common';
 
@@ -92,10 +92,13 @@ export function Fuentes() {
   const propuestas = todasPropuestas.filter((p) => p.estado === 'pendiente');
   const { setSrcFilter, setSrcQ, openDrawer, checkAll, decideProposal } = useStore.getState();
   const c = countStates(fuentes);
+  const cf = cifrasFuentes(fuentes);
 
   const list = srcFilter === 'problemas'
     ? fuentes.filter(conProblema)
-    : fuentes.filter((s) => (srcFilter === 'all' || s.estado === srcFilter)
+    : fuentes.filter((s) => (srcFilter === 'all' || s.estado === srcFilter
+      || (srcFilter === 'leidas' && s.estado !== 'MANT' && fuenteLeida(s))
+      || (srcFilter === 'sinleer' && s.estado !== 'MANT' && !fuenteLeida(s)))
       && (!srcQ || norm(`${s.nombre} ${s.canal} ${s.url}`).includes(norm(srcQ))));
 
   return (
@@ -135,10 +138,21 @@ export function Fuentes() {
           </ul>
         </section>
       )}
-      <div className="nag-summary">
-        <button className={`nag-box st-total ${srcFilter === 'all' && !srcQ ? 'on' : ''}`} onClick={() => { setSrcFilter('all'); setSrcQ(''); }}>
-          <b className="num">{fuentes.length}</b><small>Total · {resumenFuentes(fuentes).activas} activas</small>
+      <div className="nag-summary nag-cifras">
+        {/* la misma cifra que el encabezado y el Pulso: activas = leídas + sin leer (las en pausa aparte) */}
+        <button className={`nag-box st-total ${srcFilter === 'all' && !srcQ ? 'on' : ''}`} onClick={() => { setSrcFilter('all'); setSrcQ(''); }}
+          title={cf.enPausa ? `Más ${cf.enPausa} en pausa o propuestas, que no cuentan` : undefined}>
+          <b className="num">{cf.total}</b><small>Activas{cf.enPausa ? ` · ${cf.enPausa} en pausa` : ''}</small>
         </button>
+        <button className={`nag-box st-OK ${srcFilter === 'leidas' ? 'on' : ''}`} onClick={() => setSrcFilter(srcFilter === 'leidas' ? 'all' : 'leidas')}>
+          <b className="num">{cf.leidas}</b><small>Leídas</small>
+        </button>
+        <button className={`nag-box st-${cf.sinLeer ? 'CRIT' : 'OK'} ${srcFilter === 'sinleer' ? 'on' : ''}`} onClick={() => setSrcFilter(srcFilter === 'sinleer' ? 'all' : 'sinleer')}>
+          <b className="num">{cf.sinLeer}</b><small>Sin leer</small>
+        </button>
+      </div>
+      <p className="note nag-nota">Detalle por estado: leídas = OK + Aviso · sin leer = Crítico + Desconocido · Mantenimiento = en pausa, no cuenta.</p>
+      <div className="nag-summary nag-estados">
         {ESTADOS.map((k) => (
           <button key={k} className={`nag-box st-${k} ${srcFilter === k ? 'on' : ''}`} onClick={() => setSrcFilter(srcFilter === k ? 'all' : k)}>
             <b className="num">{c[k]}</b><small>{STATE_TXT[k]}</small>

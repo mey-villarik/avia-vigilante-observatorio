@@ -18,6 +18,7 @@
 //    informan como «cobertura» porque con fuentes caídas los índices pueden quedarse cortos.
 import type { Etapa, Fuente, Prioridad, Senal } from '../types';
 import { puntuacionesDe } from './puntuaciones';
+import { cifrasFuentes } from './contadores';
 
 export const PESO_PRIORIDAD: Record<Prioridad, number> = { alta: 1, media: 0.5, baja: 0.2 };
 
@@ -46,7 +47,7 @@ export interface Pulso {
     oportunidades: number; plazoAbierto: number; plazoCorto: number; plazoVencido: number;
     /** % de señales activas que son riesgo (las mixtas cuentan como riesgo y oportunidad) */
     pctRiesgo: number;
-    fuentesOk: number; fuentesTotal: number;
+    fuentesLeidas: number; fuentesSinLeer: number; fuentesTotal: number;
   };
   /** desglose para explicar el cálculo: lo que aporta cada señal a su índice (0-1) */
   aportes: Aporte[];
@@ -116,8 +117,8 @@ export function calcularPulso(senales: Senal[], fuentes: Fuente[]): Pulso {
   if (altosVerificados >= 5 && (vigilancia === 'Normal' || vigilancia === 'Vigilancia')) vigilancia = 'Atención';
   else if (altosVerificados >= 1 && vigilancia === 'Normal') vigilancia = 'Vigilancia';
 
-  // las mismas «fuentes activas» que en Panorama y en el panel Fuentes (resumenFuentes)
-  const conLectura = fuentes.filter((f) => f.estado !== 'MANT');
+  // la misma cifra de fuentes que el encabezado y la pestaña Fuentes (cifrasFuentes)
+  const cf = cifrasFuentes(fuentes);
   return {
     riesgo,
     nivelRiesgo: riesgo >= 75 ? 'Muy alto' : riesgo >= 50 ? 'Alto' : riesgo >= 25 ? 'Moderado' : 'Bajo',
@@ -133,8 +134,9 @@ export function calcularPulso(senales: Senal[], fuentes: Fuente[]): Pulso {
       oportunidades: opps.length,
       plazoAbierto, plazoCorto, plazoVencido,
       pctRiesgo: activas.length ? Math.round((100 * riesgos.length) / activas.length) : 0,
-      fuentesOk: conLectura.filter((f) => f.estado === 'OK').length,
-      fuentesTotal: conLectura.length,
+      fuentesLeidas: cf.leidas,
+      fuentesSinLeer: cf.sinLeer,
+      fuentesTotal: cf.total,
     },
     aportes,
     sumas: { riesgo: sumaRiesgo, nRiesgos: riesgos.length, oportunidad: sumaOpp, nOportunidades: opps.length },

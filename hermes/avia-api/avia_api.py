@@ -345,10 +345,26 @@ def _desglose_verificadas(k: dict) -> str:
     return ' · '.join(f'{v} {t}' for v, t in partes if v) or 'ninguna'
 
 
+def _cifras_fuentes(fuentes: list) -> dict:
+    """Misma regla que web/src/lib/contadores.ts → cifrasFuentes() y vigilante.contadores() (41):
+    activas = no MANT; leídas = OK o WARN; sin leer = el resto de las activas (CRIT o UNKNOWN)."""
+    act = [f for f in fuentes if isinstance(f, dict) and f.get('estado') != 'MANT']
+    leidas = sum(1 for f in act if f.get('estado') in ('OK', 'WARN'))
+    return {'fuentes_activas': len(act), 'fuentes_leidas': leidas, 'fuentes_sin_leer': len(act) - leidas,
+            'fuentes_en_pausa': sum(1 for f in fuentes if isinstance(f, dict) and f.get('estado') == 'MANT')}
+
+
 def _fuentes_txt(k: dict) -> str:
+    """«28 de 33 fuentes leídas · 5 sin leer»: la misma cifra que el encabezado, el Pulso y la pestaña Fuentes."""
     if k.get('fuentes_activas') is None:
         return ''
-    return f"- Fuentes que AVIA vigila: {k.get('fuentes_activas')} activas ({k.get('fuentes_en_pausa') or 0} en pausa o propuestas, no cuentan)\n"
+    pausa = k.get('fuentes_en_pausa') or 0
+    extra = f" ({pausa} en pausa o propuestas, no cuentan)" if pausa else ''
+    if k.get('fuentes_leidas') is None:
+        return f"- Fuentes que AVIA vigila: {k.get('fuentes_activas')} activas{extra}\n"
+    return (f"- Fuentes que AVIA vigila: {k.get('fuentes_leidas')} de {k.get('fuentes_activas')} leídas · "
+            f"{k.get('fuentes_sin_leer')} sin leer{extra}. Leída = su última comprobación dio OK o AVISO; "
+            "sin leer = CRÍTICO o todavía sin comprobar\n")
 
 
 def _contar(activas: list, ctx: dict) -> dict:
@@ -466,6 +482,9 @@ async def handle_chat(request: web.Request) -> web.Response:
         fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', 'OK', None)][:5]
         sin_datos = not ctx
         k       = _al_dia(ctx.get('contadores') or _contar(activas, ctx), activas)
+        if k.get('fuentes_leidas') is None and ctx.get('fuentes'):
+            # base anterior al 41: las cuatro cifras de la misma lista que cuenta la web, para que cuadren entre sí
+            k = {**k, **_cifras_fuentes(ctx['fuentes'])}
         hora    = _hora_bolivia(k.get('actualizado') or ctx.get('generado'))
 
         system = f"""Eres AVIA, el asistente inteligente del Observatorio Turístico de Bolivia (ORBITA).
