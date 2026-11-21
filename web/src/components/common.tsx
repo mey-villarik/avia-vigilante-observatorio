@@ -87,6 +87,7 @@ export function CatBars({ list }: { list: Senal[] }) {
 export function LineChart() {
   const S = useStore((s) => s.serie);
   const real = useStore((s) => s.origen === 'vps');
+  if (S.labels.length < 2) return <div className="chart"><p className="note" role="status">Sin datos todavía.</p></div>;
   const top = Math.max(1, ...S.det, ...S.opp, ...S.risk);
   const paso = Math.ceil(top / 3 / 5) * 5 || 5;
   const max = paso * 3;

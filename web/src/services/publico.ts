@@ -6,6 +6,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Naturaleza } from '../types';
 import { SENALES_DEMO, catName } from '../data/demo';
+import { DEMO } from '../lib/modo';
 
 const URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
 const KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
@@ -83,7 +84,11 @@ function demo(anteriores: boolean): Publicas {
 
 /** anteriores = true pide también lo publicado antes de la ventana (botón «Ver anteriores») */
 export async function leerPublicas(anteriores = false): Promise<Publicas> {
-  if (!sb) return demo(anteriores);
+  if (!sb) {
+    // sin base de datos no se inventan alertas: solo en desarrollo con VITE_DEMO=1
+    if (DEMO) return demo(anteriores);
+    throw new Error('La web pública aún no está conectada a la base de datos');
+  }
   // Sin «anteriores» se llama como antes del 16 (la base aún sin actualizar sigue funcionando)
   const { data, error } = await sb.schema('vigilante').rpc('alertas_publicas',
     anteriores ? { p_cliente: CLIENTE, p_anteriores: true } : { p_cliente: CLIENTE });
