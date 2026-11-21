@@ -18,7 +18,7 @@ import type {
   CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
-import { contar, type Contadores } from './lib/contadores';
+import { completarDesglose, contar, textoFuentes, type Contadores } from './lib/contadores';
 import { sintesisDe } from './lib/sintesis';
 
 export type Drawer =
@@ -688,7 +688,7 @@ export const useStore = create<Store>()((set, get) => {
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
           oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });
-        if (primera) get().toast(`Datos reales del Vigilante: ${d.senales.length} señales, ${d.fuentes.length} fuentes.`);
+        if (primera) get().toast(`Datos reales del Vigilante: ${d.senales.length} señales, ${textoFuentes(d.fuentes)}.`);
         else if (!quiet) get().toast('Datos actualizados.');
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'error desconocido';
@@ -723,7 +723,8 @@ export function useContadores(): Contadores {
   const base = useStore((s) => s.contadores);
   const senales = useStore((s) => s.senales);
   const noticias = useStore((s) => s.noticiasRevisadas ?? s.serie.det[s.serie.det.length - 1] ?? 0);
-  return base ?? contar(senales, noticias);
+  const local = contar(senales, noticias);
+  return base ? completarDesglose(base, local) : local;
 }
 
 /** La síntesis del día: la de la base si llegó; si no, las mismas reglas aquí */

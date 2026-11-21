@@ -116,6 +116,7 @@ export function calcularPulso(senales: Senal[], fuentes: Fuente[]): Pulso {
   if (altosVerificados >= 5 && (vigilancia === 'Normal' || vigilancia === 'Vigilancia')) vigilancia = 'Atención';
   else if (altosVerificados >= 1 && vigilancia === 'Normal') vigilancia = 'Vigilancia';
 
+  // las mismas «fuentes activas» que en Panorama y en el panel Fuentes (resumenFuentes)
   const conLectura = fuentes.filter((f) => f.estado !== 'MANT');
   return {
     riesgo,

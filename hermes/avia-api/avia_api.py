@@ -110,7 +110,11 @@ async def _deepseek(session: aiohttp.ClientSession,
         json={'model': LLM_MODEL, 'messages': messages, 'max_tokens': max_tokens},
         timeout=aiohttp.ClientTimeout(total=60),
     ) as r:
-        data = await r.json()
+        data = await r.json(content_type=None)
+    if not isinstance(data, dict) or not data.get('choices'):
+        # el proveedor del modelo devolvió un error (sin saldo, clave mala, modelo inexistente…): que se vea en el log
+        err = data.get('error') if isinstance(data, dict) else data
+        raise RuntimeError(f'LLM {LLM_BASE} modelo {LLM_MODEL} HTTP {r.status}: {str(err)[:300]}')
     return data['choices'][0]['message']['content']
 
 
@@ -297,6 +301,21 @@ def _comparacion_txt(c) -> str:
             f"Resueltas:\n{lineas(c.get('resueltas'), resuelta)}")
 
 
+def _desglose_verificadas(k: dict) -> str:
+    """Las tres partes suman «verificadas» (39). Con una base anterior al 39 solo hay «2 o más fuentes»."""
+    if k.get('verificadas_oficial') is None:
+        return f"{k.get('verificadas_2_fuentes')} con 2 o más fuentes; las demás, por fuente oficial o con una sola fuente"
+    partes = [(k.get('verificadas_2_fuentes'), 'con 2 o más fuentes'), (k.get('verificadas_oficial'), 'por fuente oficial'),
+              (k.get('verificadas_una_fuente'), 'con una sola fuente')]
+    return ' · '.join(f'{v} {t}' for v, t in partes if v) or 'ninguna'
+
+
+def _fuentes_txt(k: dict) -> str:
+    if k.get('fuentes_activas') is None:
+        return ''
+    return f"- Fuentes que AVIA vigila: {k.get('fuentes_activas')} activas ({k.get('fuentes_en_pausa') or 0} en pausa o propuestas, no cuentan)\n"
+
+
 def _contar(activas: list, ctx: dict) -> dict:
     """Solo si la base aún no tiene el 21: mismas definiciones que vigilante.contadores()."""
     n = lambda f: sum(1 for x in activas if f(x))
@@ -429,8 +448,8 @@ CONTADORES (usa estos números tal cual; no cuentes tú la lista):
 - Oportunidades: {k.get('oportunidades')} · Riesgos: {k.get('riesgos')} · Mixtas: {k.get('mixtas')}
 - Oportunidades con plazo en menos de 15 días: {k.get('plazo_corto')}
 - Riesgos de prioridad alta: {k.get('riesgos_altos')}
-- Verificadas (confirmadas o publicadas): {k.get('verificadas')} ({k.get('verificadas_2_fuentes')} con 2 o más fuentes)
-- Por verificar: {k.get('por_verificar')} ({k.get('esperan_aprobacion')} esperan aprobación de un analista)
+- Verificadas (confirmadas o publicadas): {k.get('verificadas')} ({_desglose_verificadas(k)})
+{_fuentes_txt(k)}- Por verificar: {k.get('por_verificar')} ({k.get('esperan_aprobacion')} esperan aprobación de un analista)
 - Alertas publicadas: {k.get('alertas_publicadas')}
 - Noticias revisadas en 24 h: {k.get('noticias_24h')}
 

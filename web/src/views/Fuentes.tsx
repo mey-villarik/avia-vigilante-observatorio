@@ -4,6 +4,7 @@ import { CATS, STATE_TXT, catName } from '../data/demo';
 import { METODO_TXT } from '../services/fuentes';
 import { conProblema, countStates, isAdmin, useStore } from '../store';
 import { ago, clock, norm } from '../lib/util';
+import { resumenFuentes } from '../lib/contadores';
 import { Icon } from '../components/Icon';
 import { Histo, StPill } from '../components/common';
 
@@ -136,7 +137,7 @@ export function Fuentes() {
       )}
       <div className="nag-summary">
         <button className={`nag-box st-total ${srcFilter === 'all' && !srcQ ? 'on' : ''}`} onClick={() => { setSrcFilter('all'); setSrcQ(''); }}>
-          <b className="num">{fuentes.length}</b><small>Total</small>
+          <b className="num">{fuentes.length}</b><small>Total · {resumenFuentes(fuentes).activas} activas</small>
         </button>
         {ESTADOS.map((k) => (
           <button key={k} className={`nag-box st-${k} ${srcFilter === k ? 'on' : ''}`} onClick={() => setSrcFilter(srcFilter === k ? 'all' : k)}>
