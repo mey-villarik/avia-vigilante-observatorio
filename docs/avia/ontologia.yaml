@@ -1,0 +1,85 @@
+# Ontología AVIA v0.3 (de «@®©okAVIAOntologia.docx», D:\Work\AVIA\revisar)
+# Modelo formal mínimo para RAG, Supabase o n8n. La versión legible está en hermes/skills/avia-canon/SKILL.md.
+avia_ontology:
+  version: "0.3"
+  namespaces:
+    AVIA: "https://avia.studio/ontology#"
+
+  # Nivel 0 · meta-ontología
+  meta: [Entity, Relation, Policy, Capability, Artifact, Evidence]
+
+  # Las 6 capas
+  capas:
+    fundacional: [Persona, Agente, Sistema, Entorno, Tiempo, Contexto]
+    identidad:
+      clases: [Usuario, Profesional, Menor, Cuidador, Institucion, Comunidad]
+      propiedades: [edad, rol, consentimiento, capacidades]
+    agentes_avia:
+      clases: [AVIA-Core, AVIA-Studio, AVIA-Synapse, AVIA+Harmonia, AVIA-Tillo, AVIAOntologia]
+      relaciones: [coordina, delega, supervisa, valida]
+    afectivo_cognitiva: [EstadoEmocional, Atencion, CargaCognitiva, Confianza, Motivacion]
+    etica_gobernanza: [Consentimiento, Transparencia, Riesgo, Explicabilidad, Auditoria, ProteccionMenor]
+    operativa: [Interaccion, MicroIntervencion, Contenido, Feedback, Evaluacion, Aprendizaje]
+
+  classes:
+    - Ecosystem
+    - SubEcosystem
+    - Platform
+    - Suite
+    - ToolSuite
+    - Agent
+    - SpecialistAgent
+    - OrchestratorAgent
+    - GuardrailsAgent
+    - EvaluatorAgent
+    - Constellation
+    - Workspace
+    - Capability
+    - Artifact
+    - Policy
+    - Evidence
+
+  relationships:
+    - { name: contains,     domain: [Ecosystem, Platform, Suite, Workspace, Constellation], range: [Suite, ToolSuite, Agent, Artifact, Workspace] }
+    - { name: orchestrates, domain: [Agent], range: [Constellation, Agent] }
+    - { name: uses,         domain: [Agent], range: [ToolSuite, Platform] }
+    - { name: produces,     domain: [ToolSuite, Suite, Constellation], range: [Artifact] }
+    - { name: governed_by,  domain: [Artifact, Agent, Platform], range: [Policy] }
+    - { name: validates,    domain: [GuardrailsAgent, EvaluatorAgent], range: [Artifact] }
+    - { name: supported_by, domain: [Artifact, Policy], range: [Evidence] }
+
+  instances:
+    Ecosystem: [AVIA_Ecosystem]
+    Platform: [AVIACreatorHub]
+    Suite: [AVIA_Studio]
+    ToolSuite: [Video_Studio_Pro, Audio_Studio, Image_Studio, Code_Studio, Writing_Studio,
+                Data_Studio, Learning_Studio, Compliance_Studio, XR_Studio, AgentOps_Studio]
+    SubEcosystem: [AVIA_Siesta]
+    Platform_Siesta: [SiestaOS, SiestaOTT, SiestaApps, HbbTV_Layer, Device_Pairing_Layer]
+    Workspace: [DesignCanvas, NarrativeCanvas, EngineeringCanvas, LearningCanvas]
+
+  hechos_obligatorios:
+    - AVIA opera_en AVIACreatorHub
+    - AVIACreatorHub contains AVIA_Studio
+    - AVIA orchestrates Constellation
+    - AVIA_Studio produces Artifact
+    - SiestaOTT consume Artifact   # vídeos, TOOC, guiones
+    - SiestaOS ejecuta SiestaApps
+
+  # Reglas ejecutables (Policy Engine)
+  policies:
+    - rule: proteccion_menor_biometria
+      if: { usuario.rol: menor, dato.tipo: [biometrico, emocional, salud] }
+      require: [consentimiento_tutor_explicito, procesamiento_en_dispositivo, retencion_minima, registro_etico]
+      block_if_not_met: true
+    - rule: inclusion_tv_first
+      if: { despliegue.contexto: educacion }
+      recommend: [AVIA_Siesta, HbbTV_Layer, accesibilidad_AAA]
+
+  # Tablas propuestas para un RAG ontológico en Supabase (no creadas)
+  rag_supabase:
+    ontology_entities:  [id, name, type, description, aliases, tags, version]
+    ontology_relations: [id, src_id, rel_type, dst_id, confidence, notes]
+    ontology_policies:  [id, scope, rule, triggers, actions]
+    ontology_evidence:  [id, entity_id, source_type, citation, url, quote_snippet]
+    ontology_embeddings: [entity_id, embedding, updated_at]

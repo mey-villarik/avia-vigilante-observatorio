@@ -684,3 +684,14 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .cam-pill.cam-vivo{box-shadow:0 0 0 2px currentColor inset}
 @media (prefers-reduced-motion:reduce){.cam-modal{animation:none}.cam-pill.cam-vivo .d{animation:none}}
 @media (max-width:560px){.cam-modal{animation:none}}
+
+/* Ficha de aprobación de AVIA (32) */
+.ficha{border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:8px 10px;background:var(--surface2);margin:0 0 8px}
+.ficha.sug-publicar{border-left-color:var(--ok)}
+.ficha.sug-esperar{border-left-color:var(--warn)}
+.ficha.sug-no_publicar{border-left-color:var(--crit)}
+.ficha-h{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.ficha-h b{font-size:14px}
+.ficha small{color:var(--faint);font-size:11.5px;margin-right:4px}
+.ficha ol{margin:0 0 4px;padding-left:20px;font-size:13px}
+.ficha li{margin:0 0 3px}

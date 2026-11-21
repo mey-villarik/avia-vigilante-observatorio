@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Despierta a Hermes SOLO cuando hay eventos compuestos (migración 28) o cambios en noticias (31) que interpretar.
+"""Despierta a Hermes SOLO cuando hay eventos compuestos (28), cambios en noticias (31) o fichas de riesgo (32) pendientes.
 
 Hermes es el cerebro: él decide qué significa cada evento, a quién afecta y qué se recomienda
 (skill «interpretar-eventos»). Este script no usa IA: pregunta a Supabase cuántos eventos esperan
@@ -7,10 +7,12 @@ Hermes es el cerebro: él decide qué significa cada evento, a quién afecta y q
 Si no hay nada, termina sin gastar un solo token.
 
 Cada vez que se ejecuta (cron del VPS, p. ej. cada 5 minutos):
-  1. Cuenta los eventos y los cambios por interpretar. 0 y 0 → termina.
+  1. Cuenta los eventos, los cambios por interpretar y las fichas de aprobación por preparar. Todo 0 → termina.
   2. Lanza la tarea de Hermes: HERMES_CMD (por defecto: docker exec hermes hermes cron run $HERMES_CRON_EVENTOS).
      Si hay cambios y existe HERMES_CRON_CAMBIOS, lanza esa tarea; si no, la de eventos (su prompt debe
      incluir los cambios: ver docs/cambios-noticias.md).
+     Si hay fichas y existe HERMES_CRON_FICHAS, lanza esa tarea (skill avia-ficha-aprobacion). Sin ella, las
+     fichas no despiertan a Hermes (ver docs/ficha-aprobacion.md).
   3. Anota en vigilante.system_logs cuántos había y si Hermes arrancó.
 
 Tiene su propio candado (/tmp/avia-eventos.lock): NO pongas flock en el crontab.
@@ -23,6 +25,7 @@ Variables (en /etc/avia/supabase.env o en el archivo de AVIA_SUPABASE_ENV; NUNCA
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VIGILANTE_CLIENTE=orbita-bolivia
   HERMES_CRON_EVENTOS=<id de la tarea de Hermes «Interpretar eventos»>
   HERMES_CRON_CAMBIOS (opcional) = id de una tarea aparte para los cambios; sin ella, se usa la de eventos
+  HERMES_CRON_FICHAS (opcional) = id de la tarea «Fichas de aprobación» (skill avia-ficha-aprobacion)
   HERMES_CMD (opcional) = orden completa para lanzar a Hermes; sustituye a la de por defecto
 """
 from __future__ import annotations
@@ -71,7 +74,7 @@ def rpc(fn: str, args: dict) -> object:
     return json.loads(cuerpo) if cuerpo else None
 
 
-def ordenes_hermes(n_eventos: int, n_cambios: int) -> list[list[str]]:
+def ordenes_hermes(n_eventos: int, n_cambios: int, n_fichas: int = 0) -> list[list[str]]:
     """Las tareas de Hermes que hay que lanzar (sin repetir la misma)."""
     if os.environ.get('HERMES_CMD'):
         return [shlex.split(os.environ['HERMES_CMD'])]
@@ -81,6 +84,9 @@ def ordenes_hermes(n_eventos: int, n_cambios: int) -> list[list[str]]:
         tareas.append(ca or ev)          # sin tarea propia, la de eventos también interpreta cambios
     if n_eventos and ev and ev not in tareas:
         tareas.append(ev)
+    fi = os.environ.get('HERMES_CRON_FICHAS')
+    if n_fichas and fi and fi not in tareas:
+        tareas.append(fi)
     return [['docker', 'exec', 'hermes', 'hermes', 'cron', 'run', t] for t in tareas]
 
 
@@ -116,18 +122,28 @@ def main() -> int:
     except Exception as e:  # noqa: BLE001 — sin el 31 solo hay eventos
         log(f'No pude contar los cambios ({str(e)[:120]}). ¿Está ejecutado el 31_cambios_noticias.sql?')
         n_ca = 0
-    n = n_ev + n_ca
-    if a.contar or n == 0:
-        log(f'Por interpretar: {n_ev} eventos y {n_ca} cambios' + ('' if a.contar else ' — Hermes no se despierta'))
+    n_fi = 0
+    if os.environ.get('HERMES_CRON_FICHAS') or a.contar:
+        try:
+            n_fi = int(rpc('fichas_pendientes_hermes', {'p_cliente': cliente}) or 0)
+        except Exception as e:  # noqa: BLE001 — sin el 32 no hay fichas
+            log(f'No pude contar las fichas ({str(e)[:120]}). ¿Está ejecutado el 32_ficha_aprobacion.sql?')
+    resumen = f'{n_ev} eventos, {n_ca} cambios y {n_fi} fichas'
+    if a.contar:
+        log(f'Por hacer: {resumen}')
+        return 0
+    n = n_ev + n_ca + (n_fi if os.environ.get('HERMES_CRON_FICHAS') else 0)
+    if n == 0:
+        log(f'Por hacer: {resumen} — Hermes no se despierta')
         return 0
 
-    ordenes = ordenes_hermes(n_ev, n_ca)
+    ordenes = ordenes_hermes(n_ev, n_ca, n_fi)
     if not ordenes:
-        log(f'Hay {n_ev} eventos y {n_ca} cambios por interpretar, pero falta HERMES_CRON_EVENTOS (o HERMES_CMD) en el archivo de variables')
+        log(f'Hay {resumen}, pero falta HERMES_CRON_EVENTOS (o HERMES_CMD) en el archivo de variables')
         return 2
     ok, detalles = True, []
     for orden in ordenes:
-        log(f'Hay {n_ev} eventos y {n_ca} cambios por interpretar: lanzo a Hermes ({" ".join(orden)})')
+        log(f'Hay {resumen}: lanzo a Hermes ({" ".join(orden)})')
         try:
             r = subprocess.run(orden, capture_output=True, text=True, timeout=TIMEOUT_HERMES, check=False)
             ok_i, detalle = r.returncode == 0, (r.stdout[-500:] + r.stderr[-500:]).strip()
@@ -138,7 +154,7 @@ def main() -> int:
     detalle = ' | '.join(d for d in detalles if d)
     try:
         rpc('registrar_log', {'p_cliente': cliente, 'p_proceso': 'eventos', 'p_nivel': 'info' if ok else 'error',
-                              'p_mensaje': f'Hermes {"lanzado" if ok else "falló"} con {n_ev} eventos y {n_ca} cambios por interpretar',
+                              'p_mensaje': f'Hermes {"lanzado" if ok else "falló"} con {resumen}',
                               'p_detalle': {'salida': detalle[:1000]}, 'p_costo_usd': None, 'p_codigo_fuente': None})
     except Exception as e:  # noqa: BLE001 — el registro es secundario
         log(f'No pude anotar en system_logs: {str(e)[:200]}')
