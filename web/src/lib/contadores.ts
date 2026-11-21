@@ -5,6 +5,7 @@
 // solo para los datos de ejemplo y para el momento entre un cambio hecho en pantalla y la recarga.
 // Si cambias una definición, cámbiala en los dos sitios (y en docs/contadores.md).
 import type { Senal } from '../types';
+import { enBolivia } from './hora';
 
 export interface Contadores {
   /** hora del cálculo (ISO) */
@@ -110,8 +111,6 @@ export function textoFuentes(fuentes: { estado: string }[]): string {
 
 /** «14:05» en hora de Bolivia */
 export function horaBolivia(iso?: string | null): string {
-  if (!iso) return '—';
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return '—';
-  return new Date(t).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' });
+  if (!iso || Number.isNaN(Date.parse(iso))) return '—';
+  return enBolivia(iso, 'hora');
 }

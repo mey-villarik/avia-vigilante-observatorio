@@ -7,9 +7,9 @@ import { useStore } from '../store';
 import { abierto, alertaPendiente, claveAlerta, EVENTOS_MS, eventosSinVer, TIPO_TXT, useEventos, type EventoCompuesto } from '../services/eventos';
 import { cerrarFlotantes } from '../lib/flotantes';
 import { Icon } from './Icon';
+import { enBolivia } from '../lib/hora';
 
-const TZ = 'America/La_Paz';
-const dia = (iso: string) => new Date(iso).toLocaleString('es-BO', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const dia = (iso: string) => enBolivia(iso, 'diaHora');
 
 /** «hace 5 min», «hace 3 h» */
 function hace(iso?: string): string {
