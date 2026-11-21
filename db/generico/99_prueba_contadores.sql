@@ -121,4 +121,27 @@ BEGIN
   RAISE WARNING 'OK 40: «Verificada» = fuente oficial o 2+ fuentes en contadores y web pública';
 END $$;
 
+-- 41: una sola cifra de fuentes: activas = leídas + sin leer, y leída = OK o AVISO
+DO $$
+DECLARE k jsonb; j jsonb; v_c uuid := (SELECT c FROM ids); v_s bigint; v_l int;
+BEGIN
+  k := vigilante.contadores(v_c);
+  IF NOT k ? 'fuentes_leidas' THEN RAISE WARNING 'Sin el 41: no se prueba la cifra de fuentes'; RETURN; END IF;
+  IF (k ->> 'fuentes_leidas')::int + (k ->> 'fuentes_sin_leer')::int <> (k ->> 'fuentes_activas')::int THEN
+    RAISE EXCEPTION '41: leídas + sin leer no suman las activas: %', k; END IF;
+  -- lo mismo que cuenta la web con la lista que recibe (vigilante.json / vigilante_bd)
+  j := vigilante._vigilante_json(v_c);
+  SELECT count(*) INTO v_l FROM jsonb_array_elements(j -> 'fuentes') e WHERE e ->> 'estado' IN ('OK', 'WARN');
+  IF v_l <> (k ->> 'fuentes_leidas')::int THEN RAISE EXCEPTION '41: la lista de la web tiene % leídas y el contador %', v_l, k ->> 'fuentes_leidas'; END IF;
+  -- una fuente activa pasa de CRÍTICO a AVISO: una leída más, una sin leer menos
+  SELECT id INTO v_s FROM vigilante.sources WHERE cliente_id = v_c AND activa AND eliminada_en IS NULL ORDER BY id LIMIT 1;
+  UPDATE vigilante.sources SET config = config || '{"estado":"CRIT"}' WHERE id = v_s;
+  k := vigilante.contadores(v_c);
+  v_l := (k ->> 'fuentes_leidas')::int;
+  UPDATE vigilante.sources SET config = config || '{"estado":"WARN"}' WHERE id = v_s;
+  k := vigilante.contadores(v_c);
+  IF (k ->> 'fuentes_leidas')::int <> v_l + 1 THEN RAISE EXCEPTION '41: una fuente en AVISO debe contar como leída: %', k; END IF;
+  RAISE WARNING 'OK 41: activas = leídas + sin leer, igual que la lista de la web';
+END $$;
+
 ROLLBACK;

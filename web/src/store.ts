@@ -64,7 +64,7 @@ interface State {
   layout: PanelEnTablero[];
   custom: Record<string, PanelEnTablero[]>;
   flashPanel: PanelId | null;
-  srcFilter: 'all' | 'problemas' | EstadoFuente;
+  srcFilter: 'all' | 'problemas' | 'leidas' | 'sinleer' | EstadoFuente;
   srcQ: string;
   sigFilter: SigFilter;
   /** departamento elegido en la vista Mapa (null = todo Bolivia) */

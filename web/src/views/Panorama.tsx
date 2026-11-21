@@ -3,7 +3,7 @@ import type { PanelEnTablero, PanelId } from '../types';
 import { PANELS } from '../data/demo';
 import { useStore } from '../store';
 import { clock } from '../lib/util';
-import { resumenFuentes } from '../lib/contadores';
+import { cifrasFuentes } from '../lib/contadores';
 import { Icon } from '../components/Icon';
 import { PANEL_BODY, usePanelMeta } from '../panels/panels';
 import { useChat } from '../services/chat';
@@ -74,7 +74,7 @@ function Panel({ p, drag, setDrag }: { p: PanelEnTablero; drag: DragState; setDr
 }
 
 export function Panorama() {
-  const fuentes = resumenFuentes(useStore((s) => s.fuentes));
+  const fuentes = cifrasFuentes(useStore((s) => s.fuentes));
   const editing = useStore((s) => s.editing);
   const generado = useStore((s) => s.generado);
   const layout = useStore((s) => s.layout);
@@ -88,7 +88,7 @@ export function Panorama() {
         <div>
           <div className="eyebrow">Inteligencia turística · hoy</div>
           <h1>Lo que <em>cambia</em> en el turismo de Bolivia</h1>
-          <p className="sub">El Vigilante lee {fuentes.activas} fuentes{fuentes.enPausa ? ` (y ${fuentes.enPausa} en pausa)` : ''}, junta las noticias en señales, las verifica, publica alertas cuando una persona las aprueba y propone recomendaciones. Aquí ves el resultado; arrastra, quita o añade paneles a tu gusto.</p>
+          <p className="sub">El Vigilante vigila {fuentes.total} fuentes ({fuentes.leidas} leídas en la última comprobación, {fuentes.sinLeer} sin leer{fuentes.enPausa ? `; ${fuentes.enPausa} en pausa` : ''}), junta las noticias en señales, las verifica, publica alertas cuando una persona las aprueba y propone recomendaciones. Aquí ves el resultado; arrastra, quita o añade paneles a tu gusto.</p>
         </div>
         <div className="head-actions">
           <span className="updated">{generado ? `Datos generados ${clock(-(Date.now() - Date.parse(generado)) / 60000)}` : `Última comprobación ${clock(-1)}`}</span>

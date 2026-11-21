@@ -127,7 +127,7 @@ function Pulso() {
         {real ? <>Calculado con las {d.activas} señales activas{ventana ? ` de las últimas ${ventana} h` : ''}</> : <>Datos de ejemplo</>}.
         {' '}Los índices miden lo serias que son las señales, no cuántas hay: los riesgos según prioridad, fiabilidad de la evidencia y si ya están verificados; las oportunidades según su relevancia, novedad y fiabilidad, y si el plazo sigue abierto.
         {d.revisionVencida ? <> <b>{d.revisionVencida} con la revisión vencida.</b></> : null}
-        {d.fuentesTotal ? <> Fuentes leyendo bien: {d.fuentesOk} de las {d.fuentesTotal} activas{d.fuentesOk < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
+        {d.fuentesTotal ? <> Fuentes: {d.fuentesLeidas} de {d.fuentesTotal} leídas · {d.fuentesSinLeer} sin leer{d.fuentesLeidas < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
       </p>
     </>
   );
@@ -314,7 +314,7 @@ export const PANEL_BODY: Record<PanelId, () => JSX.Element> = {
 };
 
 export function usePanelMeta(id: PanelId): string {
-  const fuentesTxt = textoFuentes(useStore((s) => s.fuentes));
+  const fuentesTxt = textoFuentes(useStore((s) => s.fuentes), false);
   const real = useStore((s) => s.origen === 'vps');
   const nPend = pendingDecision(useStore((s) => s.senales)).length;
   const meta: Record<PanelId, string> = {
