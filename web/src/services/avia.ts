@@ -77,6 +77,7 @@ export function evaluarLocal(text: string): Evaluacion {
       : has(['carretera', 'bloqueo', 'abc', 'tramo']) ? 'vial'
         : has(['vuelo', 'aerolinea', 'aeropuerto', 'ruta aerea']) ? 'conectividad'
           : has(['convocatoria', 'fondo', 'licitacion', 'financ']) ? 'financiacion'
+            : has(['inflacion', 'precio', 'dolar', 'tipo de cambio', 'combustible']) ? 'economia'
             : has(['festival', 'feria', 'evento']) ? 'eventos'
               : has(['decreto', 'ley', 'norma']) ? 'normativa' : 'mercado';
   const risk = has(['alerta', 'riesgo', 'bloqueo', 'cierre', 'brote', 'corte', 'emergencia']);

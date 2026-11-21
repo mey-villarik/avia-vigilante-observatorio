@@ -11,11 +11,12 @@
 
 | Dónde | Qué |
 | --- | --- |
-| `db/generico/42_categorias_correctas.sql` | `categoria_canonica()` une los códigos; `categoria_corregida()` pasa a «mercados» una señal en «clima» que habla de economía (inflación, precios, dólar, combustibles…) y no de tiempo o desastres. Triggers en `signals` y `categorias`; corrige los datos que ya están; «Financiación y convocatorias» con tilde. |
-| `hermes/analizador/prompt_clasificador.md` (clasificador-1.8) | Regla explícita: clima es solo tiempo y naturaleza; economía → mercados. |
+| `db/generico/42_categorias_correctas.sql` | Categoría nueva **«Economía y precios»** (código `economia`). `categoria_canonica()` une los códigos; `categoria_corregida()` pasa a «economia» una señal en «clima» (o en «mercados», solo con términos claros: inflación, dólar, tipo de cambio, combustibles…) que no habla de tiempo ni desastres. Triggers en `signals` y `categorias`; corrige los datos que ya están; «Financiación y convocatorias» con tilde. |
+| `hermes/analizador/prompt_clasificador.md` (clasificador-1.8) y `analizador.py` | Regla explícita: clima es solo tiempo y naturaleza; economía → economia; mercados = demanda y negocio turístico. |
+| Panel (`types.ts`, `demo.ts`, `datos.ts`, `recomendacion.ts`, `avia.ts`) | La categoría «Economía» existe también en el panel y en sus filtros. |
 | `web/src/lib/categorias.ts` | La web pública nunca muestra un código: si la base no trae un nombre legible, usa la misma lista de nombres. |
 
-**Instalar en el VPS:**
+**Instalar en el VPS** (el analizador lee el prompt nuevo solo, pero `analizador.py` cambió: copiar el del repo si el VPS no corre desde `/root/avia-repo`):
 
 ```bash
 cd /root/avia-repo && git fetch origin && git checkout claude/project-thread-cq04g5

@@ -16,6 +16,7 @@ export const VERIFICAR_CON: Partial<Record<CategoriaId, string>> & { _: string }
   financiacion: 'las bases oficiales de la entidad que convoca',
   normativa: 'la Gaceta Oficial de Bolivia',
   mercado: 'la fuente del dato (INE o Viceministerio de Turismo)',
+  economia: 'el INE o el Banco Central de Bolivia',
   _: 'la fuente oficial del tema',
 };
 

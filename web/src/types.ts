@@ -9,7 +9,7 @@ export type Rol = 'visor' | 'analista' | 'admin';
 export type VistaId = 'panorama' | 'mapa' | 'fuentes' | 'senales' | 'oportunidades' | 'analisis' | 'bitacora';
 export type CategoriaId =
   | 'clima' | 'salud' | 'vial' | 'seguridad' | 'conectividad'
-  | 'eventos' | 'financiacion' | 'mercado' | 'normativa' | 'turismo';
+  | 'eventos' | 'financiacion' | 'mercado' | 'economia' | 'normativa' | 'turismo';
 
 /** Fuente tal como la devuelve vigilante.fuentes_web() (db/generico/06, 07 y 08) */
 export interface FuenteBd {

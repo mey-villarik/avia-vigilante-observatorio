@@ -5,7 +5,7 @@
 
 const ALIAS: Record<string, string> = {
   financiacion: 'financiamiento', 'financiación': 'financiamiento',
-  mercado: 'mercados', economia: 'mercados', 'economía': 'mercados',
+  mercado: 'mercados', 'economía': 'economia',
 };
 
 const NOMBRES: Record<string, string> = {
@@ -17,6 +17,7 @@ const NOMBRES: Record<string, string> = {
   eventos: 'Eventos y festividades',
   financiamiento: 'Financiación y convocatorias',
   mercados: 'Mercados y normativa',
+  economia: 'Economía y precios',
   normativa: 'Normativa',
   turismo: 'Turismo',
 };

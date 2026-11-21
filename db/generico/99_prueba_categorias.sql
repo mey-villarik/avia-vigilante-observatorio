@@ -17,15 +17,16 @@ SELECT c, x.cod, x.tit, x.res, x.nat::vigilante.naturaleza_senal, x.cat, 'media'
     ('K-2', 'Alerta naranja por lluvias en el Beni', 'SENAMHI anuncia lluvias intensas y posible inundación.', 'riesgo', 'clima'),
     ('K-3', 'Pérdidas económicas por la sequía en el Chaco', 'La sequía deja pérdidas económicas a productores.', 'riesgo', 'clima'),
     ('K-4', 'CAF abre fondo para turismo comunitario', 'Convocatoria con cierre en 12 días.', 'oportunidad', 'financiacion'),
-    ('K-5', 'Crece la demanda de paquetes a Uyuni', 'Operadores reportan más reservas.', 'oportunidad', 'mercado')
+    ('K-5', 'Crece la demanda de paquetes a Uyuni', 'Operadores reportan más reservas y suben los precios de los tours.', 'oportunidad', 'mercado'),
+    ('K-6', 'El dólar paralelo sube a 12 bolivianos', 'Operadores temen menos turistas.', 'riesgo', 'mercados')
   ) AS x(cod, tit, res, nat, cat);
 
 DO $$
 DECLARE r record;
 BEGIN
   FOR r IN SELECT codigo, categoria FROM vigilante.signals WHERE codigo LIKE 'K-%' ORDER BY codigo LOOP
-    IF (r.codigo, r.categoria) NOT IN (('K-1','mercados'), ('K-2','clima'), ('K-3','clima'),
-                                        ('K-4','financiamiento'), ('K-5','mercados')) THEN
+    IF (r.codigo, r.categoria) NOT IN (('K-1','economia'), ('K-2','clima'), ('K-3','clima'),
+                                        ('K-4','financiamiento'), ('K-5','mercados'), ('K-6','economia')) THEN
       RAISE EXCEPTION 'Categoría incorrecta: % → %', r.codigo, r.categoria;
     END IF;
   END LOOP;
@@ -41,8 +42,12 @@ BEGIN
   END IF;
   -- al editar el título, la regla se vuelve a aplicar
   UPDATE vigilante.signals SET categoria = 'clima', titulo = 'Sube el precio del dólar paralelo' WHERE codigo = 'K-2';
-  IF (SELECT categoria FROM vigilante.signals WHERE codigo = 'K-2') = 'mercados' THEN
+  IF (SELECT categoria FROM vigilante.signals WHERE codigo = 'K-2') = 'economia' THEN
     RAISE EXCEPTION 'K-2 menciona lluvias en el resumen: debía quedar en clima';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM vigilante.categorias c JOIN ids ON ids.c = c.cliente_id
+                  WHERE codigo = 'economia' AND nombre = 'Economía y precios') THEN
+    RAISE EXCEPTION 'Falta la categoría Economía';
   END IF;
   RAISE WARNING 'OK: categorías correctas';
 END $$;

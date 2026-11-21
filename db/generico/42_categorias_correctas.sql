@@ -1,5 +1,5 @@
 -- =============================================================================
--- 42. Categorías correctas y sin etiquetas internas en la web pública
+-- 42. Categorías correctas, categoría «Economía» y sin etiquetas internas en la web pública
 -- =============================================================================
 -- Qué se veía (Meysel, 2026-11-21, auditoría de usabilidad):
 --   1. Una noticia de inflación salía en la web pública como «Clima y desastres».
@@ -8,8 +8,8 @@
 -- Causas:
 --   1. El clasificador (hermes/analizador/prompt_clasificador.md) no tenía ninguna regla para la
 --      economía: inflación, precios o dólar no encajaban en ninguna categoría y el modelo eligió
---      «clima» (de «clima económico»). El prompt ya lo dice (clasificador-1.8) y esta base lo
---      corrige aunque el modelo vuelva a equivocarse.
+--      «clima» (de «clima económico»). Desde ahora hay categoría «economia» (Meysel, 2026-11-21):
+--      el prompt la usa (clasificador-1.8) y esta base corrige aunque el modelo se equivoque.
 --   2. El catálogo de ORBITA usa los códigos «financiamiento» y «mercados», pero el Vigilante n8n,
 --      el chat de AVIA y la web del panel usan «financiacion» y «mercado». Al sincronizar, la base
 --      creaba en el catálogo una categoría nueva con código y nombre «financiacion», y ese código
@@ -17,14 +17,14 @@
 --
 -- Qué hace este script (se puede ejecutar más de una vez):
 --   · vigilante.categoria_canonica(): «financiacion» → «financiamiento» y «mercado» → «mercados».
---   · vigilante.categoria_corregida(): además, una señal en «clima» que habla de economía
+--   · Categoría nueva «economia» (Economía y precios) en el catálogo de cada cliente.
+--   · vigilante.categoria_corregida(): una señal en «clima» o «mercados» que habla de economía
 --     (inflación, precios, dólar, tipo de cambio, combustible…) y no de tiempo, lluvias,
---     incendios ni desastres pasa a «mercados».
+--     incendios ni desastres pasa a «economia».
 --   · Trigger b_categoria_canonica en signals (antes de signals_reglas, que lee el catálogo) y
 --     trigger a_categoria_canonica en categorias: ya no se crean códigos duplicados.
 --   · Arregla los datos que ya están: señales, preferencias de usuarios y catálogo.
---   · Nombres del catálogo de ORBITA: «Financiación y convocatorias» (con tilde) y la descripción
---     de «Mercados y normativa» incluye la economía y los precios.
+--   · Nombre del catálogo de ORBITA: «Financiación y convocatorias» (con tilde).
 -- La web pública (web/src/lib/categorias.ts) además nunca muestra un código interno.
 -- Prueba: 99_prueba_categorias.sql (termina en ROLLBACK).
 -- =============================================================================
@@ -39,8 +39,8 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
            WHEN 'financiación'  THEN 'financiamiento'
            WHEN 'financiamento' THEN 'financiamiento'
            WHEN 'mercado'       THEN 'mercados'
-           WHEN 'economia'      THEN 'mercados'
-           WHEN 'economía'      THEN 'mercados'
+           WHEN 'economía'      THEN 'economia'
+           WHEN 'economico'     THEN 'economia'
            ELSE p_codigo END
 $$;
 
@@ -56,19 +56,27 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
            WHEN 'eventos'        THEN 'Eventos y festividades'
            WHEN 'financiamiento' THEN 'Financiación y convocatorias'
            WHEN 'mercados'       THEN 'Mercados y normativa'
+           WHEN 'economia'       THEN 'Economía y precios'
            WHEN 'normativa'      THEN 'Normativa'
            WHEN 'turismo'        THEN 'Turismo'
            ELSE initcap(replace(p_codigo, '_', ' ')) END
 $$;
 
--- 2. Economía no es clima ---------------------------------------------------------
+-- 2. Economía no es clima ni mercado turístico -------------------------------------
 CREATE OR REPLACE FUNCTION vigilante.categoria_corregida(p_codigo text, p_texto text)
 RETURNS text LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE
+    -- tiempo, naturaleza o desastre: se queda donde está
+    WHEN coalesce(p_texto, '') ~* '(lluvia|granizo|helada|nevada|nieve|sequ[ií]a|inundaci|desborde|riada|mazamorra|deslizamiento|derrumbe|incendio|humo|tormenta|vendaval|viento|ola de (calor|fr[ií]o)|friaje|temperatura|senamhi|fen[oó]meno|el ni[nñ]o|la ni[nñ]a|cicl[oó]n|sismo|terremoto|desastre natural|alerta (roja|naranja|amarilla))'
+      THEN vigilante.categoria_canonica(p_codigo)
+    -- términos claros de economía: desde clima o mercados
+    WHEN vigilante.categoria_canonica(p_codigo) IN ('clima', 'mercados')
+     AND coalesce(p_texto, '') ~* '(inflaci[oó]n|deflaci[oó]n|\mipc\M|[ií]ndice de precios|alza de precios|suba de precios|aumento de precios|subida de precios|canasta (b[aá]sica|familiar)|costo de (la )?vida|tipo de cambio|d[oó]lar|divisas|devaluaci[oó]n|\mpib\M|recesi[oó]n|combustibles?|gasolina|di[eé]sel|arancel|tasas? de inter[eé]s)'
+      THEN 'economia'
+    -- términos generales («económico», «precios de»): solo desde clima
     WHEN vigilante.categoria_canonica(p_codigo) = 'clima'
-     AND coalesce(p_texto, '') ~* '(inflaci[oó]n|deflaci[oó]n|\mipc\M|[ií]ndice de precios|alza de precios|suba de precios|aumento de precios|subida de precios|precios? de|canasta (b[aá]sica|familiar)|costo de (la )?vida|tipo de cambio|d[oó]lar|divisas|devaluaci[oó]n|econom[ií]a|econ[oó]mic|\mpib\M|recesi[oó]n|combustibles?|gasolina|di[eé]sel|arancel|tasas? de inter[eé]s)'
-     AND coalesce(p_texto, '') !~* '(lluvia|granizo|helada|nevada|nieve|sequ[ií]a|inundaci|desborde|riada|mazamorra|deslizamiento|derrumbe|incendio|humo|tormenta|vendaval|viento|ola de (calor|fr[ií]o)|friaje|temperatura|senamhi|fen[oó]meno|el ni[nñ]o|la ni[nñ]a|cicl[oó]n|sismo|terremoto|desastre natural|alerta (roja|naranja|amarilla))'
-    THEN 'mercados'
+     AND coalesce(p_texto, '') ~* '(econom[ií]a|econ[oó]mic|precios? de)'
+      THEN 'economia'
     ELSE vigilante.categoria_canonica(p_codigo) END
 $$;
 
@@ -112,6 +120,14 @@ CREATE TRIGGER a_categoria_canonica BEFORE INSERT ON vigilante.categorias
   FOR EACH ROW EXECUTE FUNCTION vigilante.tg_categoria_canonica_catalogo();
 
 -- 4. Datos que ya están -----------------------------------------------------------
+-- 4·0. la categoría nueva «economia» en cada cliente, después de Mercados
+INSERT INTO vigilante.categorias (cliente_id, codigo, nombre, descripcion, revision_obligatoria, orden)
+SELECT cl.id, 'economia', 'Economía y precios',
+       'Inflación, precios, canasta básica, tipo de cambio y dólar, combustibles, aranceles',
+       false, coalesce((SELECT max(orden) FROM vigilante.categorias c WHERE c.cliente_id = cl.id), 0) + 1
+  FROM vigilante.clientes cl
+ON CONFLICT DO NOTHING;
+
 -- 4a. el código bueno existe en cada cliente que tenga un alias
 INSERT INTO vigilante.categorias (cliente_id, codigo, nombre, descripcion, revision_obligatoria, orden, activa)
 SELECT c.cliente_id, vigilante.categoria_canonica(c.codigo), vigilante.categoria_nombre_defecto(c.codigo),
@@ -120,12 +136,12 @@ SELECT c.cliente_id, vigilante.categoria_canonica(c.codigo), vigilante.categoria
  WHERE vigilante.categoria_canonica(c.codigo) <> c.codigo
 ON CONFLICT DO NOTHING;
 
--- 4b. señales (el trigger del punto 3 también corrige economía → mercados)
+-- 4b. señales (el trigger del punto 3 también corrige economía → economia)
 UPDATE vigilante.signals SET categoria = vigilante.categoria_canonica(categoria)
  WHERE vigilante.categoria_canonica(categoria) <> categoria;
-UPDATE vigilante.signals SET categoria = 'mercados'
- WHERE categoria = 'clima'
-   AND vigilante.categoria_corregida(categoria, concat_ws(' ', titulo, resumen)) = 'mercados';
+UPDATE vigilante.signals SET categoria = 'economia'
+ WHERE categoria IN ('clima', 'mercados')
+   AND vigilante.categoria_corregida(categoria, concat_ws(' ', titulo, resumen)) = 'economia';
 
 -- 4c. preferencias de usuarios: pasan al código bueno sin duplicar
 UPDATE vigilante.user_categorias u SET categoria = vigilante.categoria_canonica(u.categoria)
@@ -149,13 +165,9 @@ DELETE FROM vigilante.categorias WHERE vigilante.categoria_canonica(codigo) <> c
 UPDATE vigilante.categorias SET nombre = vigilante.categoria_nombre_defecto(codigo)
  WHERE nombre ~ '^[a-z_]+$';
 
--- 5. Catálogo de ORBITA: «Financiación» con tilde y la economía en Mercados ----------
+-- 5. Catálogo de ORBITA: «Financiación» con tilde --------------------------------------
 UPDATE vigilante.categorias c SET nombre = 'Financiación y convocatorias'
   FROM vigilante.clientes cl
  WHERE cl.id = c.cliente_id AND cl.slug = 'orbita-bolivia' AND c.codigo = 'financiamiento';
-UPDATE vigilante.categorias c
-   SET descripcion = 'Demanda, tendencias, inversión, economía y precios (inflación, tipo de cambio, combustibles), normas'
-  FROM vigilante.clientes cl
- WHERE cl.id = c.cliente_id AND cl.slug = 'orbita-bolivia' AND c.codigo = 'mercados';
 
 COMMIT;

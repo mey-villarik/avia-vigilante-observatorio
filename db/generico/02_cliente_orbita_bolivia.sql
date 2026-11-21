@@ -46,8 +46,9 @@ BEGIN
     (c, 'seguridad',      'Seguridad del visitante',       'Conflictos, riesgos para la integridad del turista',         true,  4),
     (c, 'conectividad',   'Conectividad aérea',            'Nuevas rutas, cancelaciones, cierres de aeropuerto',         false, 5),
     (c, 'eventos',        'Eventos y festividades',        'Ferias, festivales, congresos, fechas culturales',           false, 6),
-    (c, 'financiamiento', 'Financiamiento y convocatorias','Fondos, licitaciones, cooperación',                          false, 7),
-    (c, 'mercados',       'Mercados y normativa',          'Demanda, tendencias, inversión, normas',                     false, 8);
+    (c, 'financiamiento', 'Financiación y convocatorias',  'Fondos, licitaciones, cooperación',                          false, 7),
+    (c, 'mercados',       'Mercados y normativa',          'Demanda, tendencias, inversión, normas',                     false, 8),
+    (c, 'economia',       'Economía y precios',            'Inflación, precios, tipo de cambio, combustibles, aranceles', false, 9);
 
   -- Fuentes: las rápidas (ciclo de 30 min, gratuitas) y el Vigilante n8n por MCP
   INSERT INTO vigilante.sources (cliente_id, codigo, nombre, institucion, url, tipo, metodo, categorias,
