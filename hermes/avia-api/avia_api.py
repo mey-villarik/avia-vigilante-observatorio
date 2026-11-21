@@ -110,7 +110,11 @@ async def _deepseek(session: aiohttp.ClientSession,
         json={'model': LLM_MODEL, 'messages': messages, 'max_tokens': max_tokens},
         timeout=aiohttp.ClientTimeout(total=60),
     ) as r:
-        data = await r.json()
+        data = await r.json(content_type=None)
+    if not isinstance(data, dict) or not data.get('choices'):
+        # el proveedor del modelo devolvió un error (sin saldo, clave mala, modelo inexistente…): que se vea en el log
+        err = data.get('error') if isinstance(data, dict) else data
+        raise RuntimeError(f'LLM {LLM_BASE} modelo {LLM_MODEL} HTTP {r.status}: {str(err)[:300]}')
     return data['choices'][0]['message']['content']
 
 
