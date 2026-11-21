@@ -47,7 +47,7 @@ AQUI = Path(__file__).resolve().parent
 PROMPT = AQUI / 'prompt_clasificador.md'
 
 NATURALEZAS = {'riesgo', 'oportunidad', 'mixta'}
-CATEGORIAS = {'clima', 'salud', 'vial', 'seguridad', 'conectividad', 'eventos', 'financiamiento', 'normativa', 'mercados'}
+CATEGORIAS = {'clima', 'salud', 'vial', 'seguridad', 'conectividad', 'eventos', 'financiamiento', 'normativa', 'mercados', 'economia'}
 PRIORIDADES = {'alta', 'media', 'baja'}
 CERTEZAS = ('confirmado', 'convocado', 'posible', 'rumor')
 TAREAS = {'corroborar', 'contradiccion', 'relacionar', 'oportunidad_inferida'}

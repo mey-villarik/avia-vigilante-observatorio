@@ -78,7 +78,7 @@ SENAL = {
         'resumen': {'type': 'string', 'description': '1 o 2 frases, solo hechos de la fuente'},
         'recomendacion': {'type': 'string', 'description': 'Qué hace el sector turismo'},
         'naturaleza': {'type': 'string', 'enum': ['riesgo', 'oportunidad', 'mixta']},
-        'categoria': {'type': 'string', 'description': 'clima, salud, vial, seguridad, conectividad, eventos, financiamiento, mercados, normativa'},
+        'categoria': {'type': 'string', 'description': 'clima, salud, vial, seguridad, conectividad, eventos, financiamiento, mercados, economia, normativa'},
         'prioridad': {'type': 'string', 'enum': ['alta', 'media', 'baja']},
         'motivos_prioridad': {'type': 'array', 'items': {'type': 'string'}},
         'departamentos': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Nombres de departamentos'},

@@ -97,7 +97,7 @@ const sinTildes = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-�
 const CANAL: Record<string, CategoriaId | string> = {
   'vias terrestres': 'vial', carretera: 'vial', transporte: 'vial',
   aerolineas: 'conectividad',
-  inversion: 'financiacion', economia: 'mercado',
+  inversion: 'financiacion',
   estadisticas: 'estadísticas', politica: 'política', pais: 'país',
   prensa: 'prensa', medios: 'prensa',
 };

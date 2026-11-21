@@ -5,7 +5,7 @@ import type {
 } from '../types';
 
 export const DEPS: string[] =['La Paz','Cochabamba','Santa Cruz','Oruro','Potosí','Chuquisaca','Tarija','Beni','Pando'];
-export const CATS: Record<CategoriaId, string> ={clima:'Clima',salud:'Salud',vial:'Vial',seguridad:'Seguridad',conectividad:'Conectividad',eventos:'Eventos',financiacion:'Financiación',mercado:'Mercado y demanda',normativa:'Normativa',turismo:'Turismo'};
+export const CATS: Record<CategoriaId, string> ={clima:'Clima',salud:'Salud',vial:'Vial',seguridad:'Seguridad',conectividad:'Conectividad',eventos:'Eventos',financiacion:'Financiación',mercado:'Mercado y demanda',economia:'Economía',normativa:'Normativa',turismo:'Turismo'};
 export const STAGES: [Etapa, string][] =[['detectada','Detectada'],['en_analisis','En análisis'],['en_verificacion','En verificación'],['confirmada','Confirmada'],['publicada','Publicada'],['descartada','Descartada']];
 export const STL = Object.fromEntries(STAGES) as Record<Etapa, string>;
 export const STATE_TXT: Record<EstadoFuente, string> ={OK:'OK',WARN:'AVISO',CRIT:'CRÍTICO',UNKNOWN:'DESCONOCIDO',MANT:'MANTENIMIENTO'};
