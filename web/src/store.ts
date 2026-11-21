@@ -1,6 +1,6 @@
 // Estado global de la aplicación (zustand).
-// Los datos vienen hoy de src/data/demo.ts; cuando exista la API, las acciones que cambian
-// fuentes y señales deben llamar a src/services/api.ts además de actualizar el estado.
+// Los datos vienen de la base (vigilante_bd) o de vigilante.json. Mientras no llegan, origen = 'ninguno'
+// y la web muestra «Cargando…». Los datos de ejemplo (src/data/demo.ts) solo se usan en desarrollo con VITE_DEMO=1.
 import { create } from 'zustand';
 import {
   CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
@@ -11,6 +11,7 @@ import {
   type AltaCandidata, type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
 } from './services/recolector';
 import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
+import { DEMO } from './lib/modo';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { decidirSenal, leerEstados, leerMovimientos, motivoNoPasa, moverSenal, type Destino, pasarSenales, pasosHasta, siguientesPasos, transicionValida } from './services/senales';
@@ -20,6 +21,9 @@ import type {
 import { ROLE_NAME, clock, storage } from './lib/util';
 import { completarDesglose, contar, textoFuentes, type Contadores } from './lib/contadores';
 import { sintesisDe } from './lib/sintesis';
+
+/** serie sin datos: el gráfico dice «Sin datos todavía» en vez de inventar una curva */
+export const SERIE_VACIA: Serie = { labels: [], det: [], opp: [], risk: [] };
 
 export type Drawer =
   | { kind: 'fuente'; id: string }
@@ -72,8 +76,8 @@ interface State {
   simple: boolean;
   theme: 'dark' | 'light' | null;
   // datos
-  /** de dónde vienen los datos: ejemplo inventado o vigilante.json del VPS */
-  origen: 'demo' | 'vps';
+  /** de dónde vienen los datos: aún ninguno (se muestra «Cargando…»), ejemplo (solo desarrollo con VITE_DEMO=1) o reales */
+  origen: 'ninguno' | 'demo' | 'vps';
   cargando: boolean;
   errorDatos: string | null;
   /** fecha en que Hermes generó los datos (ISO) */
@@ -234,12 +238,12 @@ export const useStore = create<Store>()((set, get) => {
     sigFilter: { nat: 'all', dep: 'all', q: '', periodo: 'recientes' },
     mapaSel: null,
     analysis: { type: 'panorama', scope: 'all', dep: 'all', text: '', q: '' },
-    live: true,
+    live: DEMO,
     fs: storage.get('fs', 1),
     contrast: storage.get('contrast', 'normal'),
     simple: storage.get('simple', false),
     theme: storage.get('theme', null),
-    origen: 'demo',
+    origen: DEMO ? 'demo' : 'ninguno',
     cargando: false,
     errorDatos: null,
     generado: null,
@@ -249,15 +253,16 @@ export const useStore = create<Store>()((set, get) => {
     sintesis: null,
     sintesisDia: null,
     comparacionDia: null,
-    temas: TEMAS_DEMO,
-    serie: SERIE_DEMO,
-    fuentes: FUENTES_DEMO.map((f) => ({ ...f })),
-    senales: SENALES_DEMO.map((s) => ({ ...s })),
-    pendientes: PENDIENTES_DEMO.map((s) => ({ ...s })),
-    eventos: EVENTOS_DEMO.map((e) => ({ ...e })),
+    // sin VITE_DEMO=1 todo empieza vacío: nada inventado llega a la pantalla
+    temas: DEMO ? TEMAS_DEMO : [],
+    serie: DEMO ? SERIE_DEMO : SERIE_VACIA,
+    fuentes: DEMO ? FUENTES_DEMO.map((f) => ({ ...f })) : [],
+    senales: DEMO ? SENALES_DEMO.map((s) => ({ ...s })) : [],
+    pendientes: DEMO ? PENDIENTES_DEMO.map((s) => ({ ...s })) : [],
+    eventos: DEMO ? EVENTOS_DEMO.map((e) => ({ ...e })) : [],
     propuestas: [],
-    candidatas: CANDIDATAS_DEMO.map((c) => ({ ...c })),
-    oportunidades: OPORTUNIDADES_DEMO.map((o) => ({ ...o })),
+    candidatas: DEMO ? CANDIDATAS_DEMO.map((c) => ({ ...c })) : [],
+    oportunidades: DEMO ? OPORTUNIDADES_DEMO.map((o) => ({ ...o })) : [],
     tick: 0,
     drawer: null,
     searchOpen: false,
@@ -684,7 +689,7 @@ export const useStore = create<Store>()((set, get) => {
         set({
           origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
-          temas: d.temas, serie: d.serie ?? SERIE_DEMO, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia,
+          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
           oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });
@@ -693,7 +698,7 @@ export const useStore = create<Store>()((set, get) => {
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'error desconocido';
         set({ errorDatos: msg });
-        if (!quiet) get().toast(get().origen === 'vps' ? `No se pudo actualizar: ${msg}` : 'Sin conexión con el VPS: se muestran datos de ejemplo.');
+        if (!quiet && get().origen !== 'ninguno') get().toast(get().origen === 'vps' ? `No se pudo actualizar: ${msg}` : 'Sin conexión con el VPS: se muestran datos de ejemplo.');
       } finally {
         set({ cargando: false });
       }
