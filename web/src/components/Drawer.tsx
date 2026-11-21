@@ -374,9 +374,16 @@ function Puntos({ s }: { s: Parameters<typeof puntuacionesDe>[0] }) {
           <ul>{p.fiabilidad.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
         </div>
         <div className={`punto ${p.probabilidad.valor == null ? 'n-sin' : 'n-' + p.probabilidad.nivel}`} title={EXPLICA.probabilidad}>
-          <small>Probabilidad</small>
+          <small>{p.probabilidad.origen ? 'Probabilidad de que ocurra' : 'Probabilidad'}</small>
           <b className="mono">{prob}</b>
           <p>{p.probabilidad.justificacion}</p>
+          {p.probabilidad.origen && (
+            <p className="note" style={{ margin: '4px 0 0' }}>
+              {p.probabilidad.origen === 'avia'
+                ? `Ajustada por AVIA${p.probabilidad.base != null ? ` (la base calculó ${Math.round(p.probabilidad.base * 100)} %)` : ''}.`
+                : 'Cálculo de la base; AVIA la está ajustando.'}
+            </p>
+          )}
         </div>
         <div className={`punto ${p.impacto.nivel === 'sin datos' ? 'n-sin' : ''}`} title={EXPLICA.impacto}>
           <small>Impacto turístico</small>

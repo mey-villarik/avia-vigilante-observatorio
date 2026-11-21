@@ -71,8 +71,13 @@ export interface CambioEtapa { de: Etapa; a: Etapa; quien: string; cuando: strin
 export interface Puntuaciones {
   /** respaldo de la evidencia, 0-100, calculado por la base */
   fiabilidad: { valor: number; nivel: 'alta' | 'media' | 'baja'; motivos: string[]; noticias: number; fuentes: number; oficial: boolean };
-  /** 0-1 solo si el modelo la justificó; si no, valor null y nivel «sin datos» */
-  probabilidad: { valor: number | null; nivel: 'alta' | 'media' | 'baja' | 'sin datos'; justificacion: string };
+  /** 0-1 solo si el modelo la justificó; si no, valor null y nivel «sin datos».
+   *  Desde el 33, en las confirmadas: probabilidad de ocurrencia (origen «base» = cálculo de la base,
+   *  «avia» = ajustada por AVIA) y su razón en «justificacion». */
+  probabilidad: {
+    valor: number | null; nivel: 'alta' | 'media' | 'baja' | 'sin datos'; justificacion: string;
+    origen?: 'base' | 'avia'; base?: number | null; calculada_en?: string | null;
+  };
   /** impacto turístico con su motivo */
   impacto: { nivel: 'alto' | 'medio' | 'bajo' | 'sin datos'; motivo: string; origen: 'modelo' | 'relevancia' | 'prioridad' | 'ninguno' };
 }

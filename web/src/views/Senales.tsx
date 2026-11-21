@@ -5,6 +5,25 @@ import { COLUMNAS, DESTINO, columnaDe, motivoNoPasa, type Columna, type Destino 
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
 import { CertezaTag, NatPill } from '../components/common';
+import { EXPLICA, puntuacionesDe } from '../lib/puntuaciones';
+
+/** Probabilidad de que ocurra y por qué (solo señales confirmadas, db/generico/33_probabilidad_senales.sql) */
+function Probabilidad({ s }: { s: Senal }) {
+  if (s.estado !== 'confirmada') return null;
+  const p = puntuacionesDe(s).probabilidad;
+  if (p.valor == null || !p.origen) return null;
+  const pct = Math.round(p.valor * 100);
+  return (
+    <span className={`cprob ${p.origen}`} title={EXPLICA.probabilidad}>
+      <span className="cprob-h">
+        <b className="mono">{pct} %</b> probable
+        <span className="cprob-o">{p.origen === 'avia' ? 'AVIA' : 'cálculo base'}</span>
+      </span>
+      <span className="cprob-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
+      <span className="cprob-r">{p.justificacion}</span>
+    </span>
+  );
+}
 
 function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: boolean; onDragStart: () => void; onDragEnd: () => void }) {
   const openDrawer = useStore((st) => st.openDrawer);
@@ -20,6 +39,7 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
         {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}
       </span>
       <span className="ct">{s.titulo}</span>
+      <Probabilidad s={s} />
       <span className="cf">
         <span>{s.deps.slice(0, 2).join(', ')}{s.deps.length > 2 ? ' +' + (s.deps.length - 2) : ''}</span>
         <span className="mono">{s.id} · {ago(s.min)}</span>

@@ -336,6 +336,15 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .card .cm{display:flex;gap:5px;flex-wrap:wrap}
 .card .cf{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
 .card[draggable="true"]{cursor:grab}
+/* Probabilidad de que ocurra (33): solo en Confirmadas. Color neutro: alta no es buena ni mala (riesgo u oportunidad) */
+.cprob{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border-radius:8px;background:var(--accent-soft);font-size:12px;cursor:help}
+.cprob-h{display:flex;align-items:baseline;gap:6px;color:var(--muted)}
+.cprob-h b{color:var(--ink);font-size:13px}
+.cprob-o{margin-left:auto;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.cprob.avia .cprob-o{color:var(--accent)}
+.cprob-bar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.cprob-bar i{display:block;height:100%;background:var(--accent)}
+.cprob-r{color:var(--muted);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
 /* Oportunidades */
 .opp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}

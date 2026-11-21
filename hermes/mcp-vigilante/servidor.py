@@ -23,7 +23,7 @@ import sys
 import urllib.error
 import urllib.request
 
-VERSION = '2.3.0'
+VERSION = '2.4.0'
 
 INSTRUCCIONES = (
     'Herramientas del Vigilante AVIA sobre la base de datos del observatorio. Eres el agente investigador: '
@@ -328,6 +328,26 @@ HERRAMIENTAS = [
                     'alerta?» o «¿qué tan sólida es?».',
      'inputSchema': {'type': 'object', 'properties': {'codigo': {'type': 'string'}}, 'required': ['codigo']},
      'fn': 'ficha_senal_hermes', 'args': lambda a: {'p_codigo': a['codigo']}},
+    # 2.4 (migración 33): probabilidad de ocurrencia de las señales confirmadas (skill avia-probabilidad).
+    {'name': 'probabilidades_por_ajustar',
+     'description': 'Señales confirmadas con la probabilidad base de la base de datos sin ajustar: base, factores (peso de la '
+                    'fuente, fuentes distintas, tasa de la categoría) y 3 líneas de contexto (época, zona, historial). '
+                    'Quedan reservadas 30 minutos: ciérralas con guardar_probabilidades.',
+     'inputSchema': {'type': 'object', 'properties': {'limite': {'type': 'integer', 'minimum': 1, 'maximum': 10, 'default': 10}}},
+     'fn': 'probabilidades_por_ajustar', 'args': lambda a: {'p_limite': a.get('limite', 10)}},
+    {'name': 'guardar_probabilidades',
+     'description': 'Guarda en lote la probabilidad de ocurrencia ajustada y su razón (una frase). La base la acota a ±0,20 '
+                    'de su cálculo y a 0,05-0,95, y devuelve las guardadas y los errores.',
+     'inputSchema': {'type': 'object', 'properties': {
+         'resultados': {'type': 'array', 'items': {'type': 'object', 'properties': {
+             'codigo': {'type': 'string', 'description': 'SEN-xxxx'},
+             'prob': {'type': 'number', 'minimum': 0, 'maximum': 1},
+             'razon': {'type': 'string', 'description': 'Una frase, máx. 160 caracteres'}},
+             'required': ['codigo', 'prob', 'razon']}}},
+         'required': ['resultados']},
+     'fn': 'guardar_probabilidades',
+     'args': lambda a: {'p_resultados': a['resultados'],
+                        'p_modelo': os.environ.get('HERMES_MODELO') or os.environ.get('LLM_MODEL') or 'hermes'}},
 ]
 POR_NOMBRE = {h['name']: h for h in HERRAMIENTAS}
 

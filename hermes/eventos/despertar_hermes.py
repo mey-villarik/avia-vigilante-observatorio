@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Despierta a Hermes SOLO cuando hay eventos compuestos (28), cambios en noticias (31) o fichas de riesgo (32) pendientes.
+"""Despierta a Hermes SOLO cuando hay eventos compuestos (28), cambios en noticias (31), fichas de riesgo (32)
+o probabilidades de señales confirmadas (33) pendientes.
 
 Hermes es el cerebro: él decide qué significa cada evento, a quién afecta y qué se recomienda
 (skill «interpretar-eventos»). Este script no usa IA: pregunta a Supabase cuántos eventos esperan
@@ -13,6 +14,8 @@ Cada vez que se ejecuta (cron del VPS, p. ej. cada 5 minutos):
      incluir los cambios: ver docs/cambios-noticias.md).
      Si hay fichas y existe HERMES_CRON_FICHAS, lanza esa tarea (skill avia-ficha-aprobacion). Sin ella, las
      fichas no despiertan a Hermes (ver docs/ficha-aprobacion.md).
+     Si hay probabilidades por ajustar y existe HERMES_CRON_PROB, lanza esa tarea (skill avia-probabilidad). Sin ella,
+     las señales confirmadas se quedan con la probabilidad base de la base de datos (ver docs/probabilidad-senales.md).
   3. Anota en vigilante.system_logs cuántos había y si Hermes arrancó.
 
 Tiene su propio candado (/tmp/avia-eventos.lock): NO pongas flock en el crontab.
@@ -26,6 +29,7 @@ Variables (en /etc/avia/supabase.env o en el archivo de AVIA_SUPABASE_ENV; NUNCA
   HERMES_CRON_EVENTOS=<id de la tarea de Hermes «Interpretar eventos»>
   HERMES_CRON_CAMBIOS (opcional) = id de una tarea aparte para los cambios; sin ella, se usa la de eventos
   HERMES_CRON_FICHAS (opcional) = id de la tarea «Fichas de aprobación» (skill avia-ficha-aprobacion)
+  HERMES_CRON_PROB (opcional) = id de la tarea «Probabilidad de señales» (skill avia-probabilidad)
   HERMES_CMD (opcional) = orden completa para lanzar a Hermes; sustituye a la de por defecto
 """
 from __future__ import annotations
@@ -74,7 +78,7 @@ def rpc(fn: str, args: dict) -> object:
     return json.loads(cuerpo) if cuerpo else None
 
 
-def ordenes_hermes(n_eventos: int, n_cambios: int, n_fichas: int = 0) -> list[list[str]]:
+def ordenes_hermes(n_eventos: int, n_cambios: int, n_fichas: int = 0, n_prob: int = 0) -> list[list[str]]:
     """Las tareas de Hermes que hay que lanzar (sin repetir la misma)."""
     if os.environ.get('HERMES_CMD'):
         return [shlex.split(os.environ['HERMES_CMD'])]
@@ -87,6 +91,9 @@ def ordenes_hermes(n_eventos: int, n_cambios: int, n_fichas: int = 0) -> list[li
     fi = os.environ.get('HERMES_CRON_FICHAS')
     if n_fichas and fi and fi not in tareas:
         tareas.append(fi)
+    pr = os.environ.get('HERMES_CRON_PROB')
+    if n_prob and pr and pr not in tareas:
+        tareas.append(pr)
     return [['docker', 'exec', 'hermes', 'hermes', 'cron', 'run', t] for t in tareas]
 
 
@@ -128,16 +135,22 @@ def main() -> int:
             n_fi = int(rpc('fichas_pendientes_hermes', {'p_cliente': cliente}) or 0)
         except Exception as e:  # noqa: BLE001 — sin el 32 no hay fichas
             log(f'No pude contar las fichas ({str(e)[:120]}). ¿Está ejecutado el 32_ficha_aprobacion.sql?')
-    resumen = f'{n_ev} eventos, {n_ca} cambios y {n_fi} fichas'
+    n_pr = 0
+    if os.environ.get('HERMES_CRON_PROB') or a.contar:
+        try:
+            n_pr = int(rpc('probabilidades_pendientes_hermes', {'p_cliente': cliente}) or 0)
+        except Exception as e:  # noqa: BLE001 — sin el 33 no hay probabilidades
+            log(f'No pude contar las probabilidades ({str(e)[:120]}). ¿Está ejecutado el 33_probabilidad_senales.sql?')
+    resumen = f'{n_ev} eventos, {n_ca} cambios, {n_fi} fichas y {n_pr} probabilidades'
     if a.contar:
         log(f'Por hacer: {resumen}')
         return 0
-    n = n_ev + n_ca + (n_fi if os.environ.get('HERMES_CRON_FICHAS') else 0)
+    n = n_ev + n_ca + (n_fi if os.environ.get('HERMES_CRON_FICHAS') else 0) + (n_pr if os.environ.get('HERMES_CRON_PROB') else 0)
     if n == 0:
         log(f'Por hacer: {resumen} — Hermes no se despierta')
         return 0
 
-    ordenes = ordenes_hermes(n_ev, n_ca, n_fi)
+    ordenes = ordenes_hermes(n_ev, n_ca, n_fi, n_pr)
     if not ordenes:
         log(f'Hay {resumen}, pero falta HERMES_CRON_EVENTOS (o HERMES_CMD) en el archivo de variables')
         return 2

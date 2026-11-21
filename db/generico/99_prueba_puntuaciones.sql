@@ -33,7 +33,9 @@ BEGIN
   SELECT vigilante.puntuaciones(id) INTO p2 FROM vigilante.signals WHERE codigo = 'P-2';
   SELECT vigilante.puntuaciones(id) INTO p3 FROM vigilante.signals WHERE codigo = 'P-3';
   IF (p1 #>> '{fiabilidad,valor}')::int <> 90 OR p1 #>> '{fiabilidad,nivel}' <> 'alta' THEN RAISE EXCEPTION 'P-1 fiabilidad: %', p1 -> 'fiabilidad'; END IF;
-  IF (p1 #>> '{probabilidad,valor}')::numeric <> 0.8 OR p1 #>> '{impacto,nivel}' <> 'alto' THEN RAISE EXCEPTION 'P-1 prob/impacto: %', p1; END IF;
+  -- desde el 33, una señal confirmada lleva la probabilidad de ocurrencia calculada al confirmar (origen base/avia)
+  IF NOT ((p1 #>> '{probabilidad,valor}')::numeric = 0.8 OR p1 #>> '{probabilidad,origen}' IN ('base', 'avia'))
+     OR p1 #>> '{impacto,nivel}' <> 'alto' THEN RAISE EXCEPTION 'P-1 prob/impacto: %', p1; END IF;
   IF (p2 #>> '{fiabilidad,valor}')::int <> 15 OR p2 #>> '{fiabilidad,nivel}' <> 'baja' THEN RAISE EXCEPTION 'P-2 fiabilidad: %', p2 -> 'fiabilidad'; END IF;
   IF p2 #>> '{probabilidad,nivel}' <> 'sin datos' OR (p2 #> '{probabilidad,valor}') <> 'null'::jsonb THEN RAISE EXCEPTION 'P-2 sin justificación no debe tener probabilidad: %', p2 -> 'probabilidad'; END IF;
   IF p2 #>> '{impacto,nivel}' <> 'medio' OR p2 #>> '{impacto,origen}' <> 'relevancia' THEN RAISE EXCEPTION 'P-2 impacto: %', p2 -> 'impacto'; END IF;
