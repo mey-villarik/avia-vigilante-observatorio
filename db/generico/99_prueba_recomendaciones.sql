@@ -57,7 +57,7 @@ BEGIN
     RAISE EXCEPTION 'R-5: %', r5; END IF;
   IF NOT EXISTS (SELECT 1 FROM ids, jsonb_array_elements(vigilante._vigilante_json(c) -> 'senales') e WHERE e ->> 'id' = 'R-1' AND e ? 'recomendacion_segura') THEN
     RAISE EXCEPTION 'vigilante.json no lleva recomendacion_segura'; END IF;
-  IF (SELECT prosrc FROM pg_proc WHERE oid = 'vigilante.guardar_clasificacion(text,jsonb,text,text,jsonb)'::regprocedure) NOT LIKE '%''falta_saber'', x -> ''falta_saber''%' THEN
+  IF (SELECT prosrc FROM pg_proc WHERE oid = coalesce(to_regprocedure('vigilante.guardar_clasificacion_25(text,jsonb,text,text,jsonb)'), 'vigilante.guardar_clasificacion(text,jsonb,text,text,jsonb)'::regprocedure)) NOT LIKE '%''falta_saber'', x -> ''falta_saber''%' THEN
     RAISE EXCEPTION 'guardar_clasificacion no guarda falta_saber'; END IF;
   RAISE WARNING 'OK: recomendaciones seguras (R-1 marcada sin verificar, R-2 con dato oficial reciente, faltas de convocado, plazo y modelo)';
 END $$;

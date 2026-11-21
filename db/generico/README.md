@@ -63,6 +63,7 @@ En Supabase: añadir `vigilante` en Settings → API → Exposed schemas.
 | --- | --- |
 | Un solo cliente | Tabla `clientes`; todas las tablas llevan `cliente_id` |
 | `departamentos` fijos de Bolivia | `territorios` por cliente, con jerarquía (país, región, ciudad...) |
+| `43_mismo_hecho.sql` | Un hecho, una señal aunque los medios lo cuenten con otras palabras: compara palabras clave con sinónimos, lugar, fechas y año; el clasificador puede decir `misma_senal`; pg_cron `vigilante-mismo-hecho` junta cada 15 min las repetidas (publicadas incluidas; se queda la publicada con «2 fuentes»). `separar_senal()` deshace. Prueba `99_prueba_mismo_hecho.sql`. Ver `docs/mismo-hecho.md`. |
 | Categorías, fuentes y parámetros globales | Por cliente; los parámetros sin cliente son el valor por defecto |
 | Dedupe global por hash | Dedupe por cliente: la misma noticia puede servir a dos clientes |
 | Zona horaria de Bolivia fija | Cada cliente tiene su zona horaria y su horario de guardia |

@@ -65,7 +65,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM ids, jsonb_array_elements(vigilante._vigilante_json(c) -> 'senales') e WHERE e ->> 'id' = 'C-2' AND e #>> '{certeza,nivel}' = 'convocado') THEN
     RAISE EXCEPTION 'vigilante.json no lleva certeza';
   END IF;
-  IF (SELECT prosrc FROM pg_proc WHERE oid = 'vigilante.guardar_clasificacion(text,jsonb,text,text,jsonb)'::regprocedure) NOT LIKE '%''certeza'', x -> ''certeza''%' THEN
+  IF (SELECT prosrc FROM pg_proc WHERE oid = coalesce(to_regprocedure('vigilante.guardar_clasificacion_25(text,jsonb,text,text,jsonb)'), 'vigilante.guardar_clasificacion(text,jsonb,text,text,jsonb)'::regprocedure)) NOT LIKE '%''certeza'', x -> ''certeza''%' THEN
     RAISE EXCEPTION 'guardar_clasificacion no guarda la certeza';
   END IF;
   RAISE WARNING 'OK: grado de certeza (8 casos: confirmado, convocado, posible y rumor; persona, modelo, ajuste y reglas)';
