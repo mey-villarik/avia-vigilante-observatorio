@@ -4,12 +4,13 @@ import type { Naturaleza } from '../types';
 import { NatPill } from '../components/common';
 import { ago, norm } from '../lib/util';
 import { leerPublicas, votar, votoGuardado, type AlertaPublica, type Publicas } from '../services/publico';
+import { enBolivia } from '../lib/hora';
 
 const REFRESCO_MS = 5 * 60 * 1000;
 const NAT_OPTS: [Naturaleza | 'all', string][] = [['all', 'Todas'], ['oportunidad', 'Oportunidades'], ['riesgo', 'Riesgos'], ['mixta', 'Mixtas']];
 
 const minutosDesde = (iso: string) => Math.max(0, (Date.now() - new Date(iso).getTime()) / 60000);
-const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-BO', { day: 'numeric', month: 'short' });
+const fecha = (iso: string) => enBolivia(iso, 'diaCorto');
 
 function Voto({ a }: { a: AlertaPublica }) {
   const [mio, setMio] = useState<boolean | null>(() => votoGuardado(a.id));

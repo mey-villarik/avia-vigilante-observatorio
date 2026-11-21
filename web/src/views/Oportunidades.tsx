@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon';
 import { NatPill } from '../components/common';
 import { useChat } from '../services/chat';
 import type { Oportunidad } from '../services/recolector';
+import { enBolivia } from '../lib/hora';
 
 export const planPrompt = (id: string, titulo: string) =>
   `Dame un plan de acción para ${id} (${titulo}). ¿Quién puede aprovecharlo o a quién afecta y qué hago primero?`;
@@ -21,7 +22,7 @@ const diasHasta = (f?: string) => {
   const fin = Date.parse(`${f}T23:59:59-04:00`);
   return Number.isNaN(fin) ? null : Math.ceil((fin - Date.now()) / 86400000) - 1;
 };
-const fecha = (f: string) => new Date(`${f}T12:00:00-04:00`).toLocaleDateString('es-BO', { day: 'numeric', month: 'long' });
+const fecha = (f: string) => enBolivia(f, 'diaLargo');
 const esEnlace = (u: string) => /^https?:\/\//.test(u);
 
 function FichaDetalle({ o, cerrar }: { o: Oportunidad; cerrar: () => void }) {

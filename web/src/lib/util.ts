@@ -1,4 +1,5 @@
 import type { Rol, Senal } from '../types';
+import { relojBolivia } from './hora';
 
 /** minúsculas y sin tildes, para buscar */
 export const norm = (s: unknown): string =>
@@ -10,9 +11,8 @@ export const ago = (m: number): string =>
       : m < 1440 ? `hace ${Math.round(m / 60)} h`
         : `hace ${Math.round(m / 1440)} d`;
 
-/** hora local desplazada m minutos respecto a ahora */
-export const clock = (m: number): string =>
-  new Date(Date.now() + m * 60000).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
+/** hora de Bolivia (24 h) desplazada m minutos respecto a ahora, sea cual sea el país del navegador */
+export const clock = (m: number): string => relojBolivia(m);
 
 /** puntuación compuesta: relevancia 45 %, novedad 25 %, confianza 30 % */
 export const scoreOf = (s: Senal): number =>

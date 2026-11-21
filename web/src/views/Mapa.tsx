@@ -15,13 +15,13 @@ import { CertezaTag, Empty } from '../components/common';
 import { NACIONAL, regionesDeSenal, resumenRegion, tonoDe, type ResumenRegion } from '../lib/regiones';
 import { ago, esReciente, norm } from '../lib/util';
 import type { Senal } from '../types';
+import { enBolivia } from '../lib/hora';
 
 type Mostrar = 'todo' | 'oportunidad' | 'riesgo';
 
 const fechaCorta = (f?: string | null) => {
   if (!f) return '';
-  const t = Date.parse(f);
-  return Number.isNaN(t) ? f : new Date(t).toLocaleDateString('es-BO', { day: 'numeric', month: 'short' });
+  return enBolivia(f, 'diaCorto');
 };
 
 /** todos los resúmenes por departamento con los filtros de la vista */

@@ -12,6 +12,7 @@ import { Equipo, MiClave } from './Equipo';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { porqueAvia, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
+import { enBolivia } from '../lib/hora';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 import { afirmaOperativo, recoDe } from '../lib/recomendacion';
 import { EXPLICA as PULSO_EXPLICA, calcularPulso, factoresTexto, masPesan } from '../lib/pulso';
@@ -87,21 +88,21 @@ function FuenteDetalle({ id }: { id: string }) {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{s.bd.palabras_clave!.map((p) => <span className="tag" key={p}>{p}</span>)}</div>
             )}
             <p className="note" style={{ margin: 0 }}>
-              {s.bd.alta_por ? `Alta de ${s.bd.alta_por}` : 'Alta por AVIA'}{s.bd.creada_en ? ` el ${new Date(s.bd.creada_en).toLocaleDateString('es-BO')}` : ''}
-              {s.bd.editada_por ? ` · Última edición: ${s.bd.editada_por}${s.bd.editada_en ? `, ${new Date(s.bd.editada_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}` : ''}
+              {s.bd.alta_por ? `Alta de ${s.bd.alta_por}` : 'Alta por AVIA'}{s.bd.creada_en ? ` el ${enBolivia(s.bd.creada_en, 'fecha')}` : ''}
+              {s.bd.editada_por ? ` · Última edición: ${s.bd.editada_por}${s.bd.editada_en ? `, ${enBolivia(s.bd.editada_en, 'fechaHora')}` : ''}` : ''}
             </p>
           </>
         )}
         {s.bd?.revision_pedida_en && (!s.bd.ultima_consulta_en || Date.parse(s.bd.ultima_consulta_en) < Date.parse(s.bd.revision_pedida_en)) && (
-          <p className="note" style={{ margin: 0 }}>↻ {s.bd.revision_pedida_por ?? 'Alguien'} pidió una revisión el {new Date(s.bd.revision_pedida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}: AVIA la revisa en su próxima ronda.</p>
+          <p className="note" style={{ margin: 0 }}>↻ {s.bd.revision_pedida_por ?? 'Alguien'} pidió una revisión el {enBolivia(s.bd.revision_pedida_en, 'fechaHora')}: AVIA la revisa en su próxima ronda.</p>
         )}
         {s.ack && s.bd?.reconocida_por && (
-          <p className="note" style={{ margin: 0 }}>✓ {s.bd.reconocida_por} reconoció el problema{s.bd.reconocida_en ? ` el ${new Date(s.bd.reconocida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}{s.bd.reconocida_nota ? `: ${s.bd.reconocida_nota}` : ''}. Se quita solo cuando la fuente vuelve a OK.</p>
+          <p className="note" style={{ margin: 0 }}>✓ {s.bd.reconocida_por} reconoció el problema{s.bd.reconocida_en ? ` el ${enBolivia(s.bd.reconocida_en, 'fechaHora')}` : ''}{s.bd.reconocida_nota ? `: ${s.bd.reconocida_nota}` : ''}. Se quita solo cuando la fuente vuelve a OK.</p>
         )}
         {s.bd && (s.bd.errores_seguidos ?? 0) > 0 && (
           <p className="note" style={{ margin: 0, color: 'var(--crit)' }}>
             Lleva {s.bd.errores_seguidos} {s.bd.errores_seguidos === 1 ? 'comprobación fallida' : 'comprobaciones fallidas seguidas'}
-            {s.bd.ultimo_exito_en ? ` · Último acierto: ${new Date(s.bd.ultimo_exito_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+            {s.bd.ultimo_exito_en ? ` · Último acierto: ${enBolivia(s.bd.ultimo_exito_en, 'fechaHora')}` : ''}
             {s.bd.ultimo_error ? ` · ${s.bd.ultimo_error}` : ''}
           </p>
         )}

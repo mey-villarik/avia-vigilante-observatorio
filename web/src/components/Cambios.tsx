@@ -7,10 +7,10 @@ import { useEventos, alertaPendiente, eventosSinVer } from '../services/eventos'
 import { CAMBIOS_MS, cambioPendiente, sinVer, TIPO_CAMBIO_TXT, useCambios, type Cambio } from '../services/cambios';
 import { Icon } from './Icon';
 import { cerrarFlotantes } from '../lib/flotantes';
+import { enBolivia } from '../lib/hora';
 
-const TZ = 'America/La_Paz';
-const hora = (iso: string) => new Date(iso).toLocaleString('es-BO', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-const dia = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-BO', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+const hora = (iso: string) => enBolivia(iso, 'diaHora');
+const dia = (d: string) => enBolivia(d, 'diaSemana');
 const CAMPO_TXT: Record<string, string> = {
   fecha_evento_inicio: 'Empieza', fecha_evento_fin: 'Termina', plazo_hasta: 'Plazo', naturaleza: 'Tipo', prioridad: 'Prioridad',
 };
