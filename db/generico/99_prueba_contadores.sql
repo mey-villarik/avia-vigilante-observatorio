@@ -1,6 +1,6 @@
 -- Prueba de 21_contadores_unicos.sql: panel y AVIA cuentan lo mismo.
 -- Requiere 01 a 21 (y 02 con el cliente orbita-bolivia); con el 39 comprueba también el desglose de
--- verificadas y las fuentes activas. Termina en ROLLBACK: no deja nada.
+-- verificadas y las fuentes activas; con el 40, la regla única de «Verificada». Termina en ROLLBACK: no deja nada.
 BEGIN;
 \set ON_ERROR_STOP 1
 SET client_min_messages = warning;
@@ -84,6 +84,41 @@ BEGIN
       RAISE EXCEPTION 'fuente en pausa mal contada: antes %, después %', k, j; END IF;
   END IF;
   RAISE WARNING 'OK: panel y AVIA cuentan % señales activas', k ->> 'senales_activas';
+END $$;
+
+-- 40: «Verificada» = fuente oficial o 2 o más fuentes distintas (no basta con estar confirmada).
+--  C-9 riesgo confirmado por una persona con UNA noticia de una fuente no oficial → confirmada sin verificar;
+--  al publicarla la web pública la muestra «En verificación»; con una segunda fuente pasa a «Verificada».
+DO $$
+DECLARE k jsonb; v_c uuid := (SELECT c FROM ids); v_id bigint; v_et text;
+BEGIN
+  IF NOT (vigilante.contadores(v_c) ? 'confirmadas_sin_verificar') THEN RETURN; END IF;
+  INSERT INTO vigilante.signals (cliente_id, codigo, titulo, resumen, naturaleza, categoria, prioridad, estado, fuente_oficial, estado_manual)
+  VALUES (v_c, 'C-9', 'Señal C-9', 'Resumen C-9', 'riesgo', 'eventos', 'media', 'confirmada', false, true) RETURNING id INTO v_id;
+  INSERT INTO vigilante.raw_items (cliente_id, source_id, url, content_hash, titulo)
+  SELECT v_c, (SELECT id FROM vigilante.sources WHERE cliente_id = v_c ORDER BY id LIMIT 1), 'https://ej.bo/c9-' || n, 'h-c9-' || n, 'Noticia C-9 ' || n
+    FROM generate_series(1, 2) n;   -- dos notas del MISMO medio: siguen siendo una fuente
+  INSERT INTO vigilante.signal_raw_items (signal_id, raw_item_id) SELECT v_id, id FROM vigilante.raw_items WHERE content_hash LIKE 'h-c9-%';
+  k := vigilante.contadores(v_c);
+  IF (k ->> 'verificadas')::int <> 2 OR (k ->> 'confirmadas_sin_verificar')::int <> 1 THEN
+    RAISE EXCEPTION '40: C-9 (una sola fuente no oficial) no debe contar como verificada: %', k; END IF;
+  IF (k ->> 'verificadas_2_fuentes')::int + (k ->> 'verificadas_oficial')::int <> (k ->> 'verificadas')::int THEN
+    RAISE EXCEPTION '40: el desglose no suma las verificadas: %', k; END IF;
+
+  UPDATE vigilante.signals SET estado = 'publicada', estado_manual = true WHERE id = v_id;
+  SELECT estado_verificacion INTO v_et FROM vigilante.alerts WHERE signal_id = v_id;
+  IF v_et IS DISTINCT FROM 'en_verificacion' THEN RAISE EXCEPTION '40: la alerta de C-9 debería salir «En verificación», salió %', v_et; END IF;
+
+  -- una segunda fuente distinta: ya es verificada y la web pública lo dice
+  INSERT INTO vigilante.raw_items (cliente_id, source_id, url, content_hash, titulo)
+  VALUES (v_c, (SELECT id FROM vigilante.sources WHERE cliente_id = v_c ORDER BY id OFFSET 1 LIMIT 1), 'https://otro.bo/c9', 'h-c9-otra', 'Otra fuente');
+  INSERT INTO vigilante.signal_raw_items (signal_id, raw_item_id) SELECT v_id, id FROM vigilante.raw_items WHERE content_hash = 'h-c9-otra';
+  SELECT estado_verificacion INTO v_et FROM vigilante.alerts WHERE signal_id = v_id;
+  IF v_et IS DISTINCT FROM 'confirmada' THEN RAISE EXCEPTION '40: con 2 fuentes la alerta de C-9 debería ser «Verificada», salió %', v_et; END IF;
+  k := vigilante.contadores(v_c);
+  IF (k ->> 'verificadas')::int <> 3 OR (k ->> 'confirmadas_sin_verificar')::int <> 0 OR (k ->> 'alertas_verificadas')::int <> 2 THEN
+    RAISE EXCEPTION '40: tras la segunda fuente: %', k; END IF;
+  RAISE WARNING 'OK 40: «Verificada» = fuente oficial o 2+ fuentes en contadores y web pública';
 END $$;
 
 ROLLBACK;

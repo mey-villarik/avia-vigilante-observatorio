@@ -195,7 +195,9 @@ HERRAMIENTAS = [
     {'name': 'contadores',
      'description': 'Los totales del panel con definiciones fijas y la hora del cálculo (señales activas, oportunidades, '
                     'riesgos, mixtas, verificadas, por verificar, alertas publicadas, noticias en 24 h). Usa SIEMPRE estos '
-                    'números para dar totales y cita la hora: son los mismos que ve la persona en el panel.',
+                    'números para dar totales y cita la hora: son los mismos que ve la persona en el panel. '
+                    '«Verificadas» = confirmadas o publicadas con fuente oficial o 2 o más fuentes distintas; '
+                    '«confirmadas_sin_verificar» = las de una sola fuente no oficial: no las llames verificadas.',
      'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'contadores_cliente', 'args': lambda a: {}},
     {'name': 'alertas_tempranas',
      'description': 'Lo que una regla marca para mirar ya: aviso oficial con palabra de alerta, mismo hecho en 3 o más '

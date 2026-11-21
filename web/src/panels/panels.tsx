@@ -6,7 +6,8 @@ import { DEPS, CATS, STL, catName } from '../data/demo';
 import { activeSignals, canDecide, pendingDecision, useContadores, useSintesisDia, useStore } from '../store';
 import { CERTEZAS } from '../lib/certeza';
 import type { ItemSintesis } from '../types';
-import { desgloseVerificadas, horaBolivia, textoFuentes } from '../lib/contadores';
+import { desgloseVerificadas, horaBolivia, textoFuentes, textoSinVerificar } from '../lib/contadores';
+import { DEF_SIN_VERIFICAR, DEF_VERIFICADA } from '../lib/verificada';
 import { puntuacionesDe } from '../lib/puntuaciones';
 import { esReciente, plazoTexto, scoreOf } from '../lib/util';
 import { useEventos } from '../services/eventos';
@@ -75,7 +76,7 @@ function Sintesis() {
         <div className="kpi"><small>Señales activas</small><b className="num">{k.senales_activas}</b><em>sin descartadas</em></div>
         <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{k.oportunidades}</b><em>{k.plazo_corto} con plazo &lt; 15 días{k.mixtas ? ` · ${k.mixtas} mixtas aparte` : ''}</em></div>
         <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{k.riesgos}</b><em>{k.riesgos_altos} de prioridad alta</em></div>
-        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{k.verificadas}</b><em>{desgloseVerificadas(k)}</em></div>
+        <div className="kpi" title={`${DEF_VERIFICADA}\n${DEF_SIN_VERIFICAR}`}><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{k.verificadas}</b><em>{desgloseVerificadas(k)}{textoSinVerificar(k) ? <><br />{textoSinVerificar(k)}</> : null}</em></div>
       </div>
       <p className="note actualizado" title="Los mismos números que recibe AVIA (vigilante.contadores)">
         Datos actualizados a las {horaBolivia(k.actualizado)} (hora de Bolivia){real ? '' : ' · datos de ejemplo'}

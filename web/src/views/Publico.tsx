@@ -36,8 +36,8 @@ function Detalle({ a }: { a: AlertaPublica }) {
       <div className="pub-meta">
         <NatPill n={a.naturaleza} />
         {a.verificacion === 'en_verificacion'
-          ? <span className="tag pub-verif" title="Publicada con fuente, pero el equipo sigue comprobándola">En verificación</span>
-          : <span className="tag pub-ok">Verificada</span>}
+          ? <span className="tag pub-verif" title="Por ahora la cuenta una sola fuente no oficial: falta una fuente oficial o una segunda fuente">En verificación</span>
+          : <span className="tag pub-ok" title="La respalda una fuente oficial o 2 o más fuentes distintas">Verificada</span>}
         {a.categoria_nombre && <span className="tag">{a.categoria_nombre}</span>}
         {a.prioridad === 'alta' && <span className="tag pub-alta">Prioridad alta</span>}
         {!a.actual && <span className="tag">Anterior</span>}

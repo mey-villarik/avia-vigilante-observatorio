@@ -6,6 +6,7 @@ import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
 import { CertezaTag, NatPill } from '../components/common';
 import { porqueAvia, porqueFrase, puntuacionesDe } from '../lib/puntuaciones';
+import { esConfirmada, esVerificada, motivoVerificada } from '../lib/verificada';
 
 /** Probabilidad de que ocurra y por qué (solo señales confirmadas, db/generico/33_probabilidad_senales.sql) */
 function Probabilidad({ s }: { s: Senal }) {
@@ -35,6 +36,9 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       onClick={() => openDrawer({ kind: 'senal', id: s.id })}>
       <span className="cm">
         <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span>
+        {esConfirmada(s) && !s.escenario && (esVerificada(s)
+          ? <span className="tag verificada" title={motivoVerificada(s)}>Verificada</span>
+          : <span className="tag sin-verificar" title={motivoVerificada(s)}>Sin verificar</span>)}
         {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
         {s.revisionVencida && <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>}
         {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}
