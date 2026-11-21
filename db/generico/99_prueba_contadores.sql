@@ -1,5 +1,6 @@
 -- Prueba de 21_contadores_unicos.sql: panel y AVIA cuentan lo mismo.
--- Requiere 01 a 21 (y 02 con el cliente orbita-bolivia). Termina en ROLLBACK: no deja nada.
+-- Requiere 01 a 21 (y 02 con el cliente orbita-bolivia); con el 39 comprueba también el desglose de
+-- verificadas y las fuentes activas. Termina en ROLLBACK: no deja nada.
 BEGIN;
 \set ON_ERROR_STOP 1
 SET client_min_messages = warning;
@@ -21,7 +22,7 @@ INSERT INTO vigilante.signals (cliente_id, codigo, titulo, resumen, naturaleza, 
 SELECT c, x.codigo, 'Señal ' || x.codigo, 'Resumen ' || x.codigo, x.nat::vigilante.naturaleza_senal, x.cat,
        x.prio::vigilante.prioridad, x.est::vigilante.estado_senal, NOT x.rev, x.plazo, now() - x.hace
   FROM ids, (VALUES
-    ('C-1', 'oportunidad', 'eventos', 'media', 'detectada',       false, now() + interval '5 days',  interval '1 hour'),
+    ('C-1', 'oportunidad', 'eventos', 'media', 'detectada',       true,  now() + interval '5 days',  interval '1 hour'),
     ('C-2', 'oportunidad', 'eventos', 'media', 'confirmada',      false, now() + interval '40 days', interval '1 hour'),
     ('C-3', 'riesgo',      'clima',   'alta',  'publicada',       false, NULL::timestamptz,          interval '1 hour'),
     ('C-4', 'mixta',       'eventos', 'baja',  'en_analisis',     true,  NULL::timestamptz,          interval '1 hour'),
@@ -30,12 +31,14 @@ SELECT c, x.codigo, 'Señal ' || x.codigo, 'Resumen ' || x.codigo, x.nat::vigila
     ('C-7', 'oportunidad', 'eventos', 'media', 'detectada',       false, now() + interval '20 days', interval '1 hour'),
     ('C-8', 'oportunidad', 'eventos', 'media', 'detectada',       false, NULL::timestamptz,          interval '3 days')
   ) AS x(codigo, nat, cat, prio, est, rev, plazo, hace);
--- C-4 no viene de fuente oficial: la base le pone «requiere revisión»; las demás sí son oficiales.
+-- C-1 y C-4 no vienen de fuente oficial: la base les pone «requiere revisión»; las demás sí son oficiales
+-- (desde el 29 una oficial en Detectadas pasa sola a Confirmadas, por eso C-1 no es oficial).
+-- Con el 29 (aprobacion_previa = false) ya no hay «esperan aprobación».
 -- (clima y salud piden revisión siempre, pero C-3 ya está publicada y C-5 descartada)
 
--- dos noticias para C-2 (y una ficha vencida ayer para C-7)
+-- dos noticias de dos fuentes distintas para C-2 (y una ficha vencida ayer para C-7)
 INSERT INTO vigilante.raw_items (cliente_id, source_id, url, content_hash, titulo)
-SELECT c, (SELECT min(id) FROM vigilante.sources WHERE cliente_id = c), 'https://ej.bo/' || n, 'h-contadores-' || n, 'Noticia ' || n
+SELECT c, (SELECT id FROM vigilante.sources WHERE cliente_id = c ORDER BY id OFFSET n - 1 LIMIT 1), 'https://ej.bo/' || n, 'h-contadores-' || n, 'Noticia ' || n
   FROM ids, generate_series(1, 2) n;
 INSERT INTO vigilante.signal_raw_items (signal_id, raw_item_id)
 SELECT s.id, r.id FROM vigilante.signals s, vigilante.raw_items r WHERE s.codigo = 'C-2' AND r.content_hash LIKE 'h-contadores-%';
@@ -55,7 +58,16 @@ BEGIN
   IF (k ->> 'plazo_corto')::int <> 1 THEN RAISE EXCEPTION 'plazo corto: esperaba 1 (C-1), salió %', k ->> 'plazo_corto'; END IF;
   IF (k ->> 'riesgos_altos')::int <> 1 THEN RAISE EXCEPTION 'riesgos altos mal'; END IF;
   IF (k ->> 'verificadas')::int <> 2 OR (k ->> 'verificadas_2_fuentes')::int <> 1 THEN RAISE EXCEPTION 'verificadas mal: %', k; END IF;
-  IF (k ->> 'por_verificar')::int <> 2 OR (k ->> 'esperan_aprobacion')::int <> 1 THEN RAISE EXCEPTION 'por verificar mal: %', k; END IF;
+  -- 39: el desglose suma las verificadas (C-2 por 2 fuentes, C-3 oficial con una sola noticia)
+  IF k ? 'verificadas_oficial' THEN
+    IF (k ->> 'verificadas_oficial')::int <> 1 OR (k ->> 'verificadas_una_fuente')::int <> 0 THEN RAISE EXCEPTION 'desglose mal: %', k; END IF;
+    IF (k ->> 'verificadas_2_fuentes')::int + (k ->> 'verificadas_oficial')::int + (k ->> 'verificadas_una_fuente')::int <> (k ->> 'verificadas')::int THEN
+      RAISE EXCEPTION 'el desglose no suma las verificadas: %', k; END IF;
+    IF (k ->> 'fuentes_activas')::int + (k ->> 'fuentes_en_pausa')::int
+       <> (SELECT count(*) FROM vigilante.sources s, ids WHERE s.cliente_id = ids.c AND s.eliminada_en IS NULL) THEN
+      RAISE EXCEPTION 'activas + en pausa no suman el catálogo: %', k; END IF;
+  END IF;
+  IF (k ->> 'por_verificar')::int <> 2 OR (k ->> 'esperan_aprobacion')::int NOT IN (0, 2) THEN RAISE EXCEPTION 'por verificar mal: %', k; END IF;
   IF (k ->> 'alertas_publicadas')::int <> 1 OR (k ->> 'descartadas')::int <> 1 THEN RAISE EXCEPTION 'alertas/descartadas mal: %', k; END IF;
   -- lo que recibe el panel y el chat: la lista sin descartadas mide lo mismo que el contador
   SELECT count(*) INTO v_lista FROM jsonb_array_elements(j -> 'senales') e WHERE e ->> 'estado' <> 'descartada';
@@ -64,6 +76,13 @@ BEGIN
     RAISE EXCEPTION 'llegan señales que no deberían verse (cerrada, ficha vencida o caducada)';
   END IF;
   IF (j -> 'contadores') IS NULL THEN RAISE EXCEPTION 'vigilante.json no lleva contadores'; END IF;
+  -- 39: una fuente en pausa deja de contar como activa (Panorama, Pulso y panel Fuentes dicen lo mismo)
+  IF k ? 'fuentes_activas' THEN
+    UPDATE vigilante.sources SET activa = false WHERE id = (SELECT max(id) FROM vigilante.sources s, ids WHERE s.cliente_id = ids.c AND s.eliminada_en IS NULL);
+    SELECT vigilante.contadores(c) INTO j FROM ids;
+    IF (j ->> 'fuentes_activas')::int <> (k ->> 'fuentes_activas')::int - 1 OR (j ->> 'fuentes_en_pausa')::int <> (k ->> 'fuentes_en_pausa')::int + 1 THEN
+      RAISE EXCEPTION 'fuente en pausa mal contada: antes %, después %', k, j; END IF;
+  END IF;
   RAISE WARNING 'OK: panel y AVIA cuentan % señales activas', k ->> 'senales_activas';
 END $$;
 

@@ -6,7 +6,7 @@ import { DEPS, CATS, STL, catName } from '../data/demo';
 import { activeSignals, canDecide, pendingDecision, useContadores, useSintesisDia, useStore } from '../store';
 import { CERTEZAS } from '../lib/certeza';
 import type { ItemSintesis } from '../types';
-import { horaBolivia } from '../lib/contadores';
+import { desgloseVerificadas, horaBolivia, textoFuentes } from '../lib/contadores';
 import { puntuacionesDe } from '../lib/puntuaciones';
 import { esReciente, plazoTexto, scoreOf } from '../lib/util';
 import { useEventos } from '../services/eventos';
@@ -75,7 +75,7 @@ function Sintesis() {
         <div className="kpi"><small>Señales activas</small><b className="num">{k.senales_activas}</b><em>sin descartadas</em></div>
         <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{k.oportunidades}</b><em>{k.plazo_corto} con plazo &lt; 15 días{k.mixtas ? ` · ${k.mixtas} mixtas aparte` : ''}</em></div>
         <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{k.riesgos}</b><em>{k.riesgos_altos} de prioridad alta</em></div>
-        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{k.verificadas}</b><em>{k.verificadas_2_fuentes} con 2 o más fuentes</em></div>
+        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{k.verificadas}</b><em>{desgloseVerificadas(k)}</em></div>
       </div>
       <p className="note actualizado" title="Los mismos números que recibe AVIA (vigilante.contadores)">
         Datos actualizados a las {horaBolivia(k.actualizado)} (hora de Bolivia){real ? '' : ' · datos de ejemplo'}
@@ -126,7 +126,7 @@ function Pulso() {
         {real ? <>Calculado con las {d.activas} señales activas{ventana ? ` de las últimas ${ventana} h` : ''}</> : <>Datos de ejemplo</>}.
         {' '}Los índices miden lo serias que son las señales, no cuántas hay: los riesgos según prioridad, fiabilidad de la evidencia y si ya están verificados; las oportunidades según su relevancia, novedad y fiabilidad, y si el plazo sigue abierto.
         {d.revisionVencida ? <> <b>{d.revisionVencida} con la revisión vencida.</b></> : null}
-        {d.fuentesTotal ? <> Fuentes leyendo bien: {d.fuentesOk} de {d.fuentesTotal}{d.fuentesOk < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
+        {d.fuentesTotal ? <> Fuentes leyendo bien: {d.fuentesOk} de las {d.fuentesTotal} activas{d.fuentesOk < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
       </p>
     </>
   );
@@ -313,11 +313,11 @@ export const PANEL_BODY: Record<PanelId, () => JSX.Element> = {
 };
 
 export function usePanelMeta(id: PanelId): string {
-  const nFuentes = useStore((s) => s.fuentes.length);
+  const fuentesTxt = textoFuentes(useStore((s) => s.fuentes));
   const real = useStore((s) => s.origen === 'vps');
   const nPend = pendingDecision(useStore((s) => s.senales)).length;
   const meta: Record<PanelId, string> = {
-    sintesis: 'Borrador de AVIA', fuentes: `${nFuentes} fuentes`, oportunidades: 'por puntuación', riesgos: 'vigentes',
+    sintesis: 'Borrador de AVIA', fuentes: fuentesTxt, oportunidades: 'por puntuación', riesgos: 'vigentes',
     mapa: '9 departamentos', evolucion: real ? 'VPS' : 'demo', decision: `${nPend} pendientes`, actividad: real ? 'VPS' : 'en vivo', temas: real ? 'VPS' : '7 días',
     cadena: 'hoy', pulso: 'índice', categorias: 'activas', valoracion: 'web pública',
   };
