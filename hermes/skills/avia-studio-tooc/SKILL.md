@@ -5,7 +5,7 @@ version: 1.0.0
 metadata:
   proyecto: AVIA (ecosistema de Carlos)
   origen: Poe «AVIASTUDIOTOOCv7.0» (Prompt Maestro AVIA-Studio TOOC v7.0) y GPT «AVIA Studio» (fábrica de bots)
-  usa: avia-auditor, avia-radar-decision, avia-clon-carlos
+  usa: avia-canon, avia-auditor, avia-radar-decision, avia-clon-carlos
 ---
 
 # AVIA Studio · TOOC y bots con consenso

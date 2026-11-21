@@ -5,7 +5,7 @@ version: 1.0.0
 metadata:
   proyecto: AVIA (ecosistema de Carlos)
   origen: GPT «CertiAVIA» (saberes no formales, 6 etapas) y GPT «AVIA-Studio Certifica EU» (certificación de TOOC, constelación CCE)
-  usa: avia-studio-tooc, avia-auditor
+  usa: avia-canon, avia-studio-tooc, avia-auditor
 ---
 
 # AVIA Certificado · reconocer lo que la gente sabe

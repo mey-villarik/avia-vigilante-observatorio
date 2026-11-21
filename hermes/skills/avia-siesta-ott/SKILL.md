@@ -5,7 +5,7 @@ version: 1.0.0
 metadata:
   proyecto: AVIA + SIESTA (SiestaOTTOS)
   origen: Poe «PromtSiestaOTTv2» (Prompt Maestro v4.0, Auditoría y Elevación 10/10, metodología AMS) y familia SiestaOTT/SiestaOTTOS
-  usa: avia-auditor, avia-radar-decision
+  usa: avia-canon, avia-auditor, avia-radar-decision
 ---
 
 # AVIA Siesta OTT · auditoría y elevación 10/10
@@ -57,6 +57,8 @@ Pide (o infiere y márcalo) tres cosas:
 **1.5 Seis pilares SiestaOTTOS** (presente / parcial / ausente): interoperabilidad y estándares · analítica ética y predictiva · coordinación sociosanitaria · centrado en la persona · adaptación continua · escalabilidad pública.
 
 **1.6 Tres desafíos de reforma** (si es sociosanitario o público): agilidad real (expedientes centralizados) · más cuidados en casa (teleasistencia, monitoreo ético) · menos burocracia (interfaces claras, procesos guiados).
+
+**1.7 Ingeniería y SIMPLIT** (de `avia-canon`): ¿usa algoritmos locales antes que IA (Edge-First, AI-Last)? ¿funciona sin red y sin GPU? ¿los datos salen del dispositivo sin consentimiento? Si es una interfaz para personas mayores o con diversidad funcional: ¿máximo 7 zonas pulsables, botones de color, panel inferior fijo?
 
 Si algo no se puede comprobar con lo que te dieron, escribe «requiere verificación». Nunca puntúes lo que no has visto.
 

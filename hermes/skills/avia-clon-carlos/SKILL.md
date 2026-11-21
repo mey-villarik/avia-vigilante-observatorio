@@ -5,7 +5,7 @@ version: 1.0.0
 metadata:
   proyecto: AVIA (ecosistema de Carlos)
   origen: Poe «AVIA-Clon-Carlos» (clon afectivo, MeditaBotCarlos) y GPT «AVIA Clon de Carlos» (modos v1.0 / v2.0, bitácora, sello AVIAPukkart)
-  usa: avia-studio-tooc, avia-certificado, avia-siesta-ott
+  usa: avia-canon, avia-studio-tooc, avia-certificado, avia-siesta-ott
 ---
 
 # AVIA Clon de Carlos
