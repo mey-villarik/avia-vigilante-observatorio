@@ -144,6 +144,7 @@ GLOSARIO = """GLOSARIO (usa estas palabras siempre con este significado):
 - Señal: un hecho que importa al turismo, armado a partir de una o varias noticias sobre lo mismo; tiene naturaleza (oportunidad, riesgo, mixta) y etapa. La mayoría se queda en el panel del equipo.
 - Alerta: una señal que una persona del equipo confirmó y publicó (web pública o Telegram). Solo las señales en estado «publicada» son alertas. Un escenario nunca es alerta.
 - Recomendación: lo que AVIA propone hacer ante una señal: acción concreta, para quién y qué falta comprobar. No es una orden ni un hecho.
+- Verificada: señal confirmada o publicada que respalda una fuente oficial o 2 o más fuentes DISTINTAS (dos notas del mismo medio son una fuente). Cada señal trae «verificada»: true/false; usa ese dato. Una confirmada con una sola fuente no oficial es «confirmada sin verificar» y en la web pública sale «En verificación». No uses «verificada» con ningún otro sentido.
 Grado de certeza (cada señal trae uno; usa solo estas cuatro palabras):
 - Confirmado: ya pasó o está pasando y lo respalda una fuente oficial, dos fuentes distintas o una persona del equipo.
 - Convocado: anunciado por quien lo organiza para una fecha futura (paro, bloqueo, feria, convocatoria). Está anunciado; no se sabe si ocurrirá.
@@ -243,6 +244,7 @@ _CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prio
 
 def _compacta(x: dict) -> dict:
     c = {k: x[k] for k in _CAMPOS if x.get(k) not in (None, '', [], {})}
+    c['verificada'] = _verificada(x)   # antes de recortar la trazabilidad
     t = c.get('trazabilidad')
     if isinstance(t, dict):   # hasta 3 fuentes por señal, para no gastar tokens
         c['trazabilidad'] = {**t, 'fuentes': [{k: f[k] for k in ('nombre', 'oficial', 'url', 'publicada', 'recogida', 'fecha', 'nota') if k in f}
@@ -301,12 +303,45 @@ def _comparacion_txt(c) -> str:
             f"Resueltas:\n{lineas(c.get('resueltas'), resuelta)}")
 
 
+def _verificada(x: dict) -> bool:
+    """Regla única de «Verificada» (db/generico/40_verificada_unica.sql y web/src/lib/verificada.ts):
+    confirmada o publicada, no escenario, y fuente oficial o 2 o más fuentes distintas."""
+    if x.get('estado') not in ('confirmada', 'publicada') or x.get('escenario'):
+        return False
+    f = ((x.get('puntuaciones') or {}).get('fiabilidad') or {}) if isinstance(x.get('puntuaciones'), dict) else {}
+    if f:
+        return bool(f.get('oficial')) or (f.get('fuentes') or 0) >= 2
+    t = x.get('trazabilidad') if isinstance(x.get('trazabilidad'), dict) else {}
+    fu = [z for z in (t.get('fuentes') or []) if isinstance(z, dict)]
+    if fu:
+        return any(z.get('oficial') for z in fu) or len({z.get('nombre') or z.get('url') for z in fu}) >= 2
+    return len(x.get('enlaces') or []) >= 2
+
+
+def _al_dia(k: dict, activas: list) -> dict:
+    """Pasa los contadores de una base anterior al 40 a la regla única, igual que hace la web:
+    con el 39 las de una sola fuente salen de «verificadas»; sin el 39 se cuentan aquí."""
+    if k.get('confirmadas_sin_verificar') is not None:
+        return k
+    k = dict(k)
+    if k.get('verificadas_oficial') is not None and k.get('verificadas_una_fuente') is not None:
+        k['confirmadas_sin_verificar'] = k['verificadas_una_fuente']
+        k['verificadas'] = (k.get('verificadas_2_fuentes') or 0) + (k.get('verificadas_oficial') or 0)
+    else:
+        ver = [x for x in activas if _verificada(x)]
+        k['verificadas'] = len(ver)
+        k['verificadas_2_fuentes'] = None
+        k['verificadas_oficial'] = None
+        k['confirmadas_sin_verificar'] = sum(1 for x in activas if x.get('estado') in ('confirmada', 'publicada') and not _verificada(x))
+    k['verificadas_una_fuente'] = 0
+    return k
+
+
 def _desglose_verificadas(k: dict) -> str:
-    """Las tres partes suman «verificadas» (39). Con una base anterior al 39 solo hay «2 o más fuentes»."""
+    """«55 por fuente oficial · 2 con 2 o más fuentes» (las dos suman «verificadas»)."""
     if k.get('verificadas_oficial') is None:
-        return f"{k.get('verificadas_2_fuentes')} con 2 o más fuentes; las demás, por fuente oficial o con una sola fuente"
-    partes = [(k.get('verificadas_2_fuentes'), 'con 2 o más fuentes'), (k.get('verificadas_oficial'), 'por fuente oficial'),
-              (k.get('verificadas_una_fuente'), 'con una sola fuente')]
+        return 'por fuente oficial o con 2 o más fuentes distintas'
+    partes = [(k.get('verificadas_oficial'), 'por fuente oficial'), (k.get('verificadas_2_fuentes'), 'con 2 o más fuentes distintas')]
     return ' · '.join(f'{v} {t}' for v, t in partes if v) or 'ninguna'
 
 
@@ -326,8 +361,8 @@ def _contar(activas: list, ctx: dict) -> dict:
         'riesgos': n(lambda x: x.get('naturaleza') == 'riesgo'),
         'mixtas': n(lambda x: x.get('naturaleza') == 'mixta'),
         'plazo_corto': '¿?', 'riesgos_altos': n(lambda x: x.get('naturaleza') == 'riesgo' and x.get('prioridad') == 'alta'),
-        'verificadas': n(lambda x: x.get('estado') in ver),
-        'verificadas_2_fuentes': n(lambda x: x.get('estado') in ver and len(x.get('enlaces') or []) >= 2),
+        'verificadas': n(_verificada),
+        'confirmadas_sin_verificar': n(lambda x: x.get('estado') in ver and not _verificada(x)),
         'por_verificar': n(lambda x: x.get('estado') in pend),
         'esperan_aprobacion': n(lambda x: x.get('estado') in pend and bool(x.get('revision'))),
         'alertas_publicadas': n(lambda x: x.get('estado') == 'publicada'),
@@ -430,7 +465,7 @@ async def handle_chat(request: web.Request) -> web.Response:
         senales = pedidas + [_compacta(x) for x in activas[:_MAX_SENALES] if x not in pedidas]
         fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', 'OK', None)][:5]
         sin_datos = not ctx
-        k       = ctx.get('contadores') or _contar(activas, ctx)
+        k       = _al_dia(ctx.get('contadores') or _contar(activas, ctx), activas)
         hora    = _hora_bolivia(k.get('actualizado') or ctx.get('generado'))
 
         system = f"""Eres AVIA, el asistente inteligente del Observatorio Turístico de Bolivia (ORBITA).
@@ -448,7 +483,8 @@ CONTADORES (usa estos números tal cual; no cuentes tú la lista):
 - Oportunidades: {k.get('oportunidades')} · Riesgos: {k.get('riesgos')} · Mixtas: {k.get('mixtas')}
 - Oportunidades con plazo en menos de 15 días: {k.get('plazo_corto')}
 - Riesgos de prioridad alta: {k.get('riesgos_altos')}
-- Verificadas (confirmadas o publicadas): {k.get('verificadas')} ({_desglose_verificadas(k)})
+- Verificadas (confirmadas o publicadas con fuente oficial o 2 o más fuentes distintas): {k.get('verificadas')} ({_desglose_verificadas(k)})
+- Confirmadas sin verificar (una sola fuente no oficial; NO las llames verificadas): {k.get('confirmadas_sin_verificar') or 0}
 {_fuentes_txt(k)}- Por verificar: {k.get('por_verificar')} ({k.get('esperan_aprobacion')} esperan aprobación de un analista)
 - Alertas publicadas: {k.get('alertas_publicadas')}
 - Noticias revisadas en 24 h: {k.get('noticias_24h')}

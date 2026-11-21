@@ -34,10 +34,11 @@ Una sola lista y un solo conteo, en la base (`db/generico/21_contadores_unicos.s
 | Oportunidades / Riesgos / Mixtas | activas de cada naturaleza (las tres suman las activas) |
 | Plazo corto | activas que no son riesgo con plazo en menos de 15 días |
 | Riesgos altos | riesgos de prioridad alta |
-| Verificadas | activas confirmadas o publicadas |
-| Con 2 o más fuentes | verificadas con noticias de 2 o más fuentes **distintas** (desde el 39) |
-| Por fuente oficial | verificadas con menos de 2 fuentes pero con fuente oficial: pasaron solas a Confirmadas (29) |
-| Con una sola fuente | verificadas con una sola fuente no oficial (las movió una persona) |
+| Verificadas | activas confirmadas o publicadas, que no son escenario, con fuente oficial **o** 2 o más fuentes distintas (regla única, desde el 40) |
+| Con 2 o más fuentes | verificadas con noticias de 2 o más fuentes **distintas** |
+| Por fuente oficial | verificadas con menos de 2 fuentes pero con fuente oficial (las dos partes suman las verificadas) |
+| Confirmadas sin verificar | confirmadas o publicadas con una sola fuente no oficial (o escenarios): **no** son verificadas (desde el 40) |
+| Alertas verificadas | publicadas que son verificadas; las demás publicadas salen «En verificación» en la web pública |
 | Por verificar | activas detectadas, en análisis o en verificación |
 | Esperan aprobación | por verificar que requieren revisión de una persona |
 | Alertas publicadas | activas publicadas |
@@ -55,10 +56,35 @@ Se veía «Verificadas 59 · 2 con 2 o más fuentes» y «39 fuentes» en Panora
 
 Las mismas reglas están en `web/src/lib/contadores.ts` solo para los datos de ejemplo y para el instante entre un cambio en pantalla y la recarga. Si cambias una, cámbiala en los dos sitios.
 
+## «Verificada» significa una sola cosa (40)
+
+Seguía viéndose «Verificadas 59» frente a «2 con 2 o más fuentes», y la palabra quería decir tres cosas:
+el contador contaba toda señal confirmada o publicada (también las pasadas en bloque con una sola noticia
+no oficial), la web pública ponía «Verificada» a toda alerta que no venía de «En verificación», y AVIA
+llamaba «confirmado» a lo que tenía fuente oficial, dos fuentes o una persona.
+
+Regla única, en la base (`vigilante.respaldo_senal`, `db/generico/40_verificada_unica.sql`), en la web
+(`web/src/lib/verificada.ts`) y en AVIA (`_verificada` en `hermes/avia-api/avia_api.py`):
+
+> **Verificada** = confirmada o publicada, no escenario, y respaldada por una **fuente oficial** (u organismo
+> internacional) **o** por **2 o más fuentes distintas**. Lo demás confirmado es **«Confirmada sin verificar»**.
+
+- Panel: el recuadro dice «Verificadas 57 · 55 por fuente oficial · 2 con 2 o más fuentes» y debajo
+  «2 confirmadas sin verificar (una sola fuente)». Las tarjetas de Confirmadas y Publicadas llevan la
+  etiqueta «Verificada» o «Sin verificar» con el porqué al pasar el ratón.
+- Web pública y Telegram: la base pone «Verificada» / «En verificación» con la misma regla al publicar y
+  cada vez que cambian las noticias de la señal (una segunda fuente la pasa a «Verificada» sola).
+- AVIA: recibe el mismo contador, `confirmadas_sin_verificar` y `verificada: true/false` en cada señal.
+- Si la base aún no tiene el 40, la web y AVIA reordenan los números del 39 con la misma regla (restan
+  las de una sola fuente), así que el «59» deja de salir en cuanto se despliegan.
+- El grado de certeza («Confirmado», «Posible»…) es otra cosa: dice qué tan seguro es el hecho y todavía
+  cuenta como «Confirmado» lo que una persona confirmó, aunque tenga una sola fuente.
+
 ## Cómo aplicarlo
 
 1. Supabase → SQL Editor: pegar `db/generico/21_contadores_unicos.sql` y Run (necesita el 19).
-   Después pegar `db/generico/39_contadores_coherentes.sql` y Run (desglose de verificadas y fuentes activas).
+   Después pegar `db/generico/39_contadores_coherentes.sql` y Run (desglose de verificadas y fuentes activas),
+   y por último `db/generico/40_verificada_unica.sql` (regla única de «Verificada»).
 2. Comprobar: `SELECT vigilante.contadores(id) FROM vigilante.clientes WHERE slug = 'orbita-bolivia';`
 3. Prueba opcional: `99_prueba_contadores.sql` (termina en ROLLBACK).
 4. VPS: copiar `hermes/avia-api/avia_api.py` a `/root/avia/avia_api.py` y `systemctl restart avia-api`; copiar `hermes/mcp-vigilante/servidor.py` donde lo use Hermes.
