@@ -52,3 +52,17 @@ Al publicar, a cada analista le saltarán una vez los eventos abiertos de las ú
 | `eventos_horas_panel` | `24` | Horas que un evento se ve en la lista |
 
 Volver al comportamiento del 28: `eventos_alerta_desde = '"alta"'` y `eventos_espera_hermes_min = 20`.
+
+## Actualización 2026-11-21: cerrados visibles y ventanas que se cierran con un clic fuera
+
+**¿Por qué a veces solo salen 3 eventos?** El panel no tiene límite de cantidad. Un evento deja de verse por una de tres razones:
+
+1. pasaron 24 h (`eventos_horas_panel`) desde que se detectó o desde que le entraron señales nuevas;
+2. el compositor lo **cerró** porque sus señales dejaron de coincidir en fechas, caducaron o se descartaron;
+3. AVIA o un analista lo **descartó** como no relevante.
+
+Además, el compositor junta en **un solo evento por departamento** todas las señales que se solapan en el tiempo, así que el número de eventos abiertos nunca pasa del número de departamentos con dos o más señales a la vez.
+
+Con `db/generico/38_eventos_cerrados_24h.sql` los cerrados y descartados de las últimas 24 h vuelven a verse en la lista de Eventos, en un apartado plegado «Cerrados o descartados en las últimas 24 h», con el motivo. No suenan ni cuentan como nuevos. El 38 trae una consulta de diagnóstico para ver cuántos eventos hay en la base y por qué no se ven. Prueba: `99_prueba_eventos_cerrados.sql`.
+
+**Ventanas flotantes.** Un clic fuera de la ventana (o Escape, o la ✕) cierra **todas** las ventanas flotantes a la vez: alertas de eventos, alertas de cambios y las listas. Las alertas cerradas así no se marcan como vistas: siguen como «nuevos» en los botones «Eventos» y «Cambios» y no vuelven a saltar en esta sesión del navegador, salvo que el evento reciba señales nuevas. «Entendido» sigue marcándolas como vistas.
