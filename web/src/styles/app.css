@@ -806,3 +806,11 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 @media (max-width:1180px){.mp-layout{grid-template-columns:1fr}.mp-lado{position:static;max-height:none}}
 @media (max-width:520px){.mp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.mp-nombre{font-size:46px}.mp-cuenta{font-size:32px}.mp-evento{transform:scale(1.4)}.mp-ciudad text,.mp-vecino{display:none}}
 @media (prefers-reduced-motion:reduce){.mp-evento circle.pulso{animation:none;opacity:0}}
+
+/* ───────── Ventanas flotantes: clic fuera cierra todas; eventos cerrados o descartados (38) ───────── */
+.evc-mas + .icon-btn{margin-left:8px}
+.evc-h .icon-btn{color:inherit}
+.evc-cerrados{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.evc-cerrados summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.evc-cerrados .evc-lista{opacity:.75}
+.evc-cerrado{margin:0 0 10px;padding:8px 12px;border-radius:10px;background:var(--surface2);font-size:13px}

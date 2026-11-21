@@ -31,7 +31,8 @@ export interface EventoCompuesto {
   ventana_inicio: string; ventana_fin: string;
   puntaje: number; prioridad: Prioridad; prioridad_calculada: Prioridad; prioridad_hermes: Prioridad | null;
   calculo: { regla?: string; senales?: number; categorias_distintas?: number; proximidad?: number; fuente_oficial?: number } | null;
-  estado: 'por_interpretar' | 'interpretando' | 'interpretado';
+  /** 38: los cerrados (sus señales dejaron de coincidir) y descartados también llegan sus 24 h, sin alarma */
+  estado: 'por_interpretar' | 'interpretando' | 'interpretado' | 'cerrado' | 'descartado';
   version: number; titular: string | null; interpretacion: Interpretacion | null;
   interpretado_en: string | null; detectado: string; actualizado: string;
   senales: SenalEvento[];
@@ -45,7 +46,13 @@ export interface EventoCompuesto {
   /** 34: cuándo se detectó o entraron señales nuevas, y cuándo deja de mostrarse en el panel */
   version_en?: string;
   oculta_en?: string;
+  /** 38: por qué se cerró o descartó, quién lo descartó y cuándo */
+  motivo_cierre?: string | null;
+  descartado_por?: string | null;
+  cerrado_en?: string;
 }
+
+export const abierto = (e: EventoCompuesto) => e.estado !== 'cerrado' && e.estado !== 'descartado';
 
 export const TIPO_TXT: Record<TipoEvento, string> = {
   riesgo_acumulado: 'Riesgo acumulado',
@@ -91,8 +98,22 @@ export function sonarAviso(): void {
   } catch { /* sin sonido */ }
 }
 
+// Alertas que la persona cerró haciendo clic fuera de la ventana («luego lo miro»): no vuelven a saltar
+// en esta sesión, pero siguen sin ver (el botón «Eventos N nuevos» sigue encendido). Si el evento
+// recibe señales nuevas (otra versión), vuelve a saltar.
+const POSPUESTOS_KEY = 'orbita.eventos.pospuestos';
+function leerPospuestos(): string[] {
+  try { const v = JSON.parse(sessionStorage.getItem(POSPUESTOS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+export const claveAlerta = (e: EventoCompuesto) => `${e.codigo}:${e.version}`;
+
 interface EventosState {
+  /** abiertos de las últimas 24 h (lo que cuentan el botón, el mapa y los paneles) */
   eventos: EventoCompuesto[];
+  /** 38: cerrados o descartados de las últimas 24 h (solo informativos, en la lista) */
+  cerrados: EventoCompuesto[];
+  /** alertas cerradas con clic fuera: codigo:version */
+  pospuestos: string[];
   /** false si la base aún no tiene el 28 */
   disponible: boolean;
   error: string | null;
@@ -106,12 +127,16 @@ interface EventosState {
   /** null = todos los que se ven en el panel */
   marcarVisto: (codigo: string | null) => Promise<void>;
   descartar: (codigo: string, motivo: string) => Promise<void>;
+  /** cierra todas las alertas pendientes sin marcarlas como vistas */
+  posponer: () => void;
   setListaAbierta: (v: boolean, codigo?: string | null) => void;
   setSonido: (v: boolean) => void;
 }
 
 export const useEventos = create<EventosState>((set, get) => ({
   eventos: [],
+  cerrados: [],
+  pospuestos: leerPospuestos(),
   disponible: true,
   error: null,
   listaAbierta: false,
@@ -129,10 +154,13 @@ export const useEventos = create<EventosState>((set, get) => ({
     }
     const antes = new Set(get().eventos.filter((e) => e.alerta).map((e) => e.codigo + ':' + e.version));
     const primera = !get().cargadoUnaVez;
-    const eventos = visibles((Array.isArray(data) ? data : []) as EventoCompuesto[]);
-    set({ eventos, error: null, cargadoUnaVez: true });
+    const todos = visibles((Array.isArray(data) ? data : []) as EventoCompuesto[]);
+    const eventos = todos.filter(abierto);
+    set({ eventos, cerrados: todos.filter((e) => !abierto(e)), error: null, cargadoUnaVez: true });
     // suena cuando se detecta un evento nuevo (o le entran señales nuevas), y al entrar si hay alguno sin ver
-    if (get().sonido && eventos.some((e) => e.alerta && !e.visto && (primera || !antes.has(e.codigo + ':' + e.version)))) sonarAviso();
+    const pos = new Set(get().pospuestos);
+    if (get().sonido && eventos.some((e) => e.alerta && !e.visto && !pos.has(claveAlerta(e))
+      && (primera || !antes.has(e.codigo + ':' + e.version)))) sonarAviso();
   },
   marcarVisto: async (codigo) => {
     // se oculta al momento; si la base falla, vuelve a salir en la siguiente consulta
@@ -146,6 +174,16 @@ export const useEventos = create<EventosState>((set, get) => ({
     const { error } = await rpc('descartar_evento', { p_codigo: codigo, p_motivo: motivo });
     if (error) throw new Error(traducir(error.message));
     set({ eventos: get().eventos.filter((e) => e.codigo !== codigo) });
+    void get().cargar(); // vuelve como descartado, con su motivo
+  },
+  posponer: () => {
+    const pos = new Set(get().pospuestos);
+    get().eventos.forEach((e) => { if (e.alerta && !e.visto) pos.add(claveAlerta(e)); });
+    // solo se guardan las de eventos que aún se ven
+    const vivos = new Set(get().eventos.map(claveAlerta));
+    const pospuestos = [...pos].filter((k) => vivos.has(k));
+    try { sessionStorage.setItem(POSPUESTOS_KEY, JSON.stringify(pospuestos)); } catch { /* solo en memoria */ }
+    set({ pospuestos });
   },
   setListaAbierta: (v, codigo = null) => set({ listaAbierta: v, listaSel: v ? codigo : null }),
   setSonido: (v) => {
@@ -159,5 +197,6 @@ export const useEventos = create<EventosState>((set, get) => ({
 const visibles = (ev: EventoCompuesto[]) => ev.filter((e) => !e.oculta_en || Date.parse(e.oculta_en) > Date.now());
 
 /** La alerta sin ver más antigua primero: se leen en el orden en que se detectaron (la base da la más reciente primero) */
-export const alertaPendiente = (ev: EventoCompuesto[]) => [...ev].reverse().find((e) => e.alerta && !e.visto) ?? null;
+export const alertaPendiente = (ev: EventoCompuesto[], pospuestos: string[] = []) =>
+  [...ev].reverse().find((e) => e.alerta && !e.visto && !pospuestos.includes(claveAlerta(e))) ?? null;
 export const eventosSinVer = (ev: EventoCompuesto[]) => ev.filter((e) => !e.visto).length;

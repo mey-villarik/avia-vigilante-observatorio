@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { useEventos, alertaPendiente, eventosSinVer } from '../services/eventos';
 import { CAMBIOS_MS, cambioPendiente, sinVer, TIPO_CAMBIO_TXT, useCambios, type Cambio } from '../services/cambios';
 import { Icon } from './Icon';
+import { cerrarFlotantes } from '../lib/flotantes';
 
 const TZ = 'America/La_Paz';
 const hora = (iso: string) => new Date(iso).toLocaleString('es-BO', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -159,23 +160,27 @@ const titulo = (c: Cambio) => c.titular ?? `${TIPO_CAMBIO_TXT[c.tipo]}: ${c.sena
 export function AlertaCambio() {
   const cambios = useCambios((s) => s.cambios);
   const eventos = useEventos((s) => s.eventos);
+  const posEventos = useEventos((s) => s.pospuestos);
+  const pospuestos = useCambios((s) => s.pospuestos);
   const { marcarVisto } = useCambios.getState();
   const openDrawer = useStore((s) => s.openDrawer);
-  const c = alertaPendiente(eventos) ? null : cambioPendiente(cambios);
+  const c = alertaPendiente(eventos, posEventos) ? null : cambioPendiente(cambios, pospuestos);
   const boton = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (c) boton.current?.focus(); }, [c?.codigo]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!c) return null;
-  const quedan = cambios.filter((x) => x.alerta && !x.visto).length - 1;
+  const quedan = cambios.filter((x) => x.alerta && !x.visto && !pospuestos.includes(x.codigo)).length - 1;
   const verSenal = (codigo: string) => { void marcarVisto(c.codigo); openDrawer({ kind: 'senal', id: codigo }); };
   return (
     <>
-      <div className="scrim evc-scrim" />
+      {/* clic fuera o Escape: se cierran todas las ventanas flotantes y queda «sin ver» en «Cambios» */}
+      <div className="scrim evc-scrim" onClick={cerrarFlotantes} title="Cerrar (queda sin ver en «Cambios»)" />
       <div className="evc-modal cam-modal" role="alertdialog" aria-modal="true" aria-labelledby="cam-t" aria-describedby="cam-d"
-        onKeyDown={(ev) => { if (ev.key === 'Escape') void marcarVisto(c.codigo); }}>
+        onKeyDown={(ev) => { if (ev.key === 'Escape') cerrarFlotantes(); }}>
         <div className={`evc-h cam-h i-${c.importancia}`}>
           <Icon name="actividad" />
           <span>Cambio en una noticia · {c.codigo}</span>
           {quedan > 0 && <span className="evc-mas">+{quedan} más</span>}
+          <button className="icon-btn" aria-label="Cerrar todas las ventanas" title="Cerrar (queda sin ver en «Cambios»)" onClick={cerrarFlotantes}><Icon name="close" /></button>
         </div>
         <div className="evc-b">
           <h2 id="cam-t">{titulo(c)}</h2>
@@ -200,14 +205,15 @@ export function ListaCambios() {
   const { setListaAbierta, setSonido, marcarVisto } = useCambios.getState();
   const openDrawer = useStore((s) => s.openDrawer);
   const [sel, setSel] = useState<string | null>(null);
+  useEffect(() => { if (!abierta) setSel(null); }, [abierta]);
   if (!abierta) return null;
   const cerrar = () => { setListaAbierta(false); setSel(null); };
   const actual = cambios.find((c) => c.codigo === sel) ?? null;
   const pendientes = sinVer(cambios);
   return (
     <>
-      <div className="scrim" onClick={cerrar} />
-      <div className="evc-modal ancho" role="dialog" aria-modal="true" aria-labelledby="cam-l" onKeyDown={(ev) => { if (ev.key === 'Escape') cerrar(); }}>
+      <div className="scrim" onClick={cerrarFlotantes} />
+      <div className="evc-modal ancho" role="dialog" aria-modal="true" aria-labelledby="cam-l" onKeyDown={(ev) => { if (ev.key === 'Escape') cerrarFlotantes(); }}>
         <div className="evc-h">
           <Icon name="actividad" />
           <span id="cam-l">Cambios en noticias ya recogidas</span>

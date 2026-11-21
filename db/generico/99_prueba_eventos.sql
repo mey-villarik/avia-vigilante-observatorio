@@ -158,7 +158,13 @@ SELECT x ->> 'codigo' AS codigo, x ->> 'titular' AS titular, x ->> 'prioridad' A
 DO $$
 DECLARE v jsonb := vigilante.eventos_emergentes(); cod text;
 BEGIN
-  IF jsonb_array_length(v) <> 1 THEN RAISE EXCEPTION 'El panel debía ver 1 evento (Santa Cruz está descartado): %', v; END IF;
+  -- con el 38 los descartados de las últimas 24 h también llegan, pero sin alarma y al final
+  IF (SELECT count(*) FROM jsonb_array_elements(v) x WHERE x ->> 'estado' NOT IN ('descartado', 'cerrado')) <> 1 THEN
+    RAISE EXCEPTION 'El panel debía ver 1 evento abierto (Santa Cruz está descartado): %', v;
+  END IF;
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(v) x WHERE x ->> 'estado' IN ('descartado', 'cerrado') AND (x ->> 'alerta')::boolean) THEN
+    RAISE EXCEPTION 'Un descartado no debía sonar';
+  END IF;
   IF (v -> 0 ->> 'alerta')::boolean IS NOT TRUE OR (v -> 0 ->> 'visto')::boolean THEN RAISE EXCEPTION 'Debía ser alerta sin ver: %', v -> 0; END IF;
   cod := v -> 0 ->> 'codigo';
   PERFORM vigilante.marcar_evento_visto(cod);

@@ -4,7 +4,8 @@
 // detectó; después sigue guardado en la base pero ya no se muestra aquí (db/generico/34_eventos_dinamicos.sql).
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
-import { alertaPendiente, EVENTOS_MS, eventosSinVer, TIPO_TXT, useEventos, type EventoCompuesto } from '../services/eventos';
+import { abierto, alertaPendiente, claveAlerta, EVENTOS_MS, eventosSinVer, TIPO_TXT, useEventos, type EventoCompuesto } from '../services/eventos';
+import { cerrarFlotantes } from '../lib/flotantes';
 import { Icon } from './Icon';
 
 const TZ = 'America/La_Paz';
@@ -121,26 +122,29 @@ function Descartar({ codigo, onHecho }: { codigo: string; onHecho: () => void })
 /** Ventana de alerta: sale sola con la primera alerta sin ver */
 export function AlertaEmergente() {
   const eventos = useEventos((s) => s.eventos);
+  const pospuestos = useEventos((s) => s.pospuestos);
   const { marcarVisto } = useEventos.getState();
   const openDrawer = useStore((s) => s.openDrawer);
-  const e = alertaPendiente(eventos);
+  const e = alertaPendiente(eventos, pospuestos);
   const boton = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (e) boton.current?.focus(); }, [e?.codigo, e?.version]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!e) return null;
-  const quedan = eventos.filter((x) => x.alerta && !x.visto).length - 1;
+  const quedan = eventos.filter((x) => x.alerta && !x.visto && !pospuestos.includes(claveAlerta(x))).length - 1;
   const verSenal = (codigo: string) => { void marcarVisto(e.codigo); openDrawer({ kind: 'senal', id: codigo }); };
   const verEnLista = () => { void marcarVisto(e.codigo); useEventos.getState().setListaAbierta(true, e.codigo); };
   // «nuevo» llega con el 34; sin él, la versión dice si es una actualización
   const nuevo = e.nuevo ?? e.version === 1;
   return (
     <>
-      <div className="scrim evc-scrim" />
+      {/* clic fuera o Escape: se cierran todas las ventanas flotantes y el evento queda «sin ver» en «Eventos» */}
+      <div className="scrim evc-scrim" onClick={cerrarFlotantes} title="Cerrar (queda sin ver en «Eventos»)" />
       <div className="evc-modal cam-modal" role="alertdialog" aria-modal="true" aria-labelledby="evc-t" aria-describedby="evc-d"
-        onKeyDown={(ev) => { if (ev.key === 'Escape') void marcarVisto(e.codigo); }}>
+        onKeyDown={(ev) => { if (ev.key === 'Escape') cerrarFlotantes(); }}>
         <div className={`evc-h t-${e.tipo}`}>
           <Icon name="riesgo" />
           <span>{nuevo ? 'Evento nuevo detectado' : `Evento actualizado (v${e.version}): entraron señales nuevas`} · {e.codigo} · {hace(e.version_en ?? e.detectado)}</span>
           {quedan > 0 && <span className="evc-mas">+{quedan} más</span>}
+          <button className="icon-btn" aria-label="Cerrar todas las ventanas" title="Cerrar (queda sin ver en «Eventos»)" onClick={cerrarFlotantes}><Icon name="close" /></button>
         </div>
         <div className="evc-b">
           <h2 id="evc-t">{e.titular ?? `${TIPO_TXT[e.tipo]} en ${e.territorio}: ${e.senales.map((s) => s.titulo).slice(0, 2).join(' + ')}`}</h2>
@@ -161,6 +165,7 @@ export function ListaEventos() {
   const abierta = useEventos((s) => s.listaAbierta);
   const sel = useEventos((s) => s.listaSel);
   const eventos = useEventos((s) => s.eventos);
+  const cerrados = useEventos((s) => s.cerrados);
   const sonido = useEventos((s) => s.sonido);
   const error = useEventos((s) => s.error);
   const { setListaAbierta, setSonido, marcarVisto } = useEventos.getState();
@@ -168,12 +173,12 @@ export function ListaEventos() {
   const openDrawer = useStore((s) => s.openDrawer);
   if (!abierta) return null;
   const cerrar = () => setListaAbierta(false);
-  const actual = eventos.find((e) => e.codigo === sel) ?? null;
+  const actual = eventos.find((e) => e.codigo === sel) ?? cerrados.find((e) => e.codigo === sel) ?? null;
   const pendientes = eventosSinVer(eventos);
   return (
     <>
-      <div className="scrim" onClick={cerrar} />
-      <div className="evc-modal ancho" role="dialog" aria-modal="true" aria-labelledby="evc-l" onKeyDown={(ev) => { if (ev.key === 'Escape') cerrar(); }}>
+      <div className="scrim" onClick={cerrarFlotantes} />
+      <div className="evc-modal ancho" role="dialog" aria-modal="true" aria-labelledby="evc-l" onKeyDown={(ev) => { if (ev.key === 'Escape') cerrarFlotantes(); }}>
         <div className="evc-h">
           <Icon name="cadena" />
           <span id="evc-l">Eventos: señales que coinciden en lugar y fecha</span>
@@ -185,14 +190,15 @@ export function ListaEventos() {
             {pendientes > 0 && <button className="btn ghost" onClick={() => void marcarVisto(null)}><Icon name="check" /> Marcar todo como visto</button>}
           </div>
           {error && <p className="evc-error" role="alert">{error}</p>}
-          {eventos.length === 0 && <p className="muted">No hay eventos de las últimas 24 horas. Aparecen cuando dos o más señales activas coinciden en el mismo departamento y en las mismas fechas, y saltan con alarma en cuanto se detectan.</p>}
+          {eventos.length === 0 && !actual && <p className="muted">No hay eventos abiertos de las últimas 24 horas. Aparecen cuando dos o más señales activas coinciden en el mismo departamento y en las mismas fechas, y saltan con alarma en cuanto se detectan.</p>}
           {eventos.length > 0 && !actual && <p className="muted small">Cada evento se ve aquí 24 horas desde que se detecta (o desde que le entran señales nuevas). Después queda guardado y AVIA lo sigue teniendo en cuenta.</p>}
           {actual ? (
             <>
               <button className="linklike" onClick={() => setSel(null)}>← Todos los eventos</button>
               <h2>{actual.titular ?? `${TIPO_TXT[actual.tipo]} en ${actual.territorio}`}</h2>
+              {!abierto(actual) && <p className="evc-cerrado" role="note"><b>{cierreTxt(actual)}</b>{actual.motivo_cierre ? `: ${actual.motivo_cierre}` : ''}</p>}
               <Ficha e={actual} onSenal={(c) => { cerrar(); openDrawer({ kind: 'senal', id: c }); }} />
-              <div className="evc-f"><Descartar codigo={actual.codigo} onHecho={() => setSel(null)} /></div>
+              {abierto(actual) && <div className="evc-f"><Descartar codigo={actual.codigo} onHecho={() => setSel(null)} /></div>}
             </>
           ) : (
             <ul className="evc-lista">
@@ -207,8 +213,32 @@ export function ListaEventos() {
               ))}
             </ul>
           )}
+          {!actual && cerrados.length > 0 && (
+            <details className="evc-cerrados">
+              <summary>Cerrados o descartados en las últimas 24 h ({cerrados.length})</summary>
+              <p className="muted small">No suenan ni cuentan como nuevos. Se cierran solos cuando sus señales dejan de coincidir en fechas, caducan o se descartan; se descartan cuando AVIA o un analista dicen que no son relevantes.</p>
+              <ul className="evc-lista">
+                {cerrados.map((e) => (
+                  <li key={e.codigo}>
+                    <button onClick={() => setSel(e.codigo)}>
+                      <span className="tag">{e.estado}</span>
+                      <span className="evc-lt"><b>{e.titular ?? `${TIPO_TXT[e.tipo]} en ${e.territorio}`}</b>
+                        <small>{e.codigo} · {cierreTxt(e)}{e.motivo_cierre ? `: ${e.motivo_cierre}` : ''} · detectado {hace(e.version_en ?? e.detectado)}</small></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       </div>
     </>
   );
+}
+
+/** «Cerrado solo» o «Descartado por AVIA / por un analista» */
+function cierreTxt(e: EventoCompuesto): string {
+  if (e.estado === 'cerrado') return 'Cerrado solo';
+  const quien = (e.descartado_por ?? '').toLowerCase();
+  return quien === 'hermes' || quien === 'avia' ? 'Descartado por AVIA' : quien ? `Descartado por ${e.descartado_por}` : 'Descartado';
 }
