@@ -1,7 +1,8 @@
 -- Prueba de 42_categorias_correctas.sql: inflación no es clima y no hay códigos internos en la web pública.
 -- Requiere 01, 02 y 42. Termina en ROLLBACK: no deja nada.
+-- Sirve en el editor SQL de Supabase y en psql. Si todo va bien, el resultado es una fila «OK: categorías correctas»;
+-- si algo falla, sale un error que dice qué.
 BEGIN;
-\set ON_ERROR_STOP 1
 SET client_min_messages = warning;
 
 CREATE TEMP TABLE ids AS SELECT id AS c FROM vigilante.clientes WHERE slug = 'orbita-bolivia';
@@ -51,5 +52,7 @@ BEGIN
   END IF;
   RAISE WARNING 'OK: categorías correctas';
 END $$;
+
+SELECT 'OK: categorías correctas' AS resultado;
 
 ROLLBACK;
