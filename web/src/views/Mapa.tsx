@@ -16,8 +16,9 @@ import { NACIONAL, regionesDeSenal, resumenRegion, tonoDe, type ResumenRegion } 
 import { ago, esReciente, norm } from '../lib/util';
 import type { Senal } from '../types';
 import { enBolivia } from '../lib/hora';
+import { ESTADO_COLOR, ESTADO_TXT, nacionalesConPeso, semaforoDepartamentos, type SemaforoDep } from '../lib/direccion';
 
-type Mostrar = 'todo' | 'oportunidad' | 'riesgo';
+type Mostrar = 'semaforo' | 'todo' | 'oportunidad' | 'riesgo';
 
 const fechaCorta = (f?: string | null) => {
   if (!f) return '';
@@ -33,7 +34,7 @@ function useResumenes(mostrar: Mostrar, periodo: 'recientes' | 'todo') {
   return useMemo(() => {
     let l = activeSignals(senales);
     if (periodo === 'recientes') l = l.filter((s) => esReciente(s));
-    if (mostrar !== 'todo') l = l.filter((s) => s.naturaleza === mostrar || s.naturaleza === 'mixta');
+    if (mostrar === 'oportunidad' || mostrar === 'riesgo') l = l.filter((s) => s.naturaleza === mostrar || s.naturaleza === 'mixta');
     const por: Record<string, ResumenRegion> = {};
     DEPS.forEach((d) => { por[d] = resumenRegion(d, l, fichas, eventos, cambios); });
     const nacionales = l.filter((s) => regionesDeSenal(s).includes(NACIONAL));
@@ -44,12 +45,14 @@ function useResumenes(mostrar: Mostrar, periodo: 'recientes' | 'todo') {
 
 // ───────── Mapa SVG (también lo usa el panel «Mapa» del Panorama) ─────────
 
-export function MapaBolivia({ por, sel, onSel, compacto = false, destinosActivos = [] }: {
+export function MapaBolivia({ por, sel, onSel, compacto = false, destinosActivos = [], semaforo }: {
   por: Record<string, ResumenRegion>;
   sel: string | null;
   onSel: (d: string) => void;
   compacto?: boolean;
   destinosActivos?: string[];
+  /** con semáforo, cada departamento va en verde/amarillo/rojo con su motivo (vista Dirección) */
+  semaforo?: Record<string, SemaforoDep>;
 }) {
   const [hover, setHover] = useState<{ dep: string; x: number; y: number } | null>(null);
   const caja = useRef<HTMLDivElement>(null);
@@ -81,9 +84,12 @@ export function MapaBolivia({ por, sel, onSel, compacto = false, destinosActivos
           {orden.map((g) => {
             const r = por[g.nombre];
             const n = r?.senales.length ?? 0;
-            const tono = r ? tonoDe(r) : 'vacio';
+            const sem = semaforo?.[g.nombre];
+            const tono = sem ? `sem-${ESTADO_COLOR[sem.estado]}` : r ? tonoDe(r) : 'vacio';
             const k = n ? Math.round(22 + 58 * (n / max)) : 0;
-            const etiqueta = `${g.nombre}: ${r?.oportunidades.length ?? 0} oportunidades, ${r?.riesgos.length ?? 0} riesgos, ${r?.mixtas.length ?? 0} mixtas, ${r?.eventos.length ?? 0} eventos`;
+            const etiqueta = sem
+              ? `${g.nombre}: ${ESTADO_TXT[sem.estado]}. ${sem.motivo}${sem.recomendacion ? `. Se recomienda: ${sem.recomendacion}` : ''}`
+              : `${g.nombre}: ${r?.oportunidades.length ?? 0} oportunidades, ${r?.riesgos.length ?? 0} riesgos, ${r?.mixtas.length ?? 0} mixtas, ${r?.eventos.length ?? 0} eventos`;
             return (
               <path key={g.nombre} d={g.d}
                 className={`mp-dep t-${tono} ${sel === g.nombre ? 'on' : ''} ${hover?.dep === g.nombre ? 'hov' : ''}`}
@@ -117,7 +123,12 @@ export function MapaBolivia({ por, sel, onSel, compacto = false, destinosActivos
           return (
             <g key={'e' + g.nombre} className={`mp-etq ${sel === g.nombre ? 'on' : ''}`} aria-hidden="true">
               <text className="mp-nombre" x={x} y={y}>{g.nombre}</text>
-              {r && r.senales.length > 0 && (
+              {semaforo?.[g.nombre] && (
+                <text className={`mp-cuenta mp-sem-t sem-${ESTADO_COLOR[semaforo[g.nombre].estado]}`} x={x} y={y + (compacto ? 30 : 24)}>
+                  ● {ESTADO_TXT[semaforo[g.nombre].estado]}
+                </text>
+              )}
+              {!semaforo && r && r.senales.length > 0 && (
                 <text className="mp-cuenta" x={x} y={y + (compacto ? 30 : 24)}>
                   <tspan className="o">▲{r.oportunidades.length}</tspan>
                   <tspan dx="8" className="r">●{r.riesgos.length}</tspan>
@@ -135,7 +146,14 @@ export function MapaBolivia({ por, sel, onSel, compacto = false, destinosActivos
           );
         })}
       </svg>
-      {h && hover && !compacto && (
+      {h && hover && semaforo?.[hover.dep] && (
+        <div className="mp-tip" style={{ left: hover.x, top: hover.y }} role="status">
+          <b>{hover.dep} · <span className={`sem-txt sem-${ESTADO_COLOR[semaforo[hover.dep].estado]}`}>{ESTADO_TXT[semaforo[hover.dep].estado]}</span></b>
+          <span>{semaforo[hover.dep].motivo}</span>
+          {semaforo[hover.dep].recomendacion && <small>Se recomienda: {semaforo[hover.dep].recomendacion}</small>}
+        </div>
+      )}
+      {h && hover && !compacto && !semaforo && (
         <div className="mp-tip" style={{ left: hover.x, top: hover.y }} role="status">
           <b>{hover.dep}</b>
           <span><i className="o">▲ {h.oportunidades.length} oportunidades</i><i className="r">● {h.riesgos.length} riesgos</i>{h.mixtas.length > 0 && <i className="m">◆ {h.mixtas.length} mixtas</i>}</span>
@@ -199,7 +217,37 @@ function Barra({ o, m, r }: { o: number; m: number; r: number }) {
   );
 }
 
-function Region({ r }: { r: ResumenRegion }) {
+/** semáforo de un departamento: color, por qué en una frase y qué se recomienda */
+export function SemaforoCaja({ sem }: { sem: SemaforoDep }) {
+  const openDrawer = useStore((st) => st.openDrawer);
+  return (
+    <div className={`sem-caja sem-${ESTADO_COLOR[sem.estado]}`}>
+      <p className="sem-caja-t"><span className="sem-luz" aria-hidden="true" /><b>{ESTADO_TXT[sem.estado]}</b> · {sem.motivo}</p>
+      {sem.recomendacion && <p><small>Se recomienda</small> {sem.recomendacion}</p>}
+      {sem.senal && <button className="linklike" onClick={() => openDrawer({ kind: 'senal', id: sem.senal!.id })}>Ver la ficha de {sem.senal.id} →</button>}
+    </div>
+  );
+}
+
+/** lista de departamentos con su luz, el motivo en una frase y (al pasar el ratón) qué se recomienda */
+export function ListaSemaforo({ sem, onSel }: { sem: Record<string, SemaforoDep>; onSel: (d: string) => void }) {
+  const orden = { accion: 0, atencion: 1, normal: 2 } as const;
+  const filas = DEPS.map((d) => sem[d]).filter(Boolean).sort((a, b) => orden[a.estado] - orden[b.estado] || a.dep.localeCompare(b.dep));
+  return (
+    <ul className="dir-dep-lista">
+      {filas.map((f) => (
+        <li key={f.dep}>
+          <button onClick={() => onSel(f.dep)} title={f.recomendacion ? `Se recomienda: ${f.recomendacion}` : undefined}>
+            <span className={`sem-luz sem-${ESTADO_COLOR[f.estado]}`} aria-hidden="true" />
+            <span><b>{f.dep}</b> <span className="sr-only">{ESTADO_TXT[f.estado]}.</span><small>{f.motivo}</small></span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Region({ r, sem }: { r: ResumenRegion; sem?: SemaforoDep }) {
   const geo = DEPARTAMENTOS_GEO.find((g) => g.nombre === r.dep)!;
   const { go, setSigFilter, setMapaSel } = useStore.getState();
   const { openChat } = useChat();
@@ -219,6 +267,7 @@ function Region({ r }: { r: ResumenRegion }) {
         </div>
         <button className="icon-btn" aria-label="Volver a todo Bolivia" title="Volver a todo Bolivia" onClick={() => setMapaSel(null)}><Icon name="close" /></button>
       </header>
+      {sem && <SemaforoCaja sem={sem} />}
 
       <div className="mp-kpis">
         <div><b className="num">{r.senales.length}</b><small>señales</small></div>
@@ -322,7 +371,7 @@ function Region({ r }: { r: ResumenRegion }) {
   );
 }
 
-function Pais({ por, nacionales, sinLugar, total }: { por: Record<string, ResumenRegion>; nacionales: Senal[]; sinLugar: Senal[]; total: Senal[] }) {
+function Pais({ por, nacionales, sinLugar, total, semaforo }: { por: Record<string, ResumenRegion>; nacionales: Senal[]; sinLugar: Senal[]; total: Senal[]; semaforo?: Record<string, SemaforoDep> }) {
   const setMapaSel = useStore((s) => s.setMapaSel);
   const eventos = useEventos((s) => s.eventos);
   const filas = DEPS.map((d) => por[d]).sort((a, b) => b.senales.length - a.senales.length || a.dep.localeCompare(b.dep));
@@ -347,7 +396,12 @@ function Pais({ por, nacionales, sinLugar, total }: { por: Record<string, Resume
       </div>
       {total.length > 0 && <Barra o={o} m={m} r={r} />}
 
-      <Seccion t="Departamentos" icon="mapa">
+      {semaforo && (
+        <Seccion t="Semáforo por departamento" icon="mapa">
+          <ListaSemaforo sem={semaforo} onSel={setMapaSel} />
+        </Seccion>
+      )}
+      {!semaforo && <Seccion t="Departamentos" icon="mapa">
         <div className="mp-rank">
           {filas.map((f) => (
             <button key={f.dep} onClick={() => setMapaSel(f.dep)} aria-label={`${f.dep}: ${f.senales.length} señales`}>
@@ -361,7 +415,7 @@ function Pais({ por, nacionales, sinLugar, total }: { por: Record<string, Resume
             </button>
           ))}
         </div>
-      </Seccion>
+      </Seccion>}
 
       <Seccion t="Afectan a todo el país" n={nacionales.length} icon="senales" vacio="Ninguna señal nacional en este periodo.">
         <Lista l={nacionales} />
@@ -382,10 +436,14 @@ export function Mapa() {
   const sel = useStore((s) => s.mapaSel);
   const setMapaSel = useStore((s) => s.setMapaSel);
   const origen = useStore((s) => s.origen);
-  const [mostrar, setMostrar] = useState<Mostrar>('todo');
+  const role = useStore((s) => s.role);
+  const senales = useStore((s) => s.senales);
+  const [mostrar, setMostrar] = useState<Mostrar>(role === 'analista' ? 'todo' : 'semaforo');
   const [periodo, setPeriodo] = useState<'recientes' | 'todo'>('recientes');
   const { por, total, nacionales, sinLugar } = useResumenes(mostrar, periodo);
   const destinos = useMemo(() => [...new Set(total.flatMap((s) => s.destinos ?? []))], [total]);
+  const semaforo = useMemo(() => (mostrar === 'semaforo' ? semaforoDepartamentos(senales) : undefined), [mostrar, senales]);
+  const nacPeso = useMemo(() => (mostrar === 'semaforo' ? nacionalesConPeso(senales) : []), [mostrar, senales]);
   const elegir = (d: string) => setMapaSel(sel === d ? null : d);
   const lado = useRef<HTMLElement>(null);
   // en pantallas estrechas el resumen queda debajo del mapa: llevarlo a la vista al elegir
@@ -399,11 +457,13 @@ export function Mapa() {
         <div>
           <div className="eyebrow">Territorio</div>
           <h1>Bolivia <em>por departamentos</em></h1>
-          <p className="sub">Dónde están las oportunidades, los riesgos y los eventos que AVIA vigila. El color dice qué pesa más en cada departamento y su intensidad, cuántas señales tiene.</p>
+          <p className="sub">{mostrar === 'semaforo'
+            ? 'Semáforo: rojo si hay un riesgo grave y confirmado que pide decidir hoy, amarillo si algo puede crecer o está sin confirmar, verde si nada pide medidas. Toca un departamento para ver el motivo y qué se recomienda.'
+            : 'Dónde están las oportunidades, los riesgos y los eventos que AVIA vigila. El color dice qué pesa más en cada departamento y su intensidad, cuántas señales tiene.'}</p>
         </div>
         <div className="head-actions">
           <div className="seg" role="group" aria-label="Qué mostrar">
-            {([['todo', 'Todo'], ['oportunidad', 'Oportunidades'], ['riesgo', 'Riesgos']] as [Mostrar, string][]).map(([k, t]) => (
+            {([['semaforo', 'Semáforo'], ['todo', 'Todo'], ['oportunidad', 'Oportunidades'], ['riesgo', 'Riesgos']] as [Mostrar, string][]).map(([k, t]) => (
               <button key={k} className={mostrar === k ? 'on' : ''} aria-pressed={mostrar === k} onClick={() => setMostrar(k)}>{t}</button>
             ))}
           </div>
@@ -421,7 +481,15 @@ export function Mapa() {
             <span className="meta">{origen === 'vps' ? 'datos reales' : 'ejemplo'}</span>
           </div>
           <div className="panel-b">
-            <MapaBolivia por={por} sel={sel} onSel={elegir} destinosActivos={destinos} />
+            <MapaBolivia por={por} sel={sel} onSel={elegir} destinosActivos={destinos} semaforo={semaforo} />
+            {semaforo ? (
+              <div className="map-legend mp-leyenda">
+                <span><i style={{ background: 'var(--ok)' }} />Normal: nada pide medidas</span>
+                <span><i style={{ background: 'var(--opp)' }} />Atención: preparar</span>
+                <span><i style={{ background: 'var(--crit)' }} />Acción: decidir hoy</span>
+                {nacPeso.length > 0 && <span className="tag">Todo el país: {nacPeso.length} riesgo(s) con peso, no tiñen el mapa</span>}
+              </div>
+            ) : (
             <div className="map-legend mp-leyenda">
               <span><i style={{ background: 'var(--opp)' }} />Pesan las oportunidades</span>
               <span><i style={{ background: 'var(--risk)' }} />Pesan los riesgos</span>
@@ -432,12 +500,13 @@ export function Mapa() {
                 <button className="tag mp-ley-nac" onClick={() => setMapaSel(null)}>Todo el país: {nacionales.length} señal(es)</button>
               )}
             </div>
+            )}
           </div>
         </section>
         <aside className="panel mp-lado" aria-live="polite" ref={lado}>
           {sel && por[sel]
-            ? <Region key={sel} r={por[sel]} />
-            : <Pais por={por} nacionales={nacionales} sinLugar={sinLugar} total={total} />}
+            ? <Region key={sel} r={por[sel]} sem={semaforo?.[sel]} />
+            : <Pais por={por} nacionales={nacionales} sinLugar={sinLugar} total={total} semaforo={semaforo} />}
         </aside>
       </div>
     </>

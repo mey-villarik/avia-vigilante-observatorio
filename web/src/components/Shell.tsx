@@ -57,7 +57,7 @@ export function Sidebar() {
       </div>
       <div className="side-label">Vistas</div>
       <nav className="nav">
-        {VIEWS.map(([id, n, i]) => {
+        {VIEWS.filter(([id]) => !(id === 'panorama' && role === 'visor')).map(([id, n, i]) => {
           const k = cnt[id];
           return (
             <button key={id} className={view === id ? 'on' : ''} aria-current={view === id ? 'page' : 'false'} onClick={() => go(id)}>
@@ -67,6 +67,7 @@ export function Sidebar() {
           );
         })}
       </nav>
+      {role !== 'visor' && <>
       <div className="side-label">Tableros guardados</div>
       <div className="views-list">
         {Object.entries(PRESETS).map(([k, p]) => (
@@ -76,6 +77,7 @@ export function Sidebar() {
           <button key={'c:' + k} className={preset === 'c:' + k ? 'on' : ''} onClick={() => applyPreset('c:' + k)}><span className="dot" />{k}</button>
         ))}
       </div>
+      </>}
       <div className="side-foot">
         {perfil ? (
           <div className="cuenta">

@@ -900,3 +900,91 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .avia-encontro h2 .note{font-weight:400}
 .avia-encontro > .btn{margin-top:6px}
 .avia-encontro .cand-txt .tag{width:max-content;justify-self:start}
+
+/* ───────── Vista Dirección (P1): semáforo, 3 ejes, decisiones, mapa y «Lo que viene» ───────── */
+.sem-luz{display:inline-block;width:12px;height:12px;border-radius:50%;flex:none;background:var(--raise);box-shadow:0 0 0 3px color-mix(in srgb,currentColor 18%,transparent)}
+.sem-luz.grande{width:22px;height:22px;margin-right:12px;vertical-align:middle}
+.sem-verde .sem-luz,.sem-luz.sem-verde{background:var(--ok);color:var(--ok)}
+.sem-amarillo .sem-luz,.sem-luz.sem-amarillo{background:var(--opp);color:var(--opp)}
+.sem-rojo .sem-luz,.sem-luz.sem-rojo{background:var(--crit);color:var(--crit)}
+.sem-txt.sem-verde{color:var(--ok)} .sem-txt.sem-amarillo{color:var(--opp)} .sem-txt.sem-rojo{color:var(--crit)}
+.dir-titulo{display:flex;align-items:center;flex-wrap:wrap}
+.sem-pill{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px;background:var(--surface2)}
+.sem-pill.sem-verde{color:var(--ok);background:var(--ok-soft)}
+.sem-pill.sem-amarillo{color:var(--opp);background:var(--opp-soft)}
+.sem-pill.sem-rojo{color:var(--crit);background:var(--crit-soft)}
+.dir-ejes>.panel,.dir-fila>.panel{grid-column:auto}
+.dir-ejes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.eje-card{padding:16px 18px;display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--line)}
+.eje-card.sem-verde{border-top-color:var(--ok)} .eje-card.sem-amarillo{border-top-color:var(--opp)} .eje-card.sem-rojo{border-top-color:var(--crit)}
+.eje-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.eje-h h2{margin:0;font-size:17px}
+.eje-motivo{margin:0;font-weight:600;line-height:1.4}
+.eje-cuenta{margin:0;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--muted)}
+.eje-cuenta .c-acc b{color:var(--crit)} .eje-cuenta .c-ate b{color:var(--opp)}
+.eje-lista{margin:0;padding:0;list-style:none;font-size:13.5px;display:grid;gap:6px}
+.eje-lista li{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline}
+.eje-lista .linklike{text-align:left}
+.eje-card .btn{align-self:flex-start;margin-top:auto}
+.dir-decisiones{margin-bottom:16px}
+.dec-lista{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.dec{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--surface2)}
+.dec-h{display:flex;gap:10px;align-items:flex-start}
+.dec-n{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--bg);font-weight:700;font-size:13px}
+.dec-t{text-align:left;font-weight:700;font-size:15px;line-height:1.35}
+.dec-tags{display:flex;flex-wrap:wrap;gap:5px}
+.ficha-dir{margin:10px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;padding:12px 14px;border-radius:12px;background:var(--surface2);border-left:4px solid var(--accent)}
+.ficha-dir.sinver{border-left-color:var(--warn)}
+.ficha-dir>div{min-width:0}
+.ficha-dir .fd-accion{grid-column:1/-1}
+.ficha-dir dt{display:flex;align-items:center;gap:6px;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:2px}
+.ficha-dir dt svg{width:13px;height:13px}
+.ficha-dir dd{margin:0;line-height:1.4}
+.ficha-dir .fd-accion dd{font-weight:700;font-size:15px}
+.ficha-dir .fd-afecta{display:block;font-weight:400;font-size:13px;color:var(--muted);margin-top:2px}
+.ficha-dir.compacta{grid-template-columns:1fr;margin:0;padding:10px 12px;gap:7px;background:var(--surface)}
+.ficha-dir.compacta .fd-accion dd{font-size:14px}
+.dir-fila{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
+.dir-mapa-b{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+.dir-deps{display:flex;flex-direction:column;gap:10px;min-width:0}
+.dir-dep-lista{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.dir-dep-lista button{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:none;border:none;padding:6px 6px;border-radius:8px;color:inherit}
+.dir-dep-lista button:hover{background:var(--surface2)}
+.dir-dep-lista .sem-luz{margin-top:4px}
+.dir-dep-lista small{display:block;color:var(--muted);line-height:1.35}
+.dir-dep-h{display:flex;justify-content:space-between;align-items:center}
+.dir-nac{display:flex;gap:6px;margin:0}
+.dir-nac svg{width:14px;height:14px;flex:none;margin-top:2px;color:var(--warn)}
+.sem-caja{border-radius:12px;padding:10px 12px;background:var(--surface2);border-left:4px solid var(--ok);display:grid;gap:6px;margin:0 0 12px}
+.sem-caja.sem-amarillo{border-left-color:var(--opp)} .sem-caja.sem-rojo{border-left-color:var(--crit)}
+.sem-caja p{margin:0;line-height:1.4}
+.sem-caja-t{display:flex;gap:8px;align-items:flex-start}
+.sem-caja-t .sem-luz{margin-top:4px}
+.sem-caja small{color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.04em;margin-right:4px}
+.sem-caja .linklike{justify-self:start}
+.mp-dep.t-sem-verde{fill:color-mix(in srgb,var(--ok) 55%,var(--surface2))}
+.mp-dep.t-sem-amarillo{fill:color-mix(in srgb,var(--opp) 70%,var(--surface2))}
+.mp-dep.t-sem-rojo{fill:color-mix(in srgb,var(--crit) 75%,var(--surface2))}
+.mp-sem-t{font-weight:700}
+.mp-dep-sem-nota{display:none}
+.dir-viene .panel-h{flex-wrap:wrap;gap:8px}
+.viene{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.viene-dia{display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;border-top:1px solid var(--line);padding-top:10px}
+.viene-f b{display:block;font-size:14px} .viene-f small{color:var(--muted)}
+.viene-dia ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.viene-it{border-left:3px solid var(--line);padding-left:10px}
+.viene-it.t-conflicto{border-left-color:var(--crit)} .viene-it.t-pronostico{border-left-color:var(--warn)}
+.viene-it.t-evento{border-left-color:var(--mix)} .viene-it.t-plazo{border-left-color:var(--opp)}
+.viene-it .linklike{text-align:left;font-weight:600}
+.viene-tags{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:4px}
+.viene-tags small{color:var(--muted)}
+@media (max-width:1180px){
+  .dir-ejes,.dec-lista{grid-template-columns:1fr}
+  .dir-fila,.dir-mapa-b{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .ficha-dir{grid-template-columns:1fr}
+  .viene-dia{grid-template-columns:1fr;gap:6px}
+}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.mp-sem-t{fill:var(--ink)}

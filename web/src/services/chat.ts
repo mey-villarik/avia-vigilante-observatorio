@@ -21,9 +21,9 @@ export const CHIPS = ['¿Qué oportunidades cierran pronto?', '¿Qué fuentes fa
 
 let ctl: AbortController | null = null;
 
-const VISTAS: VistaId[] = ['panorama', 'mapa', 'fuentes', 'senales', 'oportunidades', 'internacional', 'analisis', 'bitacora'];
+const VISTAS: VistaId[] = ['direccion', 'panorama', 'mapa', 'fuentes', 'senales', 'oportunidades', 'internacional', 'analisis', 'bitacora'];
 const VISTA_TXT: Record<VistaId, string> = {
-  panorama: 'Panorama', mapa: 'Mapa', fuentes: 'Fuentes', senales: 'Señales', oportunidades: 'Oportunidades',
+  direccion: 'Dirección', panorama: 'Panorama', mapa: 'Mapa', fuentes: 'Fuentes', senales: 'Señales', oportunidades: 'Oportunidades',
   internacional: 'Internacional', analisis: 'Análisis', bitacora: 'Bitácora',
 };
 const MAX_IDS = 20;

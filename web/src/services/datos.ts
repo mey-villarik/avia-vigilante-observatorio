@@ -49,6 +49,8 @@ interface JSenal {
   recomendacion_segura?: RecomendacionSegura | null;
   /** desde el 48: fecha de cierre y certeza del plazo (los días se cuentan aquí, al mirar) */
   cierre?: { fecha?: string | null; certeza?: string | null; motivo?: string | null } | null;
+  /** desde el 49: eje, acción y ficha para la Dirección */
+  direccion?: Senal['direccion'] | null;
 }
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
@@ -219,6 +221,8 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       traza: s.trazabilidad ?? undefined,
       certeza: s.certeza ?? undefined,
       reco: s.recomendacion_segura ?? undefined,
+      evento: s.evento_inicio || s.evento_fin ? { inicio: s.evento_inicio ?? null, fin: s.evento_fin ?? null } : undefined,
+      direccion: s.direccion ?? undefined,
     };
   });
 

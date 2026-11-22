@@ -246,7 +246,13 @@ REGLAS
 16. Acciones en la pantalla (CP3): no puedes ver la pantalla. NUNCA escribas que ya abriste una vista, una
    señal o que aplicaste un filtro («abrí Señales», «ya filtré»). Si hace falta, manda la orden en «comandos»
    y escribe solo lo que encontraste en los datos; el panel añade debajo, él mismo, qué quedó abierto y los
-   códigos de las señales que se ven. Si no mandas la orden, no digas que la vista está abierta."""
+   códigos de las señales que se ven. Si no mandas la orden, no digas que la vista está abierta.
+17. Dirección (ejes, semáforo y qué hacer): si preguntan por la Dirección, el semáforo, un eje (movilidad,
+   servicios esenciales, atención turística), un departamento, las decisiones de hoy o lo que viene, y abajo hay
+   un bloque VISTA DIRECCIÓN, usa sus estados tal cual (Normal / Atención / Acción): no los recalcules ni los
+   subas. Cada acción va con su ficha, con estas tres etiquetas y en este orden:
+   «Acción recomendada · Plazo · Cómo verificar». Copia el plazo de la ficha. No asignes responsables ni
+   inventes quién debe hacerlo: la Dirección no tiene responsables por eje. «Lo que viene» va por fecha de ocurrencia."""
 
 
 # ── Plazos (CP1 y CP2; misma regla que vigilante.cierre() del 48 y web/src/lib/plazo.ts) ──
@@ -343,6 +349,12 @@ def _compacta(x: dict) -> dict:
     ci = _cierre(x)
     if ci:
         c['cierre'] = ci
+    d = x.get('direccion')   # 49: eje y ficha «Acción · Plazo · Cómo verificar»
+    if isinstance(d, dict):
+        if d.get('eje'):
+            c['eje'] = _EJE_TXT.get(d['eje'], d['eje'])
+        if isinstance(d.get('ficha'), dict):
+            c['ficha_direccion'] = {k: d['ficha'][k] for k in ('accion', 'plazo', 'verificar') if d['ficha'].get(k)}
     for k in ('titulo', 'resumen', 'importancia'):
         if k in c:
             c[k] = _sin_relativos(c[k])
@@ -416,6 +428,43 @@ def _pulso_evol_txt(e) -> str:
 # Preguntas por lo que cambió (mejora «vs ayer», db/generico/27_comparacion_dia.sql)
 _RE_CAMBIOS = re.compile(r'qu[eé] (ha )?cambi|cambios|novedad|nuevo hoy|nuevas hoy|(comparad[oa]s?|frente|respecto|vs\.?) (a |con )?ayer|desde ayer|'
                          r'[uú]ltimas 24|qu[eé] hay de nuevo|qu[eé] pas[oó] (hoy|desde)', re.I)
+
+
+_RE_DIRECCION = re.compile(r'direcci[oó]n|sem[aá]foro|\bejes?\b|movilidad|servicios esenciales|atenci[oó]n tur[ií]stica|departament|'
+                           r'decisi[oó]n|decisiones|qu[eé] hago|qu[eé] hacemos|lo que viene|pr[oó]xim[oa]s? (24|48|72|d[ií]as|semana|horas)|'
+                           r'ma[nñ]ana|esta semana', re.I)
+_ESTADO_TXT = {'normal': 'Normal', 'atencion': 'Atención', 'accion': 'Acción'}
+_EJE_TXT = {'movilidad': 'Movilidad', 'servicios': 'Servicios esenciales', 'atencion': 'Atención turística'}
+
+
+def _direccion_txt(d) -> str:
+    """Bloque VISTA DIRECCIÓN de vigilante.direccion() (49): lo mismo que ve la pantalla Dirección."""
+    if not isinstance(d, dict) or not d.get('ejes'):
+        return ''
+    l = [f"VISTA DIRECCIÓN (de la base, igual que la pantalla; hoy {d.get('hoy', '')}):",
+         f"- Bolivia: {_ESTADO_TXT.get(d.get('bolivia'), d.get('bolivia'))}"]
+    for e in d.get('ejes') or []:
+        l.append(f"- {_EJE_TXT.get(e.get('eje'), e.get('eje'))}: {_ESTADO_TXT.get(e.get('estado'), e.get('estado'))} · "
+                 f"{e.get('motivo')} · {e.get('para_actuar_hoy', 0)} para actuar hoy, {e.get('para_preparar', 0)} para preparar")
+    dec = d.get('decisiones') or []
+    l.append('DECISIONES DE HOY:' if dec else 'DECISIONES DE HOY: ninguna.')
+    for i, x in enumerate(dec, 1):
+        f = x.get('ficha') or {}
+        l.append(f"{i}. {x.get('codigo')} {x.get('titulo')} [{x.get('certeza')}] — Acción recomendada: {f.get('accion')} · "
+                 f"Plazo: {f.get('plazo')} · Cómo verificar: {f.get('verificar')}")
+    deps = d.get('departamentos') or {}
+    if deps:
+        l.append('DEPARTAMENTOS: ' + ' | '.join(f"{k}: {_ESTADO_TXT.get(v.get('estado'), v.get('estado'))} ({v.get('motivo')})"
+                                                + (f" → {v.get('recomendacion')}" if v.get('recomendacion') else '')
+                                                for k, v in deps.items()))
+    nac = d.get('nacionales') or []
+    if nac:
+        l.append('TODO EL PAÍS: ' + '; '.join(f"{x.get('codigo')} {x.get('titulo')} ({_ESTADO_TXT.get(x.get('estado'))})" for x in nac[:5]))
+    viene = d.get('lo_que_viene') or []
+    l.append('LO QUE VIENE (7 días, por fecha de ocurrencia):' if viene else 'LO QUE VIENE (7 días): nada con fecha.')
+    for v in viene[:12]:
+        l.append(f"- {v.get('fecha')} (en {v.get('dias')} días) · {v.get('tipo')} · {v.get('codigo')} {v.get('titulo')} [{v.get('certeza')}]")
+    return '\n'.join(l)
 
 
 def _comparacion_txt(c) -> str:
@@ -657,6 +706,8 @@ Cuando des un número total, cita la hora: «según los datos actualizados a las
 
 {_pulso_evol_txt(ctx.get('pulso_evolucion')) if _RE_TENDENCIA.search(ultima) else ''}
 
+{_direccion_txt(ctx.get('direccion')) if _RE_DIRECCION.search(ultima) else ''}
+
 SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}
 
@@ -665,7 +716,7 @@ SEÑALES ACTIVAS ({len(senales)}):
 Puedes devolver comandos para mover la interfaz. En ese caso responde con un JSON:
 {{"texto": "tu respuesta", "comandos": [{{"tipo": "abrir", "vista": "senales"}}]}}
 Para abrir Señales filtrada usa «filtro» (solo estas claves): {{"tipo": "abrir", "vista": "senales", "filtro": {{"naturaleza": "riesgo" | "oportunidad" | "mixta", "departamento": "La Paz", "texto": "bloqueo", "revisar": true}}}}.
-Vistas: panorama, mapa, fuentes, senales, oportunidades, internacional, analisis, bitacora. Para una señal: {{"tipo": "abrir", "senal": "SEN-0027"}}.
+Vistas: direccion, panorama, mapa, fuentes, senales, oportunidades, internacional, analisis, bitacora. Para una señal: {{"tipo": "abrir", "senal": "SEN-0027"}}.
 En «texto» NO digas que ya lo abriste ni que el filtro está aplicado (regla 16): el panel lo confirma solo, con los códigos que se ven.
 Si usas comandos, responde SOLO con ese JSON: sin ```json```, sin texto antes ni después.
 Si no hay comandos, responde solo con el texto (markdown, sin JSON)."""

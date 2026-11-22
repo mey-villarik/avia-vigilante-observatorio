@@ -181,9 +181,14 @@ const nextId = () => seq++;
 
 const presetLayout = (k: string): PanelEnTablero[] => (PRESETS[k] ?? PRESETS.ejecutivo).l.map(([id, w]) => ({ id, w }));
 
+/** Dirección es la pantalla de entrada del visor y del administrador (Meysel, 2026-11-22); todos la ven */
+const entraPorDireccion = (r: Rol) => r === 'visor' || r === 'admin';
+
 const initialView = (): VistaId => {
   const h = location.hash.slice(1) as VistaId;
-  return VIEWS.some((v) => v[0] === h) ? h : 'panorama';
+  if (VIEWS.some((v) => v[0] === h)) return h;
+  // sin login el rol se guarda en el navegador: el visor (Dirección) entra por su vista
+  return !accesoConfigurado && entraPorDireccion(storage.get<Rol>('role', 'analista')) ? 'direccion' : 'panorama';
 };
 
 const shortName = (f: Fuente) => f.nombre.split(' ·')[0];
@@ -276,14 +281,21 @@ export const useStore = create<Store>()((set, get) => {
 
     go: (v) => {
       if (!VIEWS.some((x) => x[0] === v)) return;
+      // el visor (Dirección) no tiene el Panorama editable: va a su vista
+      if (v === 'panorama' && get().role === 'visor') v = 'direccion';
       set({ view: v, sideOpen: false });
       try { history.replaceState(null, '', '#' + v); } catch { /* iframe sin historial */ }
       window.scrollTo({ top: 0 });
     },
-    setSesion: (p) => set({ perfil: p, role: p?.rol ?? 'visor' }),
+    setSesion: (p) => {
+      const role = p?.rol ?? 'visor';
+      // visor y administrador entran por la vista Dirección; el analista sigue en el Panorama
+      const view = entraPorDireccion(role) && get().view === 'panorama' && !location.hash.slice(1) ? 'direccion' : get().view;
+      set({ perfil: p, role, view });
+    },
     setRole: (r) => {
       if (accesoConfigurado) return; // con login, el rol lo da el perfil
-      storage.set('role', r); set({ role: r }); get().toast(`Ahora entras como ${ROLE_NAME[r]}.`); },
+      storage.set('role', r); set({ role: r, ...(entraPorDireccion(r) && get().view === 'panorama' ? { view: 'direccion' as VistaId } : {}) }); get().toast(`Ahora entras como ${ROLE_NAME[r]}.`); },
     setSideOpen: (o) => set({ sideOpen: o }),
     setEditing: (e) => set({ editing: e }),
 
