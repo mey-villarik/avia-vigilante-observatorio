@@ -988,3 +988,4 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 }
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .mp-sem-t{fill:var(--ink)}
+.dir-informe{display:flex;gap:6px;flex-wrap:wrap;align-items:center}

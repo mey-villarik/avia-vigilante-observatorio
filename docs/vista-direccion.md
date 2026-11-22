@@ -57,3 +57,19 @@ Un departamento toma el color de su señal que más pesa. Las señales de todo e
 
 - «Lo que viene» solo ve lo que tiene fecha de ocurrencia guardada (`fecha_evento_inicio`) o fecha de cierre. Un pronóstico del SENAMHI sin fecha de inicio no aparece ahí (sí en el semáforo).
 - La base ubica cada señal por sus territorios; la web, además, por sus destinos conocidos (Uyuni → Potosí). Una señal que solo tenga destino puede pintar un departamento en la web y no en el resumen del chat.
+
+## Informe en PDF (1 página)
+
+Arriba de la vista hay dos botones: **PDF del día** y **PDF semanal**. Descargan un A4 de una página con los mismos datos y reglas que la pantalla:
+
+1. **Estado de los tres ejes**, con el semáforo de Bolivia, los totales de la síntesis del día (26), la cifra de fuentes leídas (41) y los departamentos en rojo y amarillo.
+2. **Decisiones de hoy**: las 3 más urgentes con su ficha *Acción recomendada · Plazo · Cómo verificar*.
+3. **Lo que viene** en los próximos 7 días, por fecha en que ocurre (hasta 9; el resto se cuenta y queda en el panel).
+
+El semanal añade una línea **«La semana»**: señales nuevas en 7 días por tipo, y cuántas se publicaron y descartaron.
+
+- Código: `web/src/lib/informe.ts` (`datosInforme()` junta el contenido sin recalcular nada; `pdfInforme()` lo dibuja con jsPDF, que se carga solo al pulsar el botón). Botones en `views/Direccion.tsx`.
+- Nombre del archivo: `AVIA-informe-dia-AAAA-MM-DD.pdf` o `AVIA-informe-semanal-AAAA-MM-DD.pdf`, con la fecha de Bolivia.
+- Si algo no cabe en la página se corta con «…»; el informe nunca pasa de una página.
+- Las fuentes del PDF solo llevan Windows-1252: flechas y emojis se cambian o se quitan.
+- Envío automático (Telegram o correo cada lunes) no está hecho: hoy se descarga a mano desde el panel.
