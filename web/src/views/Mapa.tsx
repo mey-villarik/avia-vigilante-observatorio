@@ -11,7 +11,7 @@ import { useEventos, TIPO_TXT } from '../services/eventos';
 import { useCambios, TIPO_CAMBIO_TXT } from '../services/cambios';
 import { useChat } from '../services/chat';
 import { Icon } from '../components/Icon';
-import { CertezaTag, Empty } from '../components/common';
+import { CertezaTag, Empty, AccionTag } from '../components/common';
 import { NACIONAL, regionesDeSenal, resumenRegion, tonoDe, type ResumenRegion } from '../lib/regiones';
 import { ago, esReciente, norm } from '../lib/util';
 import type { Senal } from '../types';
@@ -158,7 +158,7 @@ function FilaSenal({ s }: { s: Senal }) {
         <span className="mp-sig-t">{s.titulo}</span>
         <span className="mp-sig-m">
           <span className="tag">{catName(s.categoria)}</span>
-          <span className={`tag p-${s.prioridad}`}>Prioridad {s.prioridad}</span>
+          {s.naturaleza === 'oportunidad' ? <span className={`tag p-${s.prioridad}`}>Prioridad {s.prioridad}</span> : <AccionTag s={s} />}
           {s.estado !== 'detectada' && <CertezaTag s={s} />}
           {s.plazo != null && s.plazo >= 0 && <span className="tag mp-plazo">{s.plazo === 0 ? 'Vence hoy' : `${s.plazo} días para actuar`}</span>}
           <span className="mp-sig-a">{STL[s.estado]} · {ago(s.min)}</span>

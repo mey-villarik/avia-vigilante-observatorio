@@ -4,6 +4,7 @@ import { CATS, STATE_TXT, STL } from '../data/demo';
 import { clock, scoreOf } from '../lib/util';
 import { useStore } from '../store';
 import { CERTEZAS, certezaDe } from '../lib/certeza';
+import { ACCION_TXT, accionDe, accionTitulo } from '../lib/accion';
 
 const NAT_TXT: Record<Naturaleza, string> = { oportunidad: 'Oportunidad', riesgo: 'Riesgo', mixta: 'Mixta' };
 
@@ -41,12 +42,21 @@ export function SigList({ list, opp }: { list: Senal[]; opp: boolean }) {
             {opp && s.plazo
               ? <span className="score" style={{ color: 'var(--opp)' }}>{s.plazo} días</span>
               : <span className="tag">{STL[s.estado]}</span>}
-            <span className="tech">puntuación <span className="score">{scoreOf(s)}</span></span>
+            {opp
+              ? <span className="tech">puntuación <span className="score">{scoreOf(s)}</span></span>
+              : <AccionTag s={s} />}
           </span>
         </button>
       ))}
     </div>
   );
+}
+
+/** Riesgos: «Actuar hoy / Preparar / Seguir» en vez de un número (la Dirección decide con esto) */
+export function AccionTag({ s }: { s: Senal }) {
+  if (s.naturaleza === 'oportunidad') return null;
+  const a = accionDe(s).accion;
+  return <span className={`tag accion accion-${a}`} title={accionTitulo(s)}>{ACCION_TXT[a]}</span>;
 }
 
 export function CatBars({ list }: { list: Senal[] }) {

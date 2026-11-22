@@ -10,6 +10,7 @@
 import type { Evaluacion, Senal, TipoAnalisis } from '../types';
 import { CATS, DEPS } from '../data/demo';
 import { norm, scoreOf } from '../lib/util';
+import { ACCION_TXT, accionDe, ordenAccion } from '../lib/accion';
 import { sesionActual } from './auth';
 import { puntuacionesDe } from '../lib/puntuaciones';
 import { trazaDe } from '../lib/trazabilidad';
@@ -113,14 +114,14 @@ export function analisisLocal(tipo: TipoAnalisis, territorio: string, l: Senal[]
   const o = l.filter((s) => s.naturaleza !== 'riesgo');
   const r = l.filter((s) => s.naturaleza === 'riesgo');
   const top = [...o].sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, 3);
-  const tr = [...r].sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, 3);
+  const tr = [...r].sort(ordenAccion).slice(0, 3);
   const byDep = DEPS.map((d) => [d, l.filter((s) => s.deps.includes(d)).length] as const).filter((x) => x[1]).sort((a, b) => b[1] - a[1]);
   const out: string[] = [
     '#### Resumen',
     `${l.length} señales en ${territorio === 'all' ? 'todo Bolivia' : territorio}: ${o.length} oportunidades o mixtas y ${r.length} riesgos.`,
   ];
   if (top.length) out.push('#### Oportunidades con mejor puntuación', ...top.map((s) => `- **${s.id}** · ${s.titulo}${s.plazo ? ` (${s.plazo} días)` : ''} → ${s.soluciones[0].t}`));
-  if (tr.length) out.push('#### Riesgos a vigilar', ...tr.map((s) => `- **${s.id}** · ${s.titulo} → ${s.soluciones[0].t}`));
+  if (tr.length) out.push('#### Riesgos a vigilar', ...tr.map((s) => `- **${ACCION_TXT[accionDe(s).accion]}** · **${s.id}** · ${s.titulo} → ${s.soluciones[0].t}`));
   if (byDep.length) out.push('#### Territorios con más señales', byDep.slice(0, 4).map(([d, n]) => `${d} (${n})`).join(', ') + '.');
   if (tipo === 'cruce') {
     const c = cruces(l);
