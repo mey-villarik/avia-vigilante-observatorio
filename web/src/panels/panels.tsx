@@ -5,7 +5,6 @@ import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
 import { activeSignals, canDecide, pendingDecision, useContadores, useSintesisDia, useStore } from '../store';
 import { CERTEZAS } from '../lib/certeza';
-import { textoResponsable, textoVencidas } from '../lib/sintesis';
 import type { ItemSintesis } from '../types';
 import { desgloseVerificadas, horaBolivia, textoFuentes, textoSinVerificar } from '../lib/contadores';
 import { DEF_SIN_VERIFICAR, DEF_VERIFICADA } from '../lib/verificada';
@@ -67,22 +66,8 @@ function Sintesis() {
       {l.length ? <ul>{l.map((i, n) => <Item key={`${i.codigo ?? i.tipo}-${n}`} i={i} />)}</ul> : <p className="note" style={{ margin: 0 }}>{vacio}</p>}
     </section>
   );
-  const rv = sd.revisiones_vencidas;
   return (
     <div className="synth">
-      {rv && rv.total > 0 && (
-        <section className="aviso-vencidas" role="alert" aria-label="Revisiones vencidas">
-          <p className="av-t"><Icon name="clock" /> <b>{textoVencidas(rv.total)}</b>: nadie {rv.total === 1 ? 'la decidió' : 'las decidió'} a tiempo</p>
-          <p className={`av-r ${rv.responsable ? '' : 'sin'}`}>{textoResponsable(rv)}</p>
-          {rv.senales.length > 0 && (
-            <ul>
-              {rv.senales.map((x) => <li key={x.codigo}><button className="linklike" onClick={() => abrir(x.codigo)}>{x.titulo}</button></li>)}
-              {rv.total > rv.senales.length && <li className="muted">y {rv.total - rv.senales.length} más</li>}
-            </ul>
-          )}
-          <button className="btn sm" onClick={() => useStore.getState().go('senales')}>Revisar ahora</button>
-        </section>
-      )}
       <p className="sd-t">{sd.totales}</p>
       <CambiosAyer />
       <Bloque t="Qué pasa" l={sd.que_pasa} vacio="Sin novedades confirmadas ni convocadas." />

@@ -37,8 +37,9 @@ Prueba: `db/generico/99_prueba_sintesis.sql` (termina en `ROLLBACK`).
 
 Las señales a las que se les pasó el plazo de revisión y siguen sin decidir (Detectada, En análisis o
 En verificación) ya no van como una línea más de «Qué vigilar». `sintesis_dia()` las devuelve aparte en
-`revisiones_vencidas` (`total`, las 5 más antiguas, `responsable`, `responsable_origen`) y el panel las
-pone en un recuadro rojo encima de la síntesis, con enlace a cada señal y el botón «Revisar ahora».
+`revisiones_vencidas` (`total`, las 5 más antiguas, `responsable`, `responsable_origen`).
+2026-11-22: a pedido de Meysel, el Panorama ya no muestra este aviso (ni el recuadro de arriba ni la línea
+en «Qué vigilar»). El dato sigue en la síntesis y el resumen del día en el chat lo menciona.
 
 Responsable: el parámetro `responsable_revision` del cliente si el administrador lo puso; si no, los
 analistas activos del equipo; si no hay ninguno, el panel dice «Sin responsable asignado».
