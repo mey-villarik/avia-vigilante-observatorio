@@ -230,7 +230,7 @@ fuentes:
           confianza: 0.9
 
   # ──────────────────── CANAL 3 · VIAL / TRANSPORTE ────────────────────
-  - id: abc_caminos          # en Supabase: abc_comunicados (o la fila antigua de la ABC reutilizada por el SQL 50)
+  - id: abc_caminos          # en Supabase: abc_comunicados (o la fila antigua de la ABC reutilizada por el SQL 51)
     canal: vial
     nombre: ABC · comunicados de transitabilidad (cortes, desvíos, reaperturas)
     institucion: Administradora Boliviana de Carreteras
@@ -249,7 +249,7 @@ fuentes:
         url_verificacion: verificada
     acceso:
       metodo: rss
-      respaldo: google_news_rss   # si la web no responde desde el VPS (SQL 50)
+      respaldo: google_news_rss   # si la web no responde desde el VPS (SQL 51)
       extraer: "por comunicado: ruta, tramo, departamento, tipo de evento (derrumbe, inundación, bloqueo, mantenimiento), estado (sin restricción / con restricción / cerrado), fecha y hora"
     frecuencia_minutos: 30
     que_buscar:

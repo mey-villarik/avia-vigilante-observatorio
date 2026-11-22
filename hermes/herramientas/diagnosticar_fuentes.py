@@ -38,7 +38,7 @@ CONOCIDAS = [
     'https://senamhi.gob.bo/alertas3.php',
     'https://senamhi.gob.bo/alertasanteriores1.php',
     'https://noticias.senamhi.gob.bo/home/',
-    # Movilidad (SQL 50, 2026-11-22): ABC, DGAC y NAABOL
+    # Movilidad (SQL 51, 2026-11-22): ABC, DGAC y NAABOL
     'https://transitabilidad.abc.gob.bo/mapa_reporte',          # pide CAPTCHA: se espera redirección a /captcha-form
     'https://www.abc.gob.bo/feed/?post_type=comunicados',
     'https://www.dgac.gob.bo/feed/',

@@ -30,7 +30,7 @@ marcadas como no oficiales (pasan por revisión).
   - Los códigos OACI de los PDF de NAABOL (SLCB, SLAL, SLLP…) se traducen al nombre del aeropuerto
     y la ciudad en el resumen, para que el filtro y el clasificador sepan de qué departamento se habla.
   - Los RSS de WordPress con la descripción vacía usan `content:encoded` como resumen.
-- `db/generico/50_fuentes_movilidad.sql`: da de alta o actualiza las tres fuentes. Si ya había una
+- `db/generico/51_fuentes_movilidad.sql`: da de alta o actualiza las tres fuentes. Si ya había una
   fuente de la ABC (el mapa), **reutiliza esa fila** (conserva el historial y guarda `url_anterior`);
   cualquier otra fila que siga apuntando al mapa con CAPTCHA se desactiva.
 - `hermes/herramientas/diagnosticar_fuentes.py`: prueba también estas cuatro direcciones.
@@ -62,7 +62,7 @@ marcadas como no oficiales (pasan por revisión).
 
    El cron no cambia (el recolector ya se protege solo con su candado: no añadir `flock`).
 
-3. Ejecutar `db/generico/50_fuentes_movilidad.sql` en el editor SQL de Supabase. Los avisos (NOTICE)
+3. Ejecutar `db/generico/51_fuentes_movilidad.sql` en el editor SQL de Supabase. Los avisos (NOTICE)
    dicen qué código quedó para la ABC (`abc_comunicados` si era nueva, o el código de la fila antigua).
 
 4. Probar sin escribir nada:

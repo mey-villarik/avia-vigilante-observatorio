@@ -1,5 +1,5 @@
 -- =============================================================================
--- AVIA Vigilante · 50 · Fuentes de movilidad: ABC (carreteras), DGAC y NAABOL (aeropuertos)
+-- AVIA Vigilante · 51 · Fuentes de movilidad: ABC (carreteras), DGAC y NAABOL (aeropuertos)
 -- =============================================================================
 -- Requiere: 14, 15 y 20 (recolector con opciones por fuente) y el recolector 1.3.0 en el VPS
 -- (extractor «tarjetas» para NAABOL). Se puede ejecutar varias veces.
@@ -92,7 +92,7 @@ BEGIN
         'metodo', 'google_news_rss',
         'query', '("ABC" OR "Administradora Boliviana de Carreteras") (transitabilidad OR "no transitable" OR bloqueo OR derrumbe OR "paso restringido" OR desvío) Bolivia'),
       'reparada', '2026-11-22: el mapa transitabilidad.abc.gob.bo pide CAPTCHA; se leen los comunicados del portal (RSS)'),
-    '2026-11-22 (SQL 50): RSS de comunicados del portal; el mapa de transitabilidad pide CAPTCHA');
+    '2026-11-22 (SQL 51): RSS de comunicados del portal; el mapa de transitabilidad pide CAPTCHA');
 
   -- 2) DGAC: noticias y comunicados de aviación civil
   RAISE NOTICE '%', vigilante._alta_fuente_movilidad(c, 'dgac',
@@ -108,7 +108,7 @@ BEGIN
         'metodo', 'google_news_rss',
         'query', '"DGAC" Bolivia (aeropuerto OR vuelos OR aerolínea OR ruta OR suspensión)'),
       'reparada', '2026-11-22: la portada se leía como página; ahora RSS (/feed/)'),
-    '2026-11-22 (SQL 50): RSS del portal');
+    '2026-11-22 (SQL 51): RSS del portal');
 
   -- 3) NAABOL: comunicados de operaciones de los aeropuertos (cierres, suspensiones, reanudaciones)
   RAISE NOTICE '%', vigilante._alta_fuente_movilidad(c, 'naabol_comunicados',
@@ -125,12 +125,12 @@ BEGIN
         'metodo', 'google_news_rss',
         'query', 'NAABOL aeropuerto (suspensión OR suspende OR cierre OR reanuda OR "operaciones aéreas")'),
       'reparada', '2026-11-22: nueva; lista de comunicados leída por tarjetas (título, fecha y PDF)'),
-    '2026-11-22 (SQL 50): fuente nueva para cierres de aeropuertos');
+    '2026-11-22 (SQL 51): fuente nueva para cierres de aeropuertos');
 
   -- 4) Si quedó otra fila apuntando al mapa con CAPTCHA (p. ej. había dos fuentes de la ABC), se
   --    desactiva: seguiría en CRÍTICO para siempre. No se borra, conserva su historial.
   UPDATE vigilante.sources SET activa = false, gestionada_web = true, updated_at = now(),
-         notas = concat_ws(' · ', nullif(notas, ''), '2026-11-22 (SQL 50): desactivada, el mapa pide CAPTCHA; la ABC se lee por abc_comunicados')
+         notas = concat_ws(' · ', nullif(notas, ''), '2026-11-22 (SQL 51): desactivada, el mapa pide CAPTCHA; la ABC se lee por abc_comunicados')
    WHERE cliente_id = c AND eliminada_en IS NULL AND activa AND url ILIKE '%transitabilidad.abc.gob.bo%';
 END $$;
 
