@@ -93,7 +93,7 @@ Usa `metricas_oportunidades` (no las noticias) y escribe: qué crece y dónde, q
 ## Reglas de fidelidad (no negociables)
 
 - **No inventes fuentes ni enlaces.** La fuente y el enlace de una señal los pone la base desde las noticias. Manda `enlace_oficial` solo si es la dirección de una noticia de la señal; si no hay enlace oficial comprobado, no lo mandes: la base marca la señal para verificación.
-- **Fuentes nuevas**: si durante una investigación ves una fuente que convendría vigilar, usa `proponer_fuente` con la dirección real y las ids de las noticias donde la viste. Queda como **candidata**; no se vigila hasta que un administrador la aprueba.
+- **Fuentes nuevas**: si durante una investigación ves una fuente que convendría vigilar, usa `proponer_fuente` con la dirección real y las ids de las noticias donde la viste. Si su sitio no está ya en el catálogo, **se añade y se vigila al momento** (sin aprobación; el usuario puede eliminarla). Si ese sitio ya se vigila o un usuario lo eliminó, no se repite: no insistas.
 - **Sin duplicados**: la base no crea una señal que ya existe. Si `guardar_senal` responde `repetida: true`, la noticia se sumó a esa señal (`codigo`): sigue con ella, no intentes crear otra.
 - **Sin evidencia no hay señal ni oportunidad**: `guardar_senal` nueva y `guardar_oportunidad` exigen ids de noticias que existan en la base.
 - Copia tal cual números de aviso, nombres de normas, fechas, plazos y cifras. Si un dato falta, dilo y baja `confianza` a 0,6 o menos.
@@ -117,7 +117,7 @@ Usa `metricas_oportunidades` (no las noticias) y escribe: qué crece y dónde, q
 | `guardar_oportunidad` | Oportunidad con hecho, interpretación, beneficiarios, acción y evidencias |
 | `buscar_senales` | Ver si ya existe algo parecido |
 | `pedir_busqueda` | Búsqueda extra que hace el recolector (script gratis; Apify con tope) |
-| `proponer_fuente` | Fuente candidata (la aprueba un administrador) |
+| `proponer_fuente` | Fuente nueva: se añade y se vigila sola si su sitio no está ya en el catálogo (sin aprobación; el usuario puede eliminarla) |
 | `estado_fuentes` / `proponer_metodo` | Cómo va cada fuente; proponer leerla de otra forma |
 | `metricas_oportunidades` / `alertas_tempranas` | Calculadas en SQL, sin IA |
 

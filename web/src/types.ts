@@ -6,7 +6,7 @@ export type Naturaleza = 'oportunidad' | 'riesgo' | 'mixta';
 export type Etapa = 'detectada' | 'en_analisis' | 'en_verificacion' | 'confirmada' | 'publicada' | 'descartada';
 export type Prioridad = 'alta' | 'media' | 'baja';
 export type Rol = 'visor' | 'analista' | 'admin';
-export type VistaId = 'panorama' | 'mapa' | 'fuentes' | 'senales' | 'oportunidades' | 'analisis' | 'bitacora';
+export type VistaId = 'panorama' | 'mapa' | 'fuentes' | 'senales' | 'oportunidades' | 'internacional' | 'analisis' | 'bitacora';
 export type CategoriaId =
   | 'clima' | 'salud' | 'vial' | 'seguridad' | 'conectividad'
   | 'eventos' | 'financiacion' | 'mercado' | 'economia' | 'normativa' | 'turismo';
@@ -25,6 +25,8 @@ export interface FuenteBd {
   reconocida_por?: string | null; reconocida_en?: string | null; reconocida_nota?: string | null;
   /** desde 11_fuentes_revision.sql */
   revision_pedida_en?: string | null; revision_pedida_por?: string | null;
+  /** desde 47_fuentes_avia_directas.sql: quién la puso y, si la encontró AVIA, por qué */
+  origen?: 'usuario' | 'avia'; motivo_avia?: string | null;
   /** desde 12_fuentes_repetidas.sql: código de la fuente con la que se juntó */
   fusionada_en?: string | null;
 }
@@ -55,6 +57,8 @@ export interface Fuente {
   enBd?: boolean;
   /** lo que guarda la base de datos sobre la fuente (para verla y editarla) */
   bd?: FuenteBd;
+  /** usuario = la puso una persona (o el catálogo inicial); avia = la encontró AVIA y se añadió sola */
+  origen?: 'usuario' | 'avia';
   /** dada de alta hace tiempo y AVIA todavía no la ha comprobado nunca */
   sinLeer?: boolean;
   /** minutos desde la última comprobación */
@@ -135,6 +139,18 @@ export interface SintesisDia {
   que_pasa: ItemSintesis[];
   por_que_importa: ItemSintesis[];
   que_vigilar: ItemSintesis[];
+  /** aviso aparte, encima de todo (db/generico/45_aviso_revisiones_vencidas.sql) */
+  revisiones_vencidas?: RevisionesVencidas;
+}
+
+/** Señales a las que se les pasó el plazo de revisión y nadie decidió (45_aviso_revisiones_vencidas.sql) */
+export interface RevisionesVencidas {
+  total: number;
+  /** las más antiguas primero (hasta 5) */
+  senales: { codigo: string; titulo: string; desde?: string | null }[];
+  /** quien responde: el asignado por el administrador o los analistas activos; null si no hay nadie */
+  responsable: string | null;
+  responsable_origen?: 'asignado' | 'analistas' | null;
 }
 
 /** Cambios desde ayer (db/generico/27_comparacion_dia.sql) */
@@ -147,6 +163,31 @@ export interface ComparacionDia {
   subieron_certeza: { codigo: string; titulo: string; antes: NivelCerteza; ahora: NivelCerteza }[];
   bajaron_certeza: { codigo: string; titulo: string; antes: NivelCerteza; ahora: NivelCerteza }[];
   resueltas: { codigo: string; titulo: string; como: 'cerrada' | 'descartada' | 'terminada' }[];
+}
+
+/** El Pulso de un día (db/generico/46_pulso_evolucion.sql) */
+export interface PulsoDia {
+  dia: string;
+  riesgo: number;
+  oportunidad: number;
+  vigilancia: 'Normal' | 'Vigilancia' | 'Atención' | 'Crítico';
+  activas?: number; riesgos?: number; oportunidades?: number;
+  /** true = calculado después con el historial de las señales (la prioridad y la fiabilidad son las de hoy) */
+  reconstruido?: boolean;
+}
+
+/** Evolución del Pulso a 7 y 30 días (db/generico/46_pulso_evolucion.sql) */
+export interface PulsoEvolucion {
+  hoy?: PulsoDia | null;
+  /** null = ese día aún no había señales: sin datos */
+  hace_7: PulsoDia | null;
+  hace_30: PulsoDia | null;
+  /** primer día con señales */
+  desde?: string | null;
+  /** desde qué día el valor se guarda en el momento (antes, reconstruido) */
+  registro_desde?: string | null;
+  umbral_estable?: number;
+  serie?: { dia: string; riesgo: number; oportunidad: number; reconstruido?: boolean }[];
 }
 
 /** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */

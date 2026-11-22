@@ -828,3 +828,71 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .evc-cerrados summary{cursor:pointer;font-size:13px;color:var(--muted)}
 .evc-cerrados .evc-lista{opacity:.75}
 .evc-cerrado{margin:0 0 10px;padding:8px 12px;border-radius:10px;background:var(--surface2);font-size:13px}
+
+/* Evolución del Pulso a 7 y 30 días (46) */
+.evo{margin-top:12px}
+.evo-g{display:grid;grid-template-columns:auto 1fr 1fr;column-gap:10px;font-size:12px;align-items:center}
+.evo-r{display:contents}
+.evo-h{font-size:11px;color:var(--faint);padding-bottom:4px;border-bottom:1px solid var(--line)}
+.evo-l{color:var(--muted);padding:6px 0;white-space:nowrap}
+.evo-c{padding:6px 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 5px}
+.evo-f{font-size:15px;font-weight:700;line-height:1}
+.evo-s{font-weight:600}
+.evo-n{color:var(--faint);font-size:11px}
+.evo-mejora .evo-f,.evo-mejora .evo-s{color:var(--ok)}
+.evo-empeora .evo-f,.evo-empeora .evo-s{color:var(--crit)}
+.evo-estable .evo-f,.evo-estable .evo-s{color:var(--muted)}
+.evo-sin{color:var(--faint);font-style:italic}
+.evo-nota{margin:4px 0 0;font-size:11px}
+.evo-falta{margin:10px 0 0;font-size:11px}
+@media (max-width:520px){.evo-l{white-space:normal}}
+/* ───────── Internacional (37): fuentes de fuera con impacto en Bolivia ───────── */
+.intl-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.intl-layout>.panel{grid-column:auto}
+.intl-lado{display:flex;flex-direction:column;gap:16px;min-width:0}
+.intl-lista .panel-b{display:flex;flex-direction:column;gap:12px}
+.intl-card{border:1px solid var(--line);border-left:4px solid var(--line2);border-radius:12px;padding:14px 16px;background:var(--surface2);display:flex;flex-direction:column;gap:8px;min-width:0}
+.intl-card.nivel-alto{border-left-color:var(--risk)}
+.intl-card.nivel-medio{border-left-color:var(--warn)}
+.intl-card.nivel-bajo{border-left-color:var(--mix)}
+.intl-tags{display:flex;gap:6px;flex-wrap:wrap}
+.intl-nivel.alto{color:var(--risk);background:var(--risk-soft)}
+.intl-nivel.medio{color:var(--warn);background:var(--warn-soft)}
+.intl-nivel.bajo{color:var(--mix);background:var(--mix-soft)}
+.intl-t{font-size:15px;font-weight:600;margin:0;line-height:1.35}
+.intl-r{margin:0;color:var(--muted);font-size:13px}
+.intl-via,.intl-refuerza{display:flex;flex-direction:column;gap:6px}
+.intl-via small,.intl-refuerza small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.intl-via p{margin:0}
+.intl-ambitos{display:flex;gap:6px;flex-wrap:wrap}
+.amb{font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--muted)}
+.amb-salud{color:var(--risk);border-color:var(--risk-soft)}
+.amb-turismo{color:var(--opp);border-color:var(--opp-soft)}
+.amb-clima{color:var(--warn);border-color:var(--warn-soft)}
+.amb-economia{color:var(--ok);border-color:var(--ok-soft)}
+.amb-infraestructura{color:var(--mix);border-color:var(--mix-soft)}
+.intl-nac{display:flex;align-items:center;gap:8px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 10px;font-size:13px;color:var(--ink);min-width:0}
+.intl-nac:not(:disabled):hover{border-color:var(--accent)}
+.intl-nac:disabled{opacity:.6;cursor:default}
+.intl-nac-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.intl-pie{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--faint)}
+.intl-acc{display:flex;gap:6px;flex-wrap:wrap}
+.intl-fuente{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+.intl-fuente:last-child{border-bottom:none}
+.intl-dot{width:9px;height:9px;border-radius:50%;flex:none;margin-top:6px}
+.intl-fuente-c{display:flex;flex-direction:column;gap:2px;min-width:0}
+.intl-fuente-c b{font-size:13px;font-weight:600}
+.intl-fuente-c small{color:var(--faint);font-size:12px}
+.intl-error{color:var(--warn)!important}
+.intl-como p{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.intl-como p:last-child{margin:0}
+.intl-tag{color:var(--mix);background:var(--mix-soft)}
+.intl-tag.ctx{color:var(--muted);background:var(--surface2)}
+.intl-sub{color:var(--faint)}
+@media (max-width:1180px){.intl-layout{grid-template-columns:1fr}}
+.intl-seg{flex-wrap:wrap;max-width:100%}
+/* 47: fuentes que encontró AVIA (sin aprobación) y columna de origen */
+.tag.origen-avia{color:var(--accent);border-color:var(--accent);background:transparent;font-weight:600}
+.avia-encontro h2 .note{font-weight:400}
+.avia-encontro > .btn{margin-top:6px}
+.avia-encontro .cand-txt .tag{width:max-content;justify-self:start}

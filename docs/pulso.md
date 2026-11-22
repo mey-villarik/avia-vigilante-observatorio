@@ -34,6 +34,25 @@ Cada oportunidad activa pesa de 0 a 1: **valor × etapa**, con valor = 45 % rele
 | Oportunidad | Escasa < 30 · Moderada 30-54 · Favorable ≥ 55 |
 | Vigilancia (barra) | Normal < 25 · Vigilancia 25-49 · Atención 50-74 · Crítico ≥ 75, según el índice de riesgo. Con un riesgo alto ya verificado nunca baja de Vigilancia; con cinco o más, nunca de Atención |
 
+## Evolución a 7 y 30 días (DIANA 2.3, `46_pulso_evolucion.sql`)
+
+Debajo de los anillos, el Pulso compara su valor de ahora con el de hace 7 y hace 30 días y dice si **mejora**, **empeora** o está **estable**:
+
+| | Sube | Baja | Menos de 5 puntos de diferencia |
+| --- | --- | --- | --- |
+| Atención a riesgos | ↑ Empeora (rojo) | ↓ Mejora (verde) | → Estable |
+| Oportunidad | ↑ Mejora (verde) | ↓ Empeora (rojo) | → Estable |
+
+De dónde salen los valores pasados:
+
+- `vigilante.pulso_registro` guarda una fila por día (hora de Bolivia). La tarea de pg_cron `vigilante-pulso` la actualiza cada hora (minuto 7); el valor que queda de cada día es el de su última hora.
+- `vigilante._pulso_en(cliente, momento)` calcula el Pulso con **las mismas reglas que `calcularPulso()`** (`web/src/lib/pulso.ts`). Para un día pasado usa las señales que ya existían, el estado que tenían ese día (`signal_history`), si seguían vigentes y si su revisión había vencido.
+- Al ejecutar el 46 se reconstruyen los 30 días anteriores para que la evolución se vea ya. **Límite:** la prioridad, la relevancia, la novedad y la fiabilidad de esos días son las de hoy (la base no guarda su historial), así que los días reconstruidos son aproximados y el panel los marca con «≈».
+- Si ese día aún no había ninguna señal, dice «sin datos» (no un 0 inventado).
+- `vigilante.pulso_evolucion(cliente)` lo devuelve (hoy, hace 7, hace 30, la serie diaria) y va en `vigilante_bd()` / `vigilante.json` como `pulso_evolucion`.
+
+Si se cambia una regla del Pulso, hay que cambiarla en `pulso.ts`, en `_pulso_en()` (46) y en este documento. La prueba `99_prueba_pulso_evolucion.sql` comprueba los valores a mano.
+
 ## Qué no entra
 
 Las fuentes caídas no entran en los índices (una fuente caída no es un riesgo turístico), pero el panel avisa: con fuentes caídas el Pulso puede quedarse corto.
@@ -48,4 +67,4 @@ La relevancia y la novedad las estima AVIA y todavía no se han contrastado con 
 
 ## AVIA
 
-AVIA no calcula el Pulso ni conoce su valor: `avia_api.py` (regla 12) le indica que no lo invente y que remita al botón del panel. Cuando se pregunta por el Pulso en el chat, la web responde ella misma con la cuenta real.
+AVIA no calcula el Pulso: `avia_api.py` (regla 12) le indica que no lo invente y que remita al botón del panel. Desde el 46, si preguntan por la tendencia (pulso, evolución, mejora, empeora, última semana o mes…), recibe el bloque «EVOLUCIÓN DEL PULSO» de la base y cita esos valores tal cual. Cuando se pregunta por el Pulso en el chat, la web responde ella misma con la cuenta real.

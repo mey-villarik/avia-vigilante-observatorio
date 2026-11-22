@@ -19,9 +19,9 @@ export const FUENTES_DEMO: Fuente[] = [
  {id:'abc_caminos',nombre:'ABC · transitabilidad vial',canal:'vial',tipo:'oficial',url:'https://transitabilidad.abc.gob.bo/mapa_reporte',metodo:'Navegador (Apify)',freq:30,estado:'CRIT',info:'Tiempo de espera agotado (30 s) en 3 de 3 intentos',lat:30000,items:0,desde:48,hist:h24('ooooowooooowoooowooccccc'),verif:'no abierta',flap:true},
  {id:'minturismo',nombre:'Min. de Turismo Sostenible, Culturas…',canal:'eventos',tipo:'oficial',url:'https://www.turismoyculturas.gob.bo/',metodo:'HTML',freq:120,estado:'WARN',info:'HTTP 200 en 8,4 s (umbral 5 s) · 1 nota nueva',lat:8400,items:1,desde:30,hist:h24('oooooowoooooooooooooowww'),verif:'no abierta'},
  {id:'gaceta_oficial',nombre:'Gaceta Oficial del Estado',canal:'normativa',tipo:'oficial',url:'http://www.gacetaoficialdebolivia.gob.bo/normas/buscar',metodo:'HTML',freq:360,estado:'OK',info:'HTTP 200 · 4 normas publicadas hoy · 1 sobre turismo',lat:2100,items:1,desde:1440,hist:h24('oooooooooooooooooooooooo'),verif:'no abierta'},
- {id:'dgac',nombre:'DGAC · comunicados y aeropuertos',canal:'conectividad',tipo:'oficial',url:'https://www.dgac.gob.bo/',metodo:'HTML',freq:120,estado:'UNKNOWN',info:'Sin comprobar: falta confirmar la URL de comunicados',lat:null,items:0,desde:300,hist:h24('uuuuuuuuuuuuuuuuuuuuuuuu'),verif:'por confirmar'},
+ {id:'dgac',origen:'avia',nombre:'DGAC · comunicados y aeropuertos',canal:'conectividad',tipo:'oficial',url:'https://www.dgac.gob.bo/',metodo:'HTML',freq:120,estado:'UNKNOWN',info:'Sin comprobar: falta confirmar la URL de comunicados',lat:null,items:0,desde:300,hist:h24('uuuuuuuuuuuuuuuuuuuuuuuu'),verif:'por confirmar'},
  {id:'orbita',nombre:'ORBITA · convocatorias y fondos',canal:'financiacion',tipo:'aliado',url:'https://orbita.bo/',metodo:'HTML',freq:240,estado:'OK',info:'HTTP 200 · 2 convocatorias abiertas',lat:900,items:2,desde:2880,hist:h24('oooooooooooooooooooooooo'),verif:'por confirmar'},
- {id:'multilaterales',nombre:'CAF · BID · PNUD (licitaciones)',canal:'financiacion',tipo:'oficial',url:'https://www.caf.com/es/convocatorias/',metodo:'HTML + RSS',freq:360,estado:'OK',info:'3 sitios OK · 1 convocatoria nueva para Bolivia',lat:1800,items:1,desde:600,hist:h24('oooooooooooooooooooooooo'),verif:'por confirmar'},
+ {id:'multilaterales',origen:'avia',nombre:'CAF · BID · PNUD (licitaciones)',canal:'financiacion',tipo:'oficial',url:'https://www.caf.com/es/convocatorias/',metodo:'HTML + RSS',freq:360,estado:'OK',info:'3 sitios OK · 1 convocatoria nueva para Bolivia',lat:1800,items:1,desde:600,hist:h24('oooooooooooooooooooooooo'),verif:'por confirmar'},
  {id:'prensa',nombre:'Prensa nacional (Google News RSS)',canal:'mercado',tipo:'prensa',url:'https://news.google.com/rss/search?q=turismo+Bolivia&hl=es-419',metodo:'RSS',freq:30,estado:'OK',info:'RSS 200 · 37 notas · 6 pasan el filtro de ruido',lat:520,items:6,desde:900,hist:h24('oooooooooooooooooooooooo'),verif:'verificada'},
  {id:'tavily',nombre:'Búsqueda abierta (Tavily)',canal:'mercado',tipo:'buscador',url:'https://api.tavily.com',metodo:'API',freq:180,estado:'OK',info:'API 200 · 12 resultados · 2 temas nuevos',lat:1450,items:2,desde:420,hist:h24('oooooooooooooooooooooooo'),verif:'API'},
  {id:'rrss',nombre:'Redes sociales (temas vivos)',canal:'mercado',tipo:'social',url:'—',metodo:'AVIA + n8n',freq:60,estado:'MANT',info:'En construcción: calibrando temas y deriva',lat:null,items:0,desde:4320,hist:h24('mmmmmmmmmmmmmmmmmmmmmmmm'),verif:'en construcción'}
@@ -97,6 +97,7 @@ export const VIEWS: [VistaId, string, string][] = [
   ['fuentes', 'Fuentes', 'fuentes'],
   ['senales', 'Señales', 'senales'],
   ['oportunidades', 'Oportunidades', 'oportunidades'],
+  ['internacional', 'Internacional', 'globo'],
   ['analisis', 'Análisis', 'analisis'],
   ['bitacora', 'Bitácora', 'bitacora'],
 ];

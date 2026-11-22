@@ -7,20 +7,21 @@ import {
 } from './data/demo';
 import { cargarVps, convertir, type DatosVps } from './services/datos';
 import {
-  decidirCandidata, decidirOportunidad, decidirPropuesta, leerCandidatas, leerPropuestas, leerVigilanteBd,
-  type AltaCandidata, type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
+  decidirOportunidad, decidirPropuesta, leerCandidatas, leerPropuestas, leerVigilanteBd,
+  type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
 } from './services/recolector';
 import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
+import { PULSO_EVOLUCION_DEMO } from './data/demoPulso';
 import { DEMO } from './lib/modo';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { decidirSenal, leerEstados, leerMovimientos, motivoNoPasa, moverSenal, type Destino, pasarSenales, pasosHasta, siguientesPasos, transicionValida } from './services/senales';
 import type {
-  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, SintesisDia, Tema, TipoAnalisis, VistaId,
+  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, PulsoEvolucion, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
 import { completarDesglose, contar, textoFuentes, type Contadores } from './lib/contadores';
-import { sintesisDe } from './lib/sintesis';
+import { separarVencidas, sintesisDe } from './lib/sintesis';
 
 /** serie sin datos: el gráfico dice «Sin datos todavía» en vez de inventar una curva */
 export const SERIE_VACIA: Serie = { labels: [], det: [], opp: [], risk: [] };
@@ -89,6 +90,8 @@ interface State {
   sintesisDia: SintesisDia | null;
   /** cambios desde ayer de la base (27); null = no se muestran */
   comparacionDia: ComparacionDia | null;
+  /** el Pulso de hace 7 y 30 días (46); null = la base aún no lo da */
+  pulsoEvolucion: PulsoEvolucion | null;
   temas: Tema[];
   serie: Serie;
   fuentes: Fuente[];
@@ -143,8 +146,6 @@ interface Actions {
   askReview: (id: string) => void;
   /** el administrador aprueba o rechaza una propuesta de AVIA */
   decideProposal: (id: number, aprobar: boolean) => Promise<void>;
-  /** el administrador aprueba (entra en el catálogo) o rechaza una fuente candidata */
-  decideCandidate: (id: number, aprobar: boolean, alta?: AltaCandidata) => Promise<void>;
   /** el equipo valida o descarta una oportunidad propuesta */
   decideOpportunity: (id: number, estado: EstadoOportunidad) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
@@ -253,6 +254,7 @@ export const useStore = create<Store>()((set, get) => {
     sintesis: null,
     sintesisDia: null,
     comparacionDia: null,
+    pulsoEvolucion: DEMO ? PULSO_EVOLUCION_DEMO : null,
     // sin VITE_DEMO=1 todo empieza vacío: nada inventado llega a la pantalla
     temas: DEMO ? TEMAS_DEMO : [],
     serie: DEMO ? SERIE_DEMO : SERIE_VACIA,
@@ -437,27 +439,6 @@ export const useStore = create<Store>()((set, get) => {
           ? `Aprobado: ${p?.nombre ?? 'la fuente'} se leerá de otra forma desde la próxima ronda.`
           : `Rechazada la propuesta de AVIA para ${p?.nombre ?? 'la fuente'}.`);
         set({ propuestas: get().propuestas.map((x) => (x.id === id ? { ...x, estado: aprobar ? 'aprobada' : 'rechazada' } : x)) });
-        await get().loadRemote(true);
-      } catch (e) {
-        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    },
-
-    decideCandidate: async (id, aprobar, alta) => {
-      const c = get().candidatas.find((x) => x.id === id);
-      const marcar = () => set({ candidatas: get().candidatas.map((x) => (x.id === id
-        ? { ...x, estado: aprobar ? 'aprobada' : 'rechazada', decidida_en: new Date().toISOString() } : x)) });
-      if (get().origen === 'demo') {
-        marcar();
-        get().toast(aprobar ? `Ejemplo: ${c?.nombre ?? 'la fuente'} entraría en el catálogo.` : `Ejemplo: ${c?.nombre ?? 'la fuente'} quedaría rechazada.`);
-        return;
-      }
-      try {
-        await decidirCandidata(id, aprobar, undefined, alta);
-        marcar();
-        get().toast(aprobar
-          ? `${c?.nombre ?? 'La fuente'} entra en el catálogo: el recolector la lee desde su próxima ronda.`
-          : `Rechazada: ${c?.nombre ?? 'la fuente'} no se vigilará.`);
         await get().loadRemote(true);
       } catch (e) {
         get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
@@ -689,7 +670,7 @@ export const useStore = create<Store>()((set, get) => {
         set({
           origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
-          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia,
+          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia, pulsoEvolucion: d.pulsoEvolucion,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
           oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });
@@ -738,7 +719,7 @@ export function useSintesisDia(): SintesisDia {
   const senales = useStore((s) => s.senales);
   const fuentes = useStore((s) => s.fuentes);
   const k = useContadores();
-  return base ?? sintesisDe(senales, fuentes, k);
+  return base ? separarVencidas(base, senales) : sintesisDe(senales, fuentes, k);
 }
 
 export const activeSignals = (s: Senal[]) => s.filter((x) => x.estado !== 'descartada');

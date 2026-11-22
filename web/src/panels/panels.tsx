@@ -15,7 +15,8 @@ import { useEventos } from '../services/eventos';
 import { useCambios } from '../services/cambios';
 import { resumenRegion } from '../lib/regiones';
 import { MapaBolivia } from '../views/Mapa';
-import { calcularPulso, posicionVigilancia } from '../lib/pulso';
+import { calcularPulso, posicionVigilancia, SENTIDO_TXT, tendencia, tendenciaTexto, type Pulso as PulsoCalc, type Tendencia } from '../lib/pulso';
+import { enBolivia } from '../lib/hora';
 import { leerVotos, type VotoPublicacion } from '../services/senales';
 import { supabase } from '../services/auth';
 import { Icon } from '../components/Icon';
@@ -98,6 +99,44 @@ function Ring({ v, col }: { v: number; col: string }) {
   );
 }
 
+/** Una celda de la evolución: flecha, mejora/empeora/estable y de cuánto a cuánto */
+function CeldaTendencia({ t, cuando }: { t: Tendencia | null; cuando: string }) {
+  if (!t) return <div className="evo-c evo-sin" title={`${cuando} aún no había señales: no hay con qué comparar`}>sin datos</div>;
+  const flecha = t.flecha === 'sube' ? '↑' : t.flecha === 'baja' ? '↓' : '→';
+  const titulo = `${tendenciaTexto(t)} · ${cuando} (${enBolivia(t.dia, 'diaCorto')})${t.reconstruido ? '. ≈ Reconstruido con el historial de las señales' : ''}`;
+  return (
+    <div className={`evo-c evo-${t.sentido}`} title={titulo} aria-label={titulo}>
+      <span className="evo-f" aria-hidden="true">{flecha}</span>
+      <span className="evo-s">{SENTIDO_TXT[t.sentido]}</span>
+      <span className="evo-n mono">{t.reconstruido ? '≈' : ''}{t.antes} → {t.ahora}</span>
+    </div>
+  );
+}
+
+/** Evolución del Pulso a 7 y 30 días (DIANA 2.3, db/generico/46_pulso_evolucion.sql) */
+function EvolucionPulso({ p }: { p: PulsoCalc }) {
+  const e = useStore((s) => s.pulsoEvolucion);
+  if (!e) return <p className="note evo-falta">Evolución a 7 y 30 días: la base aún no guarda el historial del Pulso.</p>;
+  const u = e.umbral_estable ?? undefined;
+  const filas: [string, 'riesgo' | 'oportunidad', number][] = [['Atención a riesgos', 'riesgo', p.riesgo], ['Oportunidad', 'oportunidad', p.oportunidad]];
+  const reconstruido = [e.hace_7, e.hace_30].some((d) => d?.reconstruido);
+  return (
+    <div className="evo">
+      <div className="evo-g">
+        <span className="evo-h">Evolución</span><span className="evo-h">Hace 7 días</span><span className="evo-h">Hace 30 días</span>
+        {filas.map(([nombre, i, ahora]) => (
+          <div className="evo-r" key={i}>
+            <span className="evo-l">{nombre}</span>
+            <CeldaTendencia t={tendencia(i, ahora, e.hace_7, u)} cuando="hace 7 días" />
+            <CeldaTendencia t={tendencia(i, ahora, e.hace_30, u)} cuando="hace 30 días" />
+          </div>
+        ))}
+      </div>
+      {reconstruido ? <p className="note evo-nota">≈ reconstruido con el historial de las señales{e.registro_desde ? `; se guarda cada hora desde el ${enBolivia(e.registro_desde, 'diaLargo')}` : ''}.</p> : null}
+    </div>
+  );
+}
+
 function Pulso() {
   const fuentes = useStore((s) => s.fuentes);
   const senales = useStore((s) => s.senales);
@@ -118,6 +157,7 @@ function Pulso() {
           <small className="gauge-d">{d.oportunidades} {d.oportunidades === 1 ? 'oportunidad' : 'oportunidades'}{d.plazoCorto ? ` · ${d.plazoCorto} cierran en menos de 15 días` : ''}</small>
         </div>
       </div>
+      <EvolucionPulso p={p} />
       <div className="scale">
         <div className="scale-bar"><i style={{ left: `${posicionVigilancia(p)}%` }} /></div>
         <div className="scale-l">{niveles.map((n) => <span key={n} className={n === p.vigilancia ? 'on' : undefined}>{n}</span>)}</div>

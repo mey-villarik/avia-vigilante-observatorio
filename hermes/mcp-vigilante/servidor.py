@@ -23,7 +23,7 @@ import sys
 import urllib.error
 import urllib.request
 
-VERSION = '2.4.1'
+VERSION = '2.5.0'
 
 INSTRUCCIONES = (
     'Herramientas del Vigilante AVIA sobre la base de datos del observatorio. Eres el agente investigador: '
@@ -136,8 +136,10 @@ HERRAMIENTAS = [
          'required': ['tipo', 'hecho', 'evidencias']}}, 'required': ['oportunidad']},
      'fn': 'guardar_oportunidad', 'args': lambda a: {'p_op': a['oportunidad']}},
     {'name': 'proponer_fuente',
-     'description': 'Propone vigilar una fuente que NO está en el catálogo. No la crea: queda como candidata y un '
-                    'administrador decide. Necesita una dirección real vista en noticias de la base (evidencia = sus ids).',
+     'description': 'Añade una fuente que NO está en el catálogo. Si su sitio es nuevo, la base la da de alta y la activa '
+                    'al momento (origen «avia», el usuario puede eliminarla). Si ese sitio ya se vigila, o un usuario lo '
+                    'eliminó, no la repite (duplicada=true). Necesita una dirección real vista en noticias de la base '
+                    '(evidencia = sus ids).',
      'inputSchema': {'type': 'object', 'properties': {
          'nombre': {'type': 'string'}, 'url': {'type': 'string'}, 'motivo': {'type': 'string'},
          'tipo': {'type': 'string', 'enum': ['oficial', 'organismo_internacional', 'medio', 'no_oficial']},
@@ -199,6 +201,14 @@ HERRAMIENTAS = [
                     '«Verificadas» = confirmadas o publicadas con fuente oficial o 2 o más fuentes distintas; '
                     '«confirmadas_sin_verificar» = las de una sola fuente no oficial: no las llames verificadas.',
      'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'contadores_cliente', 'args': lambda a: {}},
+    # 2.5 (migración 37): fuentes internacionales (OPS/OMS, CEPAL, BBC/Reuters/AP) y su impacto en Bolivia
+    {'name': 'contexto_internacional',
+     'description': 'Lo que llega de fuentes internacionales (OPS/OMS, CEPAL, BBC Mundo, Reuters, AP) con impacto en Bolivia: '
+                    'cada señal con impacto_bolivia (ámbitos, vía por la que llega, nivel, plazo) y las señales nacionales que '
+                    'refuerza; «contexto» da, por código de señal nacional, las internacionales que le dan contexto; y el '
+                    'estado de las fuentes internacionales. Úsala al valorar un riesgo u oportunidad nacional: si hay contexto '
+                    'internacional, menciónalo. Una noticia de fuera no confirma por sí sola un hecho en Bolivia.',
+     'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'internacional', 'args': lambda a: {}},
     {'name': 'alertas_tempranas',
      'description': 'Lo que una regla marca para mirar ya: aviso oficial con palabra de alerta, mismo hecho en 3 o más '
                     'fuentes en 6 horas, plazo que cierra en 5 días, territorio con el doble de menciones de lo normal.',

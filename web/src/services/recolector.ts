@@ -2,7 +2,7 @@
 // - vigilante_bd(): fuentes del catálogo, señales (mismo formato que vigilante.json) y oportunidades.
 //   Desde el 15 es la fuente principal de la web; el archivo del VPS solo se usa si la base no tiene datos.
 // - Propuestas de AVIA sobre cómo leer una fuente: el administrador las aprueba o las rechaza.
-// - Fuentes candidatas (no se vigilan hasta que un administrador las aprueba) y oportunidades (15).
+// - Fuentes que AVIA encontró: desde el 47 se añaden solas (o se descartan por repetidas); aquí solo se leen. Oportunidades (15).
 import type { DatosVps, VigilanteJson } from './datos';
 import { supabase, traducir } from './auth';
 import type { Fuente, Senal } from '../types';
@@ -85,7 +85,7 @@ export interface Evidencia { id: number; titulo: string | null; url: string; fue
 /** Fuente que AVIA o la sincronización vieron y que no está en el catálogo: no se vigila hasta que un administrador la aprueba */
 export interface Candidata {
   id: number; nombre: string; url: string; motivo: string | null; propuesta_por: string; veces: number;
-  evidencia: Evidencia[]; estado: 'pendiente' | 'aprobada' | 'rechazada'; propuesta_en: string;
+  evidencia: Evidencia[]; estado: 'pendiente' | 'aprobada' | 'rechazada' | 'duplicada'; propuesta_en: string;
   decidida_por: string | null; decidida_en: string | null; nota: string | null; codigo: string | null;
 }
 
@@ -94,19 +94,6 @@ export async function leerCandidatas(): Promise<Candidata[]> {
   const { data, error } = await rpc('candidatas_web');
   if (error) return [];
   return (data as Candidata[]) ?? [];
-}
-
-export interface AltaCandidata { categoria?: string; tipo?: string; metodo?: string; frecuencia?: number }
-
-/** aprobar = crear la fuente en el catálogo (empieza a vigilarse en la próxima ronda); devuelve su código */
-export async function decidirCandidata(id: number, aprobar: boolean, nota?: string, alta: AltaCandidata = {}): Promise<string | null> {
-  const { data, error } = await rpc('decidir_candidata', {
-    p_id: id, p_aprobar: aprobar, p_nota: nota || null,
-    p_categoria: alta.categoria ?? 'mercado', p_tipo: alta.tipo ?? null,
-    p_metodo: alta.metodo ?? 'http_html', p_frecuencia: alta.frecuencia ?? 60,
-  });
-  if (error) throw falta15(error.message, 'decidir_candidata') ?? new Error(traducir(error.message));
-  return (data as string | null) ?? null;
 }
 
 export type EstadoOportunidad = 'propuesta' | 'validada' | 'descartada';

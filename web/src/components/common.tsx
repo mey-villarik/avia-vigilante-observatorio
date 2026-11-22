@@ -5,6 +5,8 @@ import { clock, scoreOf } from '../lib/util';
 import { useStore } from '../store';
 import { CERTEZAS, certezaDe } from '../lib/certeza';
 import { ACCION_TXT, accionDe, accionTitulo } from '../lib/accion';
+import { AMBITO_TXT, useInternacional } from '../services/internacional';
+import { Icon } from './Icon';
 
 const NAT_TXT: Record<Naturaleza, string> = { oportunidad: 'Oportunidad', riesgo: 'Riesgo', mixta: 'Mixta' };
 
@@ -176,4 +178,42 @@ export function Foot() {
 export function CertezaTag({ s }: { s: Senal }) {
   const c = certezaDe(s);
   return <span className={`tag cert cert-${c.nivel}`} title={`${CERTEZAS[c.nivel].def} ${c.motivo}`}>{CERTEZAS[c.nivel].t}</span>;
+}
+
+/** Marca «Internacional» en una señal que viene de OPS/OMS, CEPAL o prensa internacional (37);
+ *  «Contexto internacional» si es nacional y alguna internacional la refuerza. */
+export function IntlTag({ codigo }: { codigo: string }) {
+  const intl = useInternacional((st) => st.datos.senales.find((x) => x.codigo === codigo && x.internacional));
+  const ctx = useInternacional((st) => st.datos.contexto[codigo]);
+  if (intl) return <span className="tag intl-tag" title={intl.impacto_bolivia?.via ?? 'Viene de una fuente internacional'}>🌐 Internacional</span>;
+  if (ctx?.length) return <span className="tag intl-tag ctx" title={ctx.map((c) => c.titulo).join(' · ')}>🌐 Contexto internacional</span>;
+  return null;
+}
+
+/** En la ficha de una señal: cómo llega a Bolivia (si es internacional) y qué dicen las fuentes de fuera (si es nacional) */
+export function ContextoIntl({ codigo }: { codigo: string }) {
+  const intl = useInternacional((st) => st.datos.senales.find((x) => x.codigo === codigo));
+  const ctx = useInternacional((st) => st.datos.contexto[codigo]);
+  const { go, closeDrawer } = useStore.getState();
+  const ib = intl?.impacto_bolivia;
+  if (!ib?.via && !ctx?.length) return null;
+  return (
+    <>
+      <div className="sect">{ib?.via ? 'Impacto en Bolivia (fuente internacional)' : 'Contexto internacional'}</div>
+      {ib?.via && (
+        <p style={{ margin: 0 }}>
+          {ib.via}
+          {ib.ambitos?.length ? <small className="intl-sub"> · {ib.ambitos.map((a) => AMBITO_TXT[a] ?? a).join(', ')}</small> : null}
+          {ib.nivel ? <small className="intl-sub"> · impacto {ib.nivel}</small> : null}
+        </p>
+      )}
+      {ctx?.map((c) => (
+        <div className="evi" key={c.codigo}>
+          <Icon name="globo" />
+          <span>{c.titulo}<small>{[c.via, c.nivel ? `impacto ${c.nivel}` : ''].filter(Boolean).join(' · ')}</small></span>
+        </div>
+      ))}
+      <button className="btn ghost sm" style={{ alignSelf: 'flex-start' }} onClick={() => { closeDrawer(); go('internacional'); }}><Icon name="globo" /> Ver Internacional</button>
+    </>
+  );
 }
