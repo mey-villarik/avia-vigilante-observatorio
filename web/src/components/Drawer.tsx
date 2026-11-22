@@ -13,6 +13,7 @@ import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { porqueAvia, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { enBolivia } from '../lib/hora';
+import { certezaPlazo, cierreTexto } from '../lib/plazo';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 import { afirmaOperativo, recoDe } from '../lib/recomendacion';
 import { EXPLICA as PULSO_EXPLICA, calcularPulso, factoresTexto, masPesan } from '../lib/pulso';
@@ -176,7 +177,16 @@ function SenalDetalle({ id }: { id: string }) {
         <div className="dl">
           <div><small>Territorio</small><b>{s.deps.join(', ')}</b></div>
           <div><small>Destinos</small><b>{s.destinos.join(', ')}</b></div>
-          {s.plazo != null ? <div><small>Plazo</small><b>{s.plazo} días</b></div> : null}
+          {s.cierre || s.plazo != null ? (
+            <div>
+              <small>Plazo</small>
+              <b>{s.cierre ? cierreTexto(s.cierre.fecha) : `${s.plazo} días`}</b>
+              {/* CP2: certeza del plazo, aparte de la certeza del evento */}
+              <small className={`plazo-certeza ${certezaPlazo(s).nivel === 'confirmado' ? 'ok' : 'pend'}`} title={certezaPlazo(s).motivo}>
+                {' '}· plazo {certezaPlazo(s).nivel}
+              </small>
+            </div>
+          ) : null}
           <div><small>Detectada</small><b>{ago(s.min)}</b></div>
           {s.revision ? <div><small>Próxima revisión</small><b className="mono">{s.revision}</b></div> : null}
         </div>

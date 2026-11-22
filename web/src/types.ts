@@ -236,8 +236,10 @@ export interface Senal {
   revisionVencida?: boolean;
   /** predicción: se etiqueta como escenario y no se publica */
   escenario?: boolean;
-  /** días para actuar */
+  /** días que faltan para el cierre, contados al mirar (lib/plazo.ts): 0 hoy, negativo si ya cerró */
   plazo?: number | null;
+  /** fecha de cierre guardada (AAAA-MM-DD) y la certeza del PLAZO, aparte de la del evento (SQL 48) */
+  cierre?: { fecha: string; certeza: 'confirmado' | 'pendiente de verificar'; motivo?: string };
   tipoOpp?: string;
   actores?: string[];
   importancia: string;

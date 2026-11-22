@@ -235,19 +235,117 @@ REGLAS
      nunca como si ya funcionara: «BoA anunció la ruta Santa Cruz–Lima para marzo», no «hay vuelo a Lima»).
    - «Quién depende de ese trayecto»: operadores, agencias, alojamientos o destinos que usan esa ruta y a los
      que afecta un cambio. Solo los que nombran los datos; si no hay, «no lo tengo en los datos del observatorio».
-   Si de alguna de las tres no hay datos, dilo en esa parte en lugar de omitirla."""
+   Si de alguna de las tres no hay datos, dilo en esa parte en lugar de omitirla.
+15. Plazos y cierres (CP1 y CP2): cada señal con plazo trae «cierre» con la fecha, los días que faltan y el
+   texto ya calculados HOY por el sistema. Copia «cierre.texto» tal cual («cierra el 30/11/2026, en 8 días»).
+   NUNCA cuentes tú los días, nunca los saques del resumen ni de la conversación anterior (pudieron
+   cambiar desde entonces) y nunca des un número de días sin la fecha.
+   La certeza del plazo va aparte de la certeza del evento: si «cierre.certeza_plazo» es «pendiente de
+   verificar», escribe «plazo pendiente de verificar» y su motivo, aunque el evento sea [confirmado].
+   Nunca llames «confirmado» a un plazo, cierre o fecha límite que no traiga certeza_plazo «confirmado».
+16. Acciones en la pantalla (CP3): no puedes ver la pantalla. NUNCA escribas que ya abriste una vista, una
+   señal o que aplicaste un filtro («abrí Señales», «ya filtré»). Si hace falta, manda la orden en «comandos»
+   y escribe solo lo que encontraste en los datos; el panel añade debajo, él mismo, qué quedó abierto y los
+   códigos de las señales que se ven. Si no mandas la orden, no digas que la vista está abierta."""
+
+
+# ── Plazos (CP1 y CP2; misma regla que vigilante.cierre() del 48 y web/src/lib/plazo.ts) ──
+def _hoy_bolivia():
+    from datetime import datetime, timedelta, timezone
+    return datetime.now(timezone(timedelta(hours=-4))).date()
+
+
+def _dias_para_cierre(fecha, hoy=None):
+    """Días de calendario entre hoy (Bolivia) y el día de cierre: 0 hoy, 1 mañana, negativo si ya cerró."""
+    from datetime import date
+    try:
+        d = date.fromisoformat(str(fecha)[:10])
+    except (TypeError, ValueError):
+        return None
+    return (d - (hoy or _hoy_bolivia())).days
+
+
+def _texto_cierre(fecha, hoy=None) -> str | None:
+    n = _dias_para_cierre(fecha, hoy)
+    if n is None:
+        return None
+    f = f'{str(fecha)[8:10]}/{str(fecha)[5:7]}/{str(fecha)[:4]}'
+    if n < 0:
+        return f'cerró el {f}'
+    if n == 0:
+        return f'cierra hoy ({f})'
+    if n == 1:
+        return f'cierra mañana ({f})'
+    return f'cierra el {f}, en {n} días'
+
+
+def _cierre(x: dict, hoy=None) -> dict | None:
+    """Cierre de una señal calculado AHORA (no a la hora de la caché ni del día de la noticia).
+    La certeza del plazo sale de la base (48); sin ella, «pendiente de verificar»: nunca se supone confirmada."""
+    c = x.get('cierre') if isinstance(x.get('cierre'), dict) else {}
+    fecha = str(c.get('fecha') or x.get('fecha_limite') or '')[:10]
+    n = _dias_para_cierre(fecha, hoy)
+    if n is None:
+        return None
+    ok = c.get('certeza') == 'confirmado'
+    return {'fecha': fecha, 'dias_restantes': n, 'texto': _texto_cierre(fecha, hoy),
+            'certeza_plazo': 'confirmado' if ok else 'pendiente de verificar',
+            'motivo_plazo': c.get('motivo') or ('' if ok else 'Ninguna fuente primaria (oficial o quien convoca) da esta fecha todavía')}
+
+
+# «quedan 12 días», «cierra en 5 días», «dentro de dos semanas»: el resumen se escribió el día de la noticia
+_RE_RELATIVO = re.compile(r'\b(?:quedan|queda|faltan|falta|restan|resta|plazo\s+de|(?:cierra|vence|termina|finaliza|concluye|caduca)\s+en|'
+                          r'dentro\s+de|en\s+los\s+pr[oó]ximos)\s+(?:solo\s+|s[oó]lo\s+|apenas\s+|unos?\s+)?'
+                          r'(?:\d{1,3}|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|treinta)'
+                          r'\s+(?:d[ií]as?|semanas?)(?:\s+h[aá]biles)?', re.I)
+
+
+def _sin_relativos(t):
+    return _RE_RELATIVO.sub('[plazo: ver «cierre»]', t) if isinstance(t, str) else t
+
+
+_RE_DIAS = re.compile(r'\b(?P<pre>(?:quedan|queda|faltan|falta|restan|resta|cierra\s+en|vence\s+en|termina\s+en|en)\s+)(?P<n>\d{1,3})(?P<post>\s+d[ií]as?)\b', re.I)
+_RE_PLAZO_CONF = re.compile(r'(?P<pre>\b(?:plazo|cierre|fecha\s+l[ií]mite|fecha\s+de\s+cierre)\b[^.\n]{0,40}?)\b(?P<c>confirmad[oa])\b(?:\s+por\s+[^,.;\n]+)?', re.I)
+
+
+def _corregir_plazos(texto: str, senales: list) -> str:
+    """Red de seguridad tras la respuesta del modelo. En cada línea que nombra UNA sola señal con plazo:
+    los días que diga se cambian por los de hoy (CP1) y un plazo «confirmado» sin fuente primaria pasa a
+    «pendiente de verificar» (CP2). Las líneas con varias señales no se tocan (no se sabe de cuál habla)."""
+    cierres = {str(x.get('id')): x.get('cierre') for x in senales if isinstance(x, dict) and isinstance(x.get('cierre'), dict)}
+    if not cierres or not isinstance(texto, str):
+        return texto
+    out = []
+    for linea in texto.split('\n'):
+        cods = set(re.findall(r'SEN-\d+', linea))
+        c = cierres.get(next(iter(cods))) if len(cods) == 1 else None
+        if c and c.get('dias_restantes') is not None:
+            n = int(c['dias_restantes'])
+            if n >= 0:
+                linea = _RE_DIAS.sub(lambda m: f"{m.group('pre')}{n}{' día' if n == 1 else ' días'}", linea)
+            if c.get('certeza_plazo') != 'confirmado':
+                linea = _RE_PLAZO_CONF.sub(lambda m: m.group('pre') + 'pendiente de verificar', linea)
+        out.append(linea)
+    return '\n'.join(out)
 
 
 # ── Contexto para el chat: misma lista y mismos números que el panel ─────────
 _MAX_SENALES = 40   # señales que se pasan al modelo; los totales van aparte en «contadores»
 _CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prioridad', 'certeza', 'recomendacion_segura', 'puntuaciones', 'trazabilidad',
-           'deps', 'destinos', 'fecha_limite', 'evento_inicio', 'evento_fin', 'importancia', 'enlaces',
+           'deps', 'destinos', 'evento_inicio', 'evento_fin', 'importancia', 'enlaces',
            'detectada', 'ultima_noticia', 'revision', 'escenario', 'soluciones')
 
 
 def _compacta(x: dict) -> dict:
     c = {k: x[k] for k in _CAMPOS if x.get(k) not in (None, '', [], {})}
     c['verificada'] = _verificada(x)   # antes de recortar la trazabilidad
+    # CP1: el plazo va como fecha + días calculados ahora; las cuentas viejas del texto se tapan
+    ci = _cierre(x)
+    if ci:
+        c['cierre'] = ci
+    for k in ('titulo', 'resumen', 'importancia'):
+        if k in c:
+            c[k] = _sin_relativos(c[k])
     t = c.get('trazabilidad')
     if isinstance(t, dict):   # hasta 3 fuentes por señal, para no gastar tokens
         c['trazabilidad'] = {**t, 'fuentes': [{k: f[k] for k in ('nombre', 'oficial', 'url', 'publicada', 'recogida', 'fecha', 'nota') if k in f}
@@ -518,7 +616,8 @@ async def handle_chat(request: web.Request) -> web.Response:
         ultima  = next((str(m.get('content', '')) for m in reversed(mensajes) if isinstance(m, dict) and m.get('role') == 'user'), '')
         ids     = set(re.findall(r'SEN-\d+', txt))
         pedidas = [x for x in todas if str(x.get('id')) in ids]          # aunque esté descartada, si la nombran
-        senales = pedidas + [_compacta(x) for x in activas[:_MAX_SENALES] if x not in pedidas]
+        # las que nombra el usuario también van compactas: así llevan su «cierre» de hoy (CP1)
+        senales = [_compacta(x) for x in pedidas] + [_compacta(x) for x in activas[:_MAX_SENALES] if x not in pedidas]
         fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', 'OK', None)][:5]
         sin_datos = not ctx
         k       = _al_dia(ctx.get('contadores') or _contar(activas, ctx), activas)
@@ -536,6 +635,7 @@ Responde siempre en español, de forma concisa y útil.
 {FORMATO}
 
 {SIN_DATOS if sin_datos else ''}
+HOY ES {_hoy_bolivia().strftime('%d/%m/%Y')} en Bolivia. Los días hasta cada cierre ya vienen calculados en «cierre» (regla 15).
 DATOS ACTUALIZADOS A LAS {hora} (hora de Bolivia). Son los mismos números que muestra el panel.
 CONTADORES (usa estos números tal cual; no cuentes tú la lista):
 - Señales activas: {k.get('senales_activas')} (sin descartadas)
@@ -564,13 +664,18 @@ SEÑALES ACTIVAS ({len(senales)}):
 
 Puedes devolver comandos para mover la interfaz. En ese caso responde con un JSON:
 {{"texto": "tu respuesta", "comandos": [{{"tipo": "abrir", "vista": "senales"}}]}}
+Para abrir Señales filtrada usa «filtro» (solo estas claves): {{"tipo": "abrir", "vista": "senales", "filtro": {{"naturaleza": "riesgo" | "oportunidad" | "mixta", "departamento": "La Paz", "texto": "bloqueo", "revisar": true}}}}.
+Vistas: panorama, mapa, fuentes, senales, oportunidades, internacional, analisis, bitacora. Para una señal: {{"tipo": "abrir", "senal": "SEN-0027"}}.
+En «texto» NO digas que ya lo abriste ni que el filtro está aplicado (regla 16): el panel lo confirma solo, con los códigos que se ven.
 Si usas comandos, responde SOLO con ese JSON: sin ```json```, sin texto antes ni después.
 Si no hay comandos, responde solo con el texto (markdown, sin JSON)."""
 
         try:
             resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=1100)
             # el modelo a veces devuelve JSON con comandos (suelto, en ```json```, cortado…): solo se muestra «texto»
-            return web.json_response(_separar_comandos(resp))
+            out = _separar_comandos(resp)
+            out['texto'] = _corregir_plazos(out['texto'], senales)   # CP1 y CP2: días de hoy y certeza del plazo
+            return web.json_response(out)
         except Exception as e:
             print('CHAT ERROR', repr(e), flush=True)
             return web.json_response(

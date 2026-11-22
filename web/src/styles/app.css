@@ -352,6 +352,10 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .countdown{display:flex;align-items:baseline;gap:6px}
 .countdown b{font-family:var(--f-display);font-size:30px;font-weight:500;color:var(--opp);line-height:1}
 .countdown small{color:var(--muted);font-size:12px}
+.countdown{flex-wrap:wrap}
+.plazo-certeza.ok{color:var(--opp)}
+.plazo-certeza.pend{color:var(--warn,#b7791f)}
+.tag.plazo-certeza.pend{border-color:currentColor}
 .actors{display:flex;gap:5px;flex-wrap:wrap}
 .propose{border-top:1px solid var(--line);padding-top:10px;font-size:13px}
 .propose b{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}

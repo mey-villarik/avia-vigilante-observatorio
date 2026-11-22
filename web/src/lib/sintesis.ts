@@ -7,6 +7,7 @@ import type { Contadores } from './contadores';
 import { certezaDe } from './certeza';
 import { puntuacionesDe } from './puntuaciones';
 import { recoDe } from './recomendacion';
+import { certezaPlazo, cierreTexto } from './plazo';
 
 const MAX = 3;
 const PRIO = { alta: 0, media: 1, baja: 2 } as const;
@@ -54,9 +55,12 @@ export function sintesisDe(senales: Senal[], fuentes: Fuente[], k: Contadores): 
       vigilar.push({ o: 20 + PRIO[s.prioridad], it: { codigo: s.id, titulo: s.titulo, tipo: 'convocado', certeza: 'convocado',
         texto: 'Anunciado: confirmar si se mantiene en la fecha' } });
     }
-    if (s.naturaleza !== 'riesgo' && s.plazo != null && s.plazo < 15) {
+    if (s.naturaleza !== 'riesgo' && s.plazo != null && s.plazo >= 0 && s.plazo < 15) {
+      // misma frase que vigilante.texto_cierre() (SQL 48): con la fecha, y la certeza del plazo aparte
+      const cp = certezaPlazo(s);
       vigilar.push({ o: 30 + PRIO[s.prioridad], it: { codigo: s.id, titulo: s.titulo, tipo: 'plazo',
-        texto: `Oportunidad que cierra en ${plural(s.plazo, 'día', 'días')}` } });
+        texto: `Oportunidad que ${s.cierre ? cierreTexto(s.cierre.fecha) : `cierra en ${plural(s.plazo, 'día', 'días')}`}`
+          + (cp.nivel === 'confirmado' ? '' : ' (fecha pendiente de verificar)') } });
     }
   }
   const que_vigilar = vigilar.sort((a, b) => a.o - b.o).slice(0, MAX * 2).map((v) => v.it);

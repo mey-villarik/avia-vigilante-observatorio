@@ -16,6 +16,7 @@ import { puntuacionesDe } from '../lib/puntuaciones';
 import { trazaDe } from '../lib/trazabilidad';
 import { certezaDe } from '../lib/certeza';
 import { recoDe } from '../lib/recomendacion';
+import { certezaPlazo, cierreTexto } from '../lib/plazo';
 
 const API = (import.meta.env.VITE_AVIA_API_URL as string | undefined)?.replace(/\/$/, '');
 export const aviaConectado = Boolean(API);
@@ -36,7 +37,9 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
 
 /** Órdenes que AVIA puede devolver para mover la interfaz (abrir una vista, cambiar el tablero…) */
 export type Comando =
-  | { tipo: 'abrir'; vista?: string; senal?: string; fuente?: string }
+  | { tipo: 'abrir'; vista?: string; senal?: string; fuente?: string;
+      /** solo para la vista Señales (CP3): se aplica y se comprueba en lib/filtroSenales.ts */
+      filtro?: { naturaleza?: string; departamento?: string; texto?: string; revisar?: boolean; periodo?: string } }
   | { tipo: 'tablero'; accion: 'agregar' | 'quitar'; panel: string };
 
 export const AN_TYPES: Record<TipoAnalisis, [string, string]> = {
@@ -54,6 +57,7 @@ export const compact = (s: Senal) => ({
   departamentos: s.deps, destinos: s.destinos, estado: s.estado, prioridad: s.prioridad,
   certeza: certezaDe(s), puntuaciones: puntuacionesDe(s), fuentes: s.corr,
   trazabilidad: { ...trazaDe(s), fuentes: trazaDe(s).fuentes.slice(0, 3) }, plazo_dias: s.plazo ?? null,
+  cierre: s.cierre ? { fecha: s.cierre.fecha, texto: cierreTexto(s.cierre.fecha), certeza_plazo: certezaPlazo(s).nivel } : null,
   importancia: s.importancia, recomendacion_segura: (({ original: _o, ...r }) => r)(recoDe(s)),
   acciones: recoDe(s).afirma_sin_verificar ? [] : s.soluciones.map((x) => x.t),
 });
@@ -120,7 +124,7 @@ export function analisisLocal(tipo: TipoAnalisis, territorio: string, l: Senal[]
     '#### Resumen',
     `${l.length} señales en ${territorio === 'all' ? 'todo Bolivia' : territorio}: ${o.length} oportunidades o mixtas y ${r.length} riesgos.`,
   ];
-  if (top.length) out.push('#### Oportunidades con mejor puntuación', ...top.map((s) => `- **${s.id}** · ${s.titulo}${s.plazo ? ` (${s.plazo} días)` : ''} → ${s.soluciones[0].t}`));
+  if (top.length) out.push('#### Oportunidades con mejor puntuación', ...top.map((s) => `- **${s.id}** · ${s.titulo}${s.cierre ? ` (${cierreTexto(s.cierre.fecha)})` : ''} → ${s.soluciones[0].t}`));
   if (tr.length) out.push('#### Riesgos a vigilar', ...tr.map((s) => `- **${ACCION_TXT[accionDe(s).accion]}** · **${s.id}** · ${s.titulo} → ${s.soluciones[0].t}`));
   if (byDep.length) out.push('#### Territorios con más señales', byDep.slice(0, 4).map(([d, n]) => `${d} (${n})`).join(', ') + '.');
   if (tipo === 'cruce') {

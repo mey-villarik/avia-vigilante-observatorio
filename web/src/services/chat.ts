@@ -12,6 +12,8 @@ import { separarVencidas, sintesisDe, sintesisTexto } from '../lib/sintesis';
 import { calcularPulso, pulsoTexto } from '../lib/pulso';
 import { contar } from '../lib/contadores';
 import { separarRespuesta } from '../lib/respuesta';
+import { filtrarSenales, filtroDesdePedido, filtroTexto, mismoFiltro } from '../lib/filtroSenales';
+import { certezaPlazo, cierreTexto } from '../lib/plazo';
 
 const SALUDO = 'Hola, soy AVIA. Vigilo las fuentes del observatorio, junto las noticias en señales y te doy recomendaciones. Una señal solo es alerta cuando una persona del equipo la publica.\n\nPregúntame lo que quieras o pídeme que cambie el tablero.';
 
@@ -19,21 +21,88 @@ export const CHIPS = ['¿Qué oportunidades cierran pronto?', '¿Qué fuentes fa
 
 let ctl: AbortController | null = null;
 
-/** Aplica en la interfaz una orden de AVIA. Devuelve una etiqueta corta de lo que hizo. */
-export function aplicarComando(c: Comando): string | null {
+const VISTAS: VistaId[] = ['panorama', 'mapa', 'fuentes', 'senales', 'oportunidades', 'internacional', 'analisis', 'bitacora'];
+const VISTA_TXT: Record<VistaId, string> = {
+  panorama: 'Panorama', mapa: 'Mapa', fuentes: 'Fuentes', senales: 'Señales', oportunidades: 'Oportunidades',
+  internacional: 'Internacional', analisis: 'Análisis', bitacora: 'Bitácora',
+};
+const MAX_IDS = 20;
+
+/** Resultado de aplicar una orden: etiqueta corta y, sobre todo, lo que de verdad quedó en pantalla */
+export interface Aplicado { act: string | null; evidencia: string | null; ok: boolean }
+
+/** Aplica en la interfaz una orden de AVIA y COMPRUEBA lo que quedó (CP3 de Carlos): la confirmación
+ *  sale del estado real del panel, con los códigos de las señales que se ven, nunca del texto del modelo. */
+export function aplicarComando(c: Comando): Aplicado {
   const st = useStore.getState();
   if (c.tipo === 'abrir') {
-    if (c.vista) st.go(c.vista as VistaId);
-    if (c.senal && st.senales.some((s) => s.id === c.senal)) st.openDrawer({ kind: 'senal', id: c.senal });
-    if (c.fuente && st.fuentes.some((f) => f.id === c.fuente)) st.openDrawer({ kind: 'fuente', id: c.fuente });
-    return 'Abrí ' + (c.senal || c.fuente || c.vista);
+    const partes: string[] = [];
+    let ok = true;
+    const quiereFiltro = c.filtro && typeof c.filtro === 'object';
+    const vista = (c.vista ?? (quiereFiltro ? 'senales' : undefined)) as VistaId | undefined;
+    if (vista) {
+      if (!VISTAS.includes(vista)) return { act: null, ok: false, evidencia: `No abrí nada: la vista «${vista}» no existe en el panel.` };
+      if (quiereFiltro) {
+        if (vista !== 'senales') return { act: null, ok: false, evidencia: `No apliqué el filtro: solo la vista Señales tiene ese filtro.` };
+        const r = filtroDesdePedido(c.filtro!);
+        if ('error' in r) return { act: null, ok: false, evidencia: `No apliqué el filtro: ${r.error}.` };
+        st.setSigFilter(r.filtro);
+      }
+      st.go(vista);
+      const ahora = useStore.getState();
+      if (ahora.view !== vista) return { act: null, ok: false, evidencia: `No pude abrir la vista ${VISTA_TXT[vista]}.` };
+      if (vista === 'senales') {
+        const pedido = quiereFiltro ? filtroDesdePedido(c.filtro!) : null;
+        if (pedido && 'filtro' in pedido && !mismoFiltro(ahora.sigFilter, pedido.filtro)) {
+          return { act: null, ok: false, evidencia: 'Abrí Señales, pero el filtro no quedó aplicado. Revisa los filtros de la vista.' };
+        }
+        const ids = filtrarSenales(ahora.senales, ahora.sigFilter).map((s) => s.id);
+        const lista = ids.length
+          ? `: ${ids.slice(0, MAX_IDS).join(', ')}${ids.length > MAX_IDS ? ` y ${ids.length - MAX_IDS} más` : ''}`
+          : '. Ninguna señal cumple ese filtro ahora mismo';
+        partes.push(`Vista Señales abierta con el filtro ${filtroTexto(ahora.sigFilter)}. Se muestran ${ids.length} señal${ids.length === 1 ? '' : 'es'}${lista}.`);
+      } else {
+        partes.push(`Vista ${VISTA_TXT[vista]} abierta.`);
+      }
+    }
+    if (c.senal) {
+      if (st.senales.some((s) => s.id === c.senal)) {
+        st.openDrawer({ kind: 'senal', id: c.senal });
+        const d = useStore.getState().drawer;
+        if (d?.kind === 'senal' && d.id === c.senal) partes.push(`Ficha de ${c.senal} abierta.`);
+        else { ok = false; partes.push(`No pude abrir la ficha de ${c.senal}.`); }
+      } else { ok = false; partes.push(`No abrí ${c.senal}: no está en el panel ahora mismo.`); }
+    }
+    if (c.fuente) {
+      if (st.fuentes.some((f) => f.id === c.fuente)) { st.openDrawer({ kind: 'fuente', id: c.fuente }); partes.push(`Fuente ${c.fuente} abierta.`); }
+      else { ok = false; partes.push(`No abrí la fuente ${c.fuente}: no está en el panel.`); }
+    }
+    if (!partes.length) return { act: null, ok: false, evidencia: null };
+    return { act: ok ? `Abrí ${vista ? VISTA_TXT[vista] : c.senal || c.fuente}` : null, ok, evidencia: partes.join(' ') };
   }
   if (c.tipo === 'tablero' && c.panel in PANELS) {
     const ok = c.accion === 'agregar' ? st.addPanel(c.panel as PanelId, true) : st.removePanel(c.panel as PanelId, true);
     st.go('panorama');
-    return ok ? 'Tablero actualizado' : null;
+    return { act: ok ? 'Tablero actualizado' : null, ok, evidencia: ok ? null : 'No cambié el tablero.' };
   }
-  return null;
+  return { act: null, ok: false, evidencia: null };
+}
+
+// Frases del modelo que dicen que ya abrió o filtró algo. Se quitan siempre: lo que se hizo lo dice
+// el panel con la evidencia de aplicarComando (CP3).
+const AFIRMA_ACCION = /[^.\n]*\b(?:ya\s+)?(?:te\s+)?(?:abr[ií](?!r)|he abierto|acabo de abrir|apliqué|he aplicado|filtré|he filtrado|dejé (?:abiert|filtrad)[ao]s?|te (?:muestro|llevo|llevé) a la vista)(?=[\s,.;:!?)]|$)[^.\n]*[.]?/giu;
+
+/** Quita del texto las afirmaciones de acciones y añade lo que de verdad pasó en la interfaz */
+export function textoConEvidencia(texto: string, comandos: Comando[]): { texto: string; act?: string } {
+  const aplicados = comandos.map(aplicarComando);
+  const afirmaba = AFIRMA_ACCION.test(texto);
+  AFIRMA_ACCION.lastIndex = 0;
+  let limpio = texto.replace(AFIRMA_ACCION, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const evid = aplicados.map((a) => a.evidencia).filter((x): x is string => Boolean(x));
+  if (!evid.length && afirmaba) evid.push('No abrí ninguna vista ni apliqué filtros: la respuesta no traía la orden. Pídemelo otra vez o usa los filtros de la vista Señales.');
+  if (evid.length) limpio = `${limpio}${limpio ? '\n\n' : ''}${evid.map((e) => `**En pantalla:** ${e}`).join('\n')}`;
+  const act = aplicados.map((a) => a.act).filter(Boolean).join(' · ');
+  return { texto: limpio || 'Listo.', act: act || undefined };
 }
 
 const PRIO_N = { alta: 0, media: 1, baja: 2 } as const;
@@ -121,7 +190,7 @@ function localReply(q: string): { text: string; act?: string } {
   if (/oportunidad|plazo|cierra|fondo|convocatoria/.test(t)) {
     const todas = act.filter((s) => s.naturaleza !== 'riesgo' && (!dep || s.deps.includes(dep))).sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999));
     const l = todas.slice(0, 4);
-    return { text: l.length ? `Hay ${todas.length} oportunidades${todas.length > l.length ? `; estas son las ${l.length} con el plazo más cercano` : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Recomendación: ${recoCorta(s)}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
+    return { text: l.length ? `Hay ${todas.length} oportunidades${todas.length > l.length ? `; estas son las ${l.length} con el plazo más cercano` : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo}${s.cierre ? ` — ${cierreTexto(s.cierre.fecha)} (plazo ${certezaPlazo(s).nivel})` : ''}. Recomendación: ${recoCorta(s)}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
   }
   if (/resumen|sintesis|ministerio|informe|situacion|panorama/.test(t)) {
     const l = act.filter((x) => !dep || x.deps.includes(dep));
@@ -177,8 +246,9 @@ export async function sendChat(txt: string) {
     const res = await remoto.chat(historial, ROLE_NAME[st.role], ctl.signal);
     // solo se muestra «texto»; las órdenes se aplican sin enseñar el JSON
     const limpia = separarRespuesta(res.texto, res.comandos ?? []);
-    const hechos = limpia.comandos.map(aplicarComando).filter(Boolean);
-    useStore.getState().updateChat(bubble, { text: limpia.texto, act: hechos.length ? hechos.join(' · ') : undefined });
+    // CP3: solo se confirma lo que de verdad quedó en pantalla, con los códigos de las señales que se ven
+    const r = textoConEvidencia(limpia.texto, limpia.comandos);
+    useStore.getState().updateChat(bubble, { text: r.texto, act: r.act });
   } catch (e) {
     const cancel = e instanceof DOMException && e.name === 'AbortError';
     useStore.getState().updateChat(bubble, { text: cancel ? 'Detenido.' : 'No pude responder ahora. Prueba otra vez en un momento.' });

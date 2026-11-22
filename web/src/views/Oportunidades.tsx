@@ -6,6 +6,8 @@ import { NatPill } from '../components/common';
 import { useChat } from '../services/chat';
 import type { Oportunidad } from '../services/recolector';
 import { enBolivia } from '../lib/hora';
+import { certezaPlazo, diasParaCierre } from '../lib/plazo';
+import type { Senal } from '../types';
 
 export const planPrompt = (id: string, titulo: string) =>
   `Dame un plan de acción para ${id} (${titulo}). ¿Quién puede aprovecharlo o a quién afecta y qué hago primero?`;
@@ -16,12 +18,8 @@ const TIPO_TXT: Record<string, string> = {
 };
 const ESTADO_TXT: Record<Oportunidad['estado'], string> = { propuesta: 'Por revisar', validada: 'Validada', descartada: 'Descartada' };
 
-/** días enteros hasta la fecha AAAA-MM-DD (hora de Bolivia), negativo si ya pasó */
-const diasHasta = (f?: string) => {
-  if (!f) return null;
-  const fin = Date.parse(`${f}T23:59:59-04:00`);
-  return Number.isNaN(fin) ? null : Math.ceil((fin - Date.now()) / 86400000) - 1;
-};
+/** días hasta el cierre: la regla única de lib/plazo.ts (0 = hoy, negativo si ya cerró) */
+const diasHasta = (f?: string) => diasParaCierre(f);
 const fecha = (f: string) => enBolivia(f, 'diaLargo');
 const esEnlace = (u: string) => /^https?:\/\//.test(u);
 
@@ -54,11 +52,7 @@ function FichaDetalle({ o, cerrar }: { o: Oportunidad; cerrar: () => void }) {
           <p>{o.interpretacion}</p>
         </div>
       )}
-      {dias == null
-        ? <div className="countdown"><small>Sin fecha límite</small></div>
-        : dias < 0
-          ? <div className="countdown"><small>El plazo terminó el {fecha(o.plazo_hasta!)}</small></div>
-          : <div className="countdown"><b className="num">{dias}</b><small>{dias === 1 ? 'día' : 'días'} para actuar · hasta el {fecha(o.plazo_hasta!)}</small></div>}
+      <Plazo dias={dias} hasta={o.plazo_hasta ?? undefined} s={senal} />
       {o.beneficiarios && o.beneficiarios.length > 0 && (
         <div className="actors" aria-label="A quién le sirve">{o.beneficiarios.map((a) => <span className="tag" key={a}>{a}</span>)}</div>
       )}
@@ -90,10 +84,20 @@ function FichaDetalle({ o, cerrar }: { o: Oportunidad; cerrar: () => void }) {
 }
 
 /** «N días para actuar» compacto, o el texto si no hay plazo o ya pasó */
-function Plazo({ dias, hasta }: { dias: number | null; hasta?: string }) {
+function Plazo({ dias, hasta, s }: { dias: number | null; hasta?: string; s?: Pick<Senal, 'cierre'> }) {
   if (dias == null) return <div className="countdown"><small>Sin fecha límite</small></div>;
   if (dias < 0) return <div className="countdown"><small>Plazo cerrado{hasta ? ` el ${fecha(hasta)}` : ''}</small></div>;
-  return <div className="countdown"><b className="num">{dias}</b><small>{dias === 1 ? 'día' : 'días'} para actuar{hasta ? ` · hasta el ${fecha(hasta)}` : ''}</small></div>;
+  // CP2: la certeza del plazo va aparte de la del evento; sin fuente primaria, «pendiente de verificar»
+  const cp = certezaPlazo(s ?? {});
+  return (
+    <div className="countdown">
+      <b className="num">{dias === 0 ? 'Hoy' : dias}</b>
+      <small>{dias === 0 ? 'cierra hoy' : `${dias === 1 ? 'día' : 'días'} para actuar`}{hasta ? ` · hasta el ${fecha(hasta)}` : ''}</small>
+      <span className={`tag plazo-certeza ${cp.nivel === 'confirmado' ? 'ok' : 'pend'}`} title={cp.motivo}>
+        Plazo {cp.nivel}
+      </span>
+    </div>
+  );
 }
 
 /** Recuadro corto: título, días para actuar, Ver detalles y Plan con AVIA */
@@ -142,7 +146,7 @@ function Ficha({ o, abrir }: { o: Oportunidad; abrir: () => void }) {
         <span className={`tag est-${o.estado}`}>{ESTADO_TXT[o.estado]}</span>
       </>}
       titulo={titulo}
-      plazo={<Plazo dias={diasHasta(o.plazo_hasta)} />}
+      plazo={<Plazo dias={diasHasta(o.plazo_hasta)} hasta={o.plazo_hasta ?? undefined} s={senal} />}
       verDetalles={abrir}
       plan={() => openChat(planPrompt(o.senal ?? `la oportunidad ${o.id}`, titulo))}
     />
@@ -218,8 +222,8 @@ export function Oportunidades() {
                 key={s.id}
                 tags={<><NatPill n={s.naturaleza} /><span className="tag">{s.tipoOpp || CATS[s.categoria]}</span><span className="tag">{STL[s.estado]}</span></>}
                 titulo={s.titulo}
-                plazo={s.plazo
-                  ? <Plazo dias={s.plazo} />
+                plazo={s.plazo != null
+                  ? <Plazo dias={s.plazo} hasta={s.cierre?.fecha} s={s} />
                   : <div className="countdown"><small>Sin plazo: tendencia en seguimiento</small></div>}
                 verDetalles={() => openDrawer({ kind: 'senal', id: s.id })}
                 plan={() => openChat(planPrompt(s.id, s.titulo))}
