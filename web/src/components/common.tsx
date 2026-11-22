@@ -2,6 +2,7 @@
 import type { EstadoFuente, Evento, Naturaleza, Senal } from '../types';
 import { CATS, STATE_TXT, STL } from '../data/demo';
 import { clock, scoreOf } from '../lib/util';
+import { enCursoTexto } from '../lib/vigencia';
 import { useStore } from '../store';
 import { CERTEZAS, certezaDe } from '../lib/certeza';
 
@@ -38,7 +39,9 @@ export function SigList({ list, opp }: { list: Senal[]; opp: boolean }) {
             <span className="sig-m"><NatPill n={s.naturaleza} /><span>{s.deps.join(', ')}</span><span className="tech">· {s.corr} fuente(s)</span></span>
           </span>
           <span className="sig-r">
-            {opp && s.plazo
+            {opp && s.enCurso
+              ? <span className="tag en-curso" title={enCursoTexto(s.enCurso)}>En curso</span>
+              : opp && s.plazo
               ? <span className="score" style={{ color: 'var(--opp)' }}>{s.plazo} días</span>
               : <span className="tag">{STL[s.estado]}</span>}
             <span className="tech">puntuación <span className="score">{scoreOf(s)}</span></span>

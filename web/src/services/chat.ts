@@ -121,7 +121,7 @@ function localReply(q: string): { text: string; act?: string } {
   if (/oportunidad|plazo|cierra|fondo|convocatoria/.test(t)) {
     const todas = act.filter((s) => s.naturaleza !== 'riesgo' && (!dep || s.deps.includes(dep))).sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999));
     const l = todas.slice(0, 4);
-    return { text: l.length ? `Hay ${todas.length} oportunidades${todas.length > l.length ? `; estas son las ${l.length} con el plazo más cercano` : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo}${s.plazo ? ` — ${s.plazo} días` : ''}. Recomendación: ${recoCorta(s)}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
+    return { text: l.length ? `Hay ${todas.length} oportunidades${todas.length > l.length ? `; estas son las ${l.length} con el plazo más cercano` : ''}:\n` + l.map((s) => `• ${s.id} ${s.titulo}${s.enCurso ? ' — en curso' : s.plazo ? ` — ${s.plazo} días` : ''}. Recomendación: ${recoCorta(s)}.`).join('\n') : 'No encontré oportunidades con ese filtro.' };
   }
   if (/resumen|sintesis|ministerio|informe|situacion|panorama/.test(t)) {
     const l = act.filter((x) => !dep || x.deps.includes(dep));

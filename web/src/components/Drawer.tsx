@@ -4,6 +4,7 @@ import type { Etapa, Fuente } from '../types';
 import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
 import { ago, clock, plazoTexto, porRevisar } from '../lib/util';
+import { enCursoTexto } from '../lib/vigencia';
 import { Icon } from './Icon';
 import { CertezaTag, Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
@@ -175,7 +176,9 @@ function SenalDetalle({ id }: { id: string }) {
         <div className="dl">
           <div><small>Territorio</small><b>{s.deps.join(', ')}</b></div>
           <div><small>Destinos</small><b>{s.destinos.join(', ')}</b></div>
-          {s.plazo != null ? <div><small>Plazo</small><b>{s.plazo} días</b></div> : null}
+          {s.enCurso
+            ? <div><small>Evento</small><b>{enCursoTexto(s.enCurso)}</b></div>
+            : s.plazo != null ? <div><small>Plazo</small><b>{s.plazo} días</b></div> : null}
           <div><small>Detectada</small><b>{ago(s.min)}</b></div>
           {s.revision ? <div><small>Próxima revisión</small><b className="mono">{s.revision}</b></div> : null}
         </div>

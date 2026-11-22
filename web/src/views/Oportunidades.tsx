@@ -6,6 +6,7 @@ import { NatPill } from '../components/common';
 import { useChat } from '../services/chat';
 import type { Oportunidad } from '../services/recolector';
 import { enBolivia } from '../lib/hora';
+import { enCursoTexto } from '../lib/vigencia';
 
 export const planPrompt = (id: string, titulo: string) =>
   `Dame un plan de acción para ${id} (${titulo}). ¿Quién puede aprovecharlo o a quién afecta y qué hago primero?`;
@@ -54,7 +55,9 @@ function FichaDetalle({ o, cerrar }: { o: Oportunidad; cerrar: () => void }) {
           <p>{o.interpretacion}</p>
         </div>
       )}
-      {dias == null
+      {senal?.enCurso
+        ? <EnCurso hasta={senal.enCurso} />
+        : dias == null
         ? <div className="countdown"><small>Sin fecha límite</small></div>
         : dias < 0
           ? <div className="countdown"><small>El plazo terminó el {fecha(o.plazo_hasta!)}</small></div>
@@ -94,6 +97,11 @@ function Plazo({ dias, hasta }: { dias: number | null; hasta?: string }) {
   if (dias == null) return <div className="countdown"><small>Sin fecha límite</small></div>;
   if (dias < 0) return <div className="countdown"><small>Plazo cerrado{hasta ? ` el ${fecha(hasta)}` : ''}</small></div>;
   return <div className="countdown"><b className="num">{dias}</b><small>{dias === 1 ? 'día' : 'días'} para actuar{hasta ? ` · hasta el ${fecha(hasta)}` : ''}</small></div>;
+}
+
+/** Evento que ya está ocurriendo: sin cuenta atrás (lib/vigencia.ts) */
+function EnCurso({ hasta }: { hasta: string }) {
+  return <div className="countdown en-curso"><b>En curso</b><small>{enCursoTexto(hasta).replace('En curso · ', '')}</small></div>;
 }
 
 /** Recuadro corto: título, días para actuar, Ver detalles y Plan con AVIA */
@@ -142,7 +150,7 @@ function Ficha({ o, abrir }: { o: Oportunidad; abrir: () => void }) {
         <span className={`tag est-${o.estado}`}>{ESTADO_TXT[o.estado]}</span>
       </>}
       titulo={titulo}
-      plazo={<Plazo dias={diasHasta(o.plazo_hasta)} />}
+      plazo={senal?.enCurso ? <EnCurso hasta={senal.enCurso} /> : <Plazo dias={diasHasta(o.plazo_hasta)} />}
       verDetalles={abrir}
       plan={() => openChat(planPrompt(o.senal ?? `la oportunidad ${o.id}`, titulo))}
     />
@@ -170,7 +178,7 @@ export function Oportunidades() {
   const conFicha = new Set(oportunidades.map((o) => o.senal).filter(Boolean));
   const l = activeSignals(senales)
     .filter((s) => s.naturaleza !== 'riesgo' && !conFicha.has(s.id))
-    .sort((a, b) => (a.plazo ?? 999) - (b.plazo ?? 999));
+    .sort((a, b) => (a.enCurso ? -1 : a.plazo ?? 999) - (b.enCurso ? -1 : b.plazo ?? 999));
 
   return (
     <>
@@ -218,7 +226,9 @@ export function Oportunidades() {
                 key={s.id}
                 tags={<><NatPill n={s.naturaleza} /><span className="tag">{s.tipoOpp || CATS[s.categoria]}</span><span className="tag">{STL[s.estado]}</span></>}
                 titulo={s.titulo}
-                plazo={s.plazo
+                plazo={s.enCurso
+                  ? <EnCurso hasta={s.enCurso} />
+                  : s.plazo
                   ? <Plazo dias={s.plazo} />
                   : <div className="countdown"><small>Sin plazo: tendencia en seguimiento</small></div>}
                 verDetalles={() => openDrawer({ kind: 'senal', id: s.id })}

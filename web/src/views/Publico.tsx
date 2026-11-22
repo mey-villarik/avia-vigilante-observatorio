@@ -5,6 +5,7 @@ import { NatPill } from '../components/common';
 import { ago, norm } from '../lib/util';
 import { leerPublicas, votar, votoGuardado, type AlertaPublica, type Publicas } from '../services/publico';
 import { enBolivia } from '../lib/hora';
+import { enCurso, enCursoTexto } from '../lib/vigencia';
 import { resumenVisible } from '../lib/resumenPublico';
 
 const REFRESCO_MS = 5 * 60 * 1000;
@@ -32,6 +33,8 @@ function Voto({ a }: { a: AlertaPublica }) {
 
 function Detalle({ a }: { a: AlertaPublica }) {
   const plazo = a.plazo_hasta ? Math.ceil((new Date(a.plazo_hasta).getTime() - Date.now()) / 864e5) : null;
+  // evento que ya está ocurriendo: «En curso», sin cuenta atrás (fecha_evento = inicio, plazo = fin)
+  const curso = enCurso(a.fecha_evento, null, a.plazo_hasta);
   return (
     <article className={`pub-card pub-detalle nat-b-${a.naturaleza}`}>
       <div className="pub-meta">
@@ -50,8 +53,9 @@ function Detalle({ a }: { a: AlertaPublica }) {
       <dl className="pub-dl">
         {a.deps.length > 0 && <div><dt>Dónde</dt><dd>{a.deps.join(', ')}</dd></div>}
         {a.destinos.length > 0 && <div><dt>Destinos</dt><dd>{a.destinos.join(', ')}</dd></div>}
-        {plazo != null && plazo >= 0 && <div><dt>Plazo</dt><dd>{plazo === 0 ? 'Hoy' : `${plazo} días`} ({fecha(a.plazo_hasta!)})</dd></div>}
-        {a.fecha_evento && <div><dt>Fecha del evento</dt><dd>{fecha(a.fecha_evento)}</dd></div>}
+        {curso && <div><dt>Evento</dt><dd>{enCursoTexto(curso)}</dd></div>}
+        {!curso && plazo != null && plazo >= 0 && <div><dt>Plazo</dt><dd>{plazo === 0 ? 'Hoy' : `${plazo} días`} ({fecha(a.plazo_hasta!)})</dd></div>}
+        {!curso && a.fecha_evento && <div><dt>Fecha del evento</dt><dd>{fecha(a.fecha_evento)}</dd></div>}
         <div><dt>Publicada</dt><dd>{ago(minutosDesde(a.publicada_en))}</dd></div>
       </dl>
       <div className="pub-pie">

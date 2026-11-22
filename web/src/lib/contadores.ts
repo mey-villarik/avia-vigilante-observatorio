@@ -63,7 +63,7 @@ export function contar(senales: Senal[], noticias24h: number, ahora = Date.now()
     oportunidades: n((s) => s.naturaleza === 'oportunidad'),
     riesgos: n((s) => s.naturaleza === 'riesgo'),
     mixtas: n((s) => s.naturaleza === 'mixta'),
-    plazo_corto: n((s) => s.naturaleza !== 'riesgo' && s.plazo != null && s.plazo < 15),
+    plazo_corto: n((s) => s.naturaleza !== 'riesgo' && !s.enCurso && s.plazo != null && s.plazo < 15),
     riesgos_altos: n((s) => s.naturaleza === 'riesgo' && s.prioridad === 'alta'),
     verificadas: n(esVerificada),
     verificadas_2_fuentes: n((s) => esVerificada(s) && respaldoDe(s).n >= 2),

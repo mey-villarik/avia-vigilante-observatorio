@@ -54,7 +54,7 @@ export function sintesisDe(senales: Senal[], fuentes: Fuente[], k: Contadores): 
       vigilar.push({ o: 20 + PRIO[s.prioridad], it: { codigo: s.id, titulo: s.titulo, tipo: 'convocado', certeza: 'convocado',
         texto: 'Anunciado: confirmar si se mantiene en la fecha' } });
     }
-    if (s.naturaleza !== 'riesgo' && s.plazo != null && s.plazo < 15) {
+    if (s.naturaleza !== 'riesgo' && !s.enCurso && s.plazo != null && s.plazo < 15) {
       vigilar.push({ o: 30 + PRIO[s.prioridad], it: { codigo: s.id, titulo: s.titulo, tipo: 'plazo',
         texto: `Oportunidad que cierra en ${plural(s.plazo, 'día', 'días')}` } });
     }

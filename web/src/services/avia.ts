@@ -52,7 +52,7 @@ export const compact = (s: Senal) => ({
   id: s.id, titulo: s.titulo, resumen: s.resumen, naturaleza: s.naturaleza, categoria: s.categoria,
   departamentos: s.deps, destinos: s.destinos, estado: s.estado, prioridad: s.prioridad,
   certeza: certezaDe(s), puntuaciones: puntuacionesDe(s), fuentes: s.corr,
-  trazabilidad: { ...trazaDe(s), fuentes: trazaDe(s).fuentes.slice(0, 3) }, plazo_dias: s.plazo ?? null,
+  trazabilidad: { ...trazaDe(s), fuentes: trazaDe(s).fuentes.slice(0, 3) }, plazo_dias: s.enCurso ? null : s.plazo ?? null, en_curso_hasta: s.enCurso ?? null,
   importancia: s.importancia, recomendacion_segura: (({ original: _o, ...r }) => r)(recoDe(s)),
   acciones: recoDe(s).afirma_sin_verificar ? [] : s.soluciones.map((x) => x.t),
 });
@@ -119,7 +119,7 @@ export function analisisLocal(tipo: TipoAnalisis, territorio: string, l: Senal[]
     '#### Resumen',
     `${l.length} señales en ${territorio === 'all' ? 'todo Bolivia' : territorio}: ${o.length} oportunidades o mixtas y ${r.length} riesgos.`,
   ];
-  if (top.length) out.push('#### Oportunidades con mejor puntuación', ...top.map((s) => `- **${s.id}** · ${s.titulo}${s.plazo ? ` (${s.plazo} días)` : ''} → ${s.soluciones[0].t}`));
+  if (top.length) out.push('#### Oportunidades con mejor puntuación', ...top.map((s) => `- **${s.id}** · ${s.titulo}${s.enCurso ? ' (en curso)' : s.plazo ? ` (${s.plazo} días)` : ''} → ${s.soluciones[0].t}`));
   if (tr.length) out.push('#### Riesgos a vigilar', ...tr.map((s) => `- **${s.id}** · ${s.titulo} → ${s.soluciones[0].t}`));
   if (byDep.length) out.push('#### Territorios con más señales', byDep.slice(0, 4).map(([d, n]) => `${d} (${n})`).join(', ') + '.');
   if (tipo === 'cruce') {

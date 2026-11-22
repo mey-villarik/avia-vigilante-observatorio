@@ -197,6 +197,8 @@ export interface Senal {
   escenario?: boolean;
   /** días para actuar */
   plazo?: number | null;
+  /** evento que ya está ocurriendo: último día (AAAA-MM-DD). Se muestra «En curso», sin cuenta atrás */
+  enCurso?: string;
   tipoOpp?: string;
   actores?: string[];
   importancia: string;

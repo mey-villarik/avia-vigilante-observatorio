@@ -97,7 +97,7 @@ export function calcularPulso(senales: Senal[], fuentes: Fuente[]): Pulso {
       aportes.push({ id: s.id, titulo: s.titulo, indice: 'oportunidad', peso: 0, factores: {}, excluida: 'el plazo ya venció' });
       continue;
     }
-    if (s.plazo != null) { plazoAbierto++; if (s.plazo < 15) plazoCorto++; }
+    if (s.plazo != null) { plazoAbierto++; if (s.plazo < 15 && !s.enCurso) plazoCorto++; }
     const resp = (respaldo(s) - 0.5) * 2;   // fiabilidad 0-1
     const valor = Math.max(0, Math.min(1, (s.rel * 0.45 + s.nov * 0.25 + resp * 10 * 0.3) / 10));
     const mixta = s.naturaleza === 'mixta' ? 0.5 : 1;
