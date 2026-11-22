@@ -15,9 +15,12 @@ import { PULSO_EVOLUCION_DEMO } from './data/demoPulso';
 import { DEMO } from './lib/modo';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
+import { seguirRecomendacion } from './services/seguimiento';
+import { SEG_TXT, pideNota } from './lib/seguimiento';
+import { fichaDe } from './lib/direccion';
 import { decidirSenal, leerEstados, leerMovimientos, motivoNoPasa, moverSenal, type Destino, pasarSenales, pasosHasta, siguientesPasos, transicionValida } from './services/senales';
 import type {
-  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, PulsoEvolucion, SintesisDia, Tema, TipoAnalisis, VistaId,
+  CategoriaId, EstadoFuente, EstadoSeguimiento, Etapa, Evaluacion, Seguimiento, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, PulsoEvolucion, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
 import { completarDesglose, contar, textoFuentes, type Contadores } from './lib/contadores';
@@ -156,6 +159,8 @@ interface Actions {
   passSignals: (ids: string[], to: Destino) => Promise<number>;
   /** el analista aprueba (y se publica) o rechaza una señal que espera revisión */
   decideReview: (id: string, aprobar: boolean, note?: string) => Promise<void>;
+  /** analista o administrador: en qué quedó la recomendación de una señal (50). true si se guardó */
+  followUp: (id: string, estado: EstadoSeguimiento, nota?: string) => Promise<boolean>;
   addEvaluatedSignal: (r: Evaluacion) => string;
   liveStep: () => void;
   /** carga vigilante.json del VPS; si falla, deja los datos que hubiera */
@@ -574,6 +579,39 @@ export const useStore = create<Store>()((set, get) => {
       const quedan = omitidas + falladas;
       get().toast(`${n} señal(es) → ${destino}.` + (quedan ? ` ${quedan} se quedaron${to === 'publicada' ? ' (los escenarios no se publican)' : ''}.` : ''));
       return n;
+    },
+    followUp: async (id, estado, nota = '') => {
+      const { role } = get();
+      const s = get().senales.find((x) => x.id === id);
+      if (!s || role === 'visor') return false;
+      if (pideNota(estado) && !nota.trim()) {
+        get().toast('Para cerrarla escribe qué se hizo, quién actuó y qué pasó.');
+        return false;
+      }
+      const quien = get().perfil?.nombre ?? ROLE_NAME[role];
+      const antes = s.seguimiento;
+      const de = antes?.estado ?? 'pendiente';
+      const reco = s.direccion?.ficha?.accion ?? fichaDe(s).accion;
+      const nuevo: Seguimiento = {
+        estado, recomendacion: reco, quien, cuando: new Date().toISOString(),
+        nota: nota.trim() || (de === estado ? antes?.nota : undefined),
+        historial: [{ de, a: estado, nota: nota.trim() || undefined, quien, cuando: new Date().toISOString(), recomendacion: reco }, ...(antes?.historial ?? [])].slice(0, 5),
+      };
+      const poner = (g: Seguimiento | undefined) => set({ senales: get().senales.map((x) => (x.id === id ? { ...x, seguimiento: g } : x)) });
+      poner(nuevo);
+      logEvent({ t: 0, k: 'check', w: `${quien} marcó la recomendación de ${id} como «${SEG_TXT[estado]}»`, d: s.titulo + (nota.trim() ? ' · ' + nota.trim() : '') });
+      const conBd = Boolean(get().perfil) && get().origen === 'vps';
+      if (!conBd) { get().toast(`${id}: recomendación ${SEG_TXT[estado].toLowerCase()}.`); return true; }
+      try {
+        const g = await seguirRecomendacion(id, estado, nota);
+        poner(g);
+        get().toast(`${id}: recomendación ${SEG_TXT[estado].toLowerCase()}.`);
+        return true;
+      } catch (e) {
+        poner(antes);   // no se guardó: se deshace en pantalla
+        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
+        return false;
+      }
     },
     decideReview: async (id, aprobar, note = '') => {
       const { role } = get();
