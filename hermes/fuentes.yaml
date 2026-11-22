@@ -230,24 +230,27 @@ fuentes:
           confianza: 0.9
 
   # ──────────────────── CANAL 3 · VIAL / TRANSPORTE ────────────────────
-  - id: abc_caminos
+  - id: abc_caminos          # en Supabase: abc_comunicados (o la fila antigua de la ABC reutilizada por el SQL 50)
     canal: vial
-    nombre: ABC · transitabilidad de la Red Vial Fundamental
+    nombre: ABC · comunicados de transitabilidad (cortes, desvíos, reaperturas)
     institucion: Administradora Boliviana de Carreteras
     tipo: oficial
-    url: https://transitabilidad.abc.gob.bo/mapa_reporte
-    url_verificacion: encontrada_no_abierta   # ⚠️ NO VERIFICADA: aparece en buscador; el lector web recibió error del sitio
+    url: https://www.abc.gob.bo/feed/?post_type=comunicados
+    url_verificacion: verificada   # 2026-11-22: RSS con 10 comunicados (último 15/11/2026). El /feed/ general sale VACÍO.
     urls_secundarias:
+      - url: https://transitabilidad.abc.gob.bo/mapa_reporte
+        uso: "mapa de transitabilidad. NO SE LEE: desde nov. 2026 todo el sitio pide CAPTCHA (redirige a /captcha-form). No intentar saltarlo."
+        url_verificacion: bloqueada_captcha
       - url: https://transitabilidad.abc.gob.bo/movil_conflictos_sociales
-        uso: tramos no transitables por conflictos sociales (bloqueos)
-        url_verificacion: encontrada_no_abierta   # ⚠️ NO VERIFICADA
-      - url: https://www.abc.gob.bo/
-        uso: portal institucional y comunicados
-        url_verificacion: encontrada_no_abierta
+        uso: (antes) tramos no transitables por conflictos sociales
+        url_verificacion: no_existe   # 2026-11-22: 404
+      - url: https://www.abc.gob.bo/feed/?post_type=nota_prensa
+        uso: notas de prensa (obras, inspecciones); menos útil para alertas
+        url_verificacion: verificada
     acceso:
-      metodo: apify          # sitio de mapa; probablemente carga datos por JavaScript. Inspeccionar la llamada XHR y, si es JSON, pasar a 'api'
-      alternativa: http_html
-      extraer: "por punto: ruta, tramo, departamento, tipo de evento (derrumbe, inundación, bloqueo, mantenimiento), estado (transitable con restricción / no transitable), fecha y hora de reporte"
+      metodo: rss
+      respaldo: google_news_rss   # si la web no responde desde el VPS (SQL 50)
+      extraer: "por comunicado: ruta, tramo, departamento, tipo de evento (derrumbe, inundación, bloqueo, mantenimiento), estado (sin restricción / con restricción / cerrado), fecha y hora"
     frecuencia_minutos: 30
     que_buscar:
       - tramos 'no transitable' o 'transitable con restricción'
@@ -427,14 +430,15 @@ fuentes:
   # ─────────────────── CANAL 6 · CONECTIVIDAD AÉREA (semana 3) ───────────────────
   - id: dgac
     canal: conectividad
-    nombre: DGAC · comunicados y aeropuertos
+    nombre: DGAC · noticias y comunicados de aviación civil
     institucion: Dirección General de Aeronáutica Civil
     tipo: oficial
-    url: https://www.dgac.gob.bo/
-    url_verificacion: no_verificada   # ⚠️ el dominio aparece en buscador (PDF de comunicado 2018), pero no hay evidencia de una sección de avisos actual
+    url: https://www.dgac.gob.bo/feed/
+    url_verificacion: verificada   # 2026-11-22: RSS de WordPress con noticias de nov. 2026 (sobre todo institucionales)
     acceso:
-      metodo: http_html
-      extraer: "comunicados (PDF), cierres de aeropuertos, nuevas rutas autorizadas"
+      metodo: rss
+      respaldo: google_news_rss
+      extraer: "comunicados, rutas y aerolíneas autorizadas, normativa"
     frecuencia_minutos: 180
     que_buscar: [cierre de aeropuerto, suspensión de vuelos por humo/clima, nuevas rutas internacionales o nacionales, nuevas aerolíneas]
     palabras_clave: [aeropuerto, cierre, NOTAM, suspensión de operaciones, humo, visibilidad, nueva ruta, frecuencia, aerolínea, BoA, EcoJet]
@@ -448,6 +452,36 @@ fuentes:
     verificacion_fidelidad:
       - "Confirmar cierres con la aerolínea o el aeropuerto; las rutas nuevas, con la aerolínea."
     ejemplos: []   # completar cuando se active en semana 3
+
+  - id: naabol_comunicados
+    canal: conectividad
+    nombre: NAABOL · comunicados de aeropuertos (cierres, suspensiones, reanudaciones)
+    institucion: Navegación Aérea y Aeropuertos Bolivianos
+    tipo: oficial
+    url: https://www.naabol.gob.bo/pagina-de-comunicados
+    url_verificacion: verificada   # 2026-11-22: lista con fecha, título y PDF (p. ej. suspensión en Alcantarí por clima, cierre y reanudación en Cochabamba)
+    urls_secundarias:
+      - url: https://www.naabol.gob.bo/p-gina-de-notas-de-prensa
+        uso: notas de prensa (mismo formato de tarjetas)
+        url_verificacion: verificada
+      - url: http://sare.naabol.gob.bo/ifis-appv3/public/notam
+        uso: NOTAM (avisos técnicos a pilotos); no se lee de momento
+        url_verificacion: encontrada_no_abierta
+    acceso:
+      metodo: http_html
+      extractor: tarjetas   # recolector 1.3.0: cada tarjeta = título (h5) + fecha dd/mm/aaaa + PDF; los códigos OACI (SLCB…) se traducen a aeropuerto
+      respaldo: google_news_rss
+    frecuencia_minutos: 60
+    que_buscar: [suspensión de operaciones, cierre de pista, reanudación, condiciones meteorológicas adversas]
+    categoria: conectividad
+    naturaleza_por_defecto: riesgo
+    severidad:
+      alta: "Suspensión o cierre en un aeropuerto turístico (El Alto, Viru Viru, Cochabamba, Sucre, Uyuni, Rurrenabaque, Tarija)"
+      media: "Obras con horario restringido"
+      baja: "Comunicados administrativos (convocatorias, cajeros, efemérides)"
+    requiere_aprobacion: true
+    verificacion_fidelidad:
+      - "Nombrar el aeropuerto y la fecha exactamente como los da NAABOL; una reanudación cierra la señal de suspensión."
 
   # ─────────────── FUENTES INTERNACIONALES (2026-11-20, SQL 37) ───────────────
   # Apartado separado: lo que pasa fuera solo cuenta si llega a Bolivia. El analizador

@@ -2,7 +2,7 @@
 """Diagnóstico de fuentes que fallan: ¿problema pasajero o definitivo?
 
 Ejecutar EN EL VPS (es desde donde lee el recolector):
-  python3 diagnosticar_fuentes.py                 # las direcciones conocidas de Gaceta, Conoce Bolivia y SENAMHI
+  python3 diagnosticar_fuentes.py                 # las direcciones conocidas (Gaceta, Conoce Bolivia, SENAMHI, ABC, DGAC, NAABOL)
   python3 diagnosticar_fuentes.py URL [URL ...]   # otras direcciones
   python3 diagnosticar_fuentes.py --veces 3       # repetir cada prueba (para ver si es intermitente)
 
@@ -38,6 +38,11 @@ CONOCIDAS = [
     'https://senamhi.gob.bo/alertas3.php',
     'https://senamhi.gob.bo/alertasanteriores1.php',
     'https://noticias.senamhi.gob.bo/home/',
+    # Movilidad (SQL 50, 2026-11-22): ABC, DGAC y NAABOL
+    'https://transitabilidad.abc.gob.bo/mapa_reporte',          # pide CAPTCHA: se espera redirección a /captcha-form
+    'https://www.abc.gob.bo/feed/?post_type=comunicados',
+    'https://www.dgac.gob.bo/feed/',
+    'https://www.naabol.gob.bo/pagina-de-comunicados',
 ]
 
 
