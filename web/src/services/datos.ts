@@ -51,6 +51,8 @@ interface JSenal {
   cierre?: { fecha?: string | null; certeza?: string | null; motivo?: string | null } | null;
   /** desde el 49: eje, acción y ficha para la Dirección */
   direccion?: Senal['direccion'] | null;
+  /** desde el 50: en qué quedó la recomendación */
+  seguimiento?: Senal['seguimiento'] | null;
 }
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
@@ -223,6 +225,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       reco: s.recomendacion_segura ?? undefined,
       evento: s.evento_inicio || s.evento_fin ? { inicio: s.evento_inicio ?? null, fin: s.evento_fin ?? null } : undefined,
       direccion: s.direccion ?? undefined,
+      seguimiento: s.seguimiento ?? undefined,
     };
   });
 

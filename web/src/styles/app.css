@@ -988,3 +988,38 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 }
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .mp-sem-t{fill:var(--ink)}
+/* Seguimiento de recomendaciones (SQL 50) */
+.tag.seg-pendiente{color:var(--warn);border-color:var(--warn)}
+.tag.seg-en_curso{color:var(--accent);background:var(--accent-soft);border-color:transparent;font-weight:600}
+.tag.seg-resuelta{color:var(--ok);background:var(--ok-soft);border-color:transparent;font-weight:600}
+.tag.seg-sin_efecto{color:var(--muted);font-style:italic}
+.seguimiento{margin:0 0 12px;padding:10px 14px;border-radius:12px;border:1px dashed var(--line);display:flex;flex-direction:column;gap:7px}
+.seguimiento.compacta{margin:0;padding:8px 10px;gap:6px}
+.seguimiento.seg-b-resuelta{border-style:solid;border-color:var(--ok-soft)}
+.seg-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seg-lbl{display:flex;align-items:center;gap:6px;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.seg-lbl svg{width:13px;height:13px}
+.seg-quien{color:var(--muted)}
+.seg-nota{margin:0;line-height:1.4}
+.seg-aviso{margin:0;font-size:12.5px;color:var(--warn)}
+.seg-acciones{display:flex;flex-wrap:wrap;gap:6px}
+.seg-form{display:flex;flex-direction:column;gap:6px}
+.seg-form textarea{width:100%;box-sizing:border-box;resize:vertical;font:inherit;font-size:13px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.seg-form-b{display:flex;gap:6px;flex-wrap:wrap}
+.seg-hist summary{cursor:pointer;font-size:12.5px;color:var(--muted)}
+.seg-hist ol{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.seg-hist small,.seg-h-reco{color:var(--muted)}
+.dir-seguimiento{margin-bottom:16px}
+.seg-cuentas{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.seg-cuenta{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;background:var(--surface2)}
+.seg-cuenta b{font-size:22px;line-height:1}
+.seg-cuenta span{font-size:12px;color:var(--muted)}
+.seg-c-pendiente b{color:var(--warn)} .seg-c-en_curso b{color:var(--accent)} .seg-c-resuelta b{color:var(--ok)}
+.seg-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.seg-lista li{display:flex;flex-direction:column;gap:3px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.seg-lista li:last-child{border-bottom:none;padding-bottom:0}
+.seg-li-h{display:flex;align-items:center;gap:8px}
+.seg-li-h .linklike{text-align:left;font-weight:600}
+.seg-li-reco{color:var(--muted)}
+.seg-li-nota{font-style:italic}
+@media (max-width:560px){.seg-cuentas{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -46,6 +46,18 @@ export const SENALES_DEMO: Senal[] = [
  {id:'SEN-0422',titulo:'Transportistas anuncian paro con bloqueo de la carretera Cochabamba – Santa Cruz',resumen:'Ejemplo: la federación de transporte pesado convoca un paro de 48 h con bloqueo en el tramo antiguo; la policía caminera aún no lo confirma.',naturaleza:'riesgo',categoria:'seguridad',deps:['Cochabamba','Santa Cruz'],destinos:['Samaipata'],estado:'en_verificacion',prioridad:'alta',rel:8,nov:9,conf:.7,fuentes:['prensa','minturismo'],corr:2,min:45,evento:{inicio:diaDemo(2),fin:diaDemo(3)},importancia:'Corta el corredor por donde llegan los grupos a Samaipata y a las misiones.',soluciones:[{t:'Avisar a operadores con salidas por la carretera antigua',d:'Proponer la ruta nueva o reprogramar.'}]},
  {id:'SEN-0423',titulo:'Cortes programados de agua potable en el centro histórico de Sucre',resumen:'Ejemplo: la empresa de agua anuncia cortes por obras durante tres días; afecta a hoteles del casco viejo.',naturaleza:'riesgo',categoria:'normativa',deps:['Chuquisaca'],destinos:['Sucre'],estado:'confirmada',prioridad:'media',rel:6,nov:7,conf:.86,fuentes:['gaceta_oficial'],corr:1,min:300,evento:{inicio:diaDemo(1),fin:diaDemo(3)},importancia:'Los alojamientos del centro deben prever reservas de agua.',soluciones:[{t:'Avisar a hoteles del centro histórico',d:'Con horarios de corte y contacto de la empresa de agua.'}]}
 ];
+// Seguimiento de ejemplo de las recomendaciones (50): una en curso y una resuelta
+const hace = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
+const SEG_DEMO: Record<string, Senal['seguimiento']> = {
+  'SEN-0423': { estado: 'en_curso', quien: 'Analista de ejemplo', cuando: hace(3), nota: 'Se llamó a la empresa de agua; se pidió la lista de calles y horarios para avisar a los hoteles.',
+    historial: [{ de: 'pendiente', a: 'en_curso', quien: 'Analista de ejemplo', cuando: hace(3), nota: 'Se llamó a la empresa de agua; se pidió la lista de calles y horarios para avisar a los hoteles.' }] },
+  'SEN-0414': { estado: 'resuelta', quien: 'Analista de ejemplo', cuando: hace(26), recomendacion: 'Avisar a operadores de Caranavi de los cierres por horario',
+    nota: 'Se avisó a 12 operadores por el grupo de la cámara; ningún grupo quedó varado.',
+    historial: [{ de: 'en_curso', a: 'resuelta', quien: 'Analista de ejemplo', cuando: hace(26), nota: 'Se avisó a 12 operadores por el grupo de la cámara; ningún grupo quedó varado.' },
+      { de: 'pendiente', a: 'en_curso', quien: 'Analista de ejemplo', cuando: hace(30) }] },
+};
+SENALES_DEMO.forEach((s) => { if (SEG_DEMO[s.id]) s.seguimiento = SEG_DEMO[s.id]; });
+
 /** Señales que la simulación va "detectando" cada minuto */
 export const PENDIENTES_DEMO: Senal[] = [
  {id:'SEN-0419',titulo:'Granizada afecta temporalmente el aeropuerto de El Alto',resumen:'Ejemplo: retrasos de vuelos por granizo; operaciones normalizadas en 2 horas.',naturaleza:'riesgo',categoria:'conectividad',deps:['La Paz'],destinos:['La Paz'],estado:'detectada',prioridad:'media',rel:6,nov:9,conf:.58,fuentes:['prensa'],corr:1,min:0,importancia:'Puede afectar conexiones de visitantes hacia Uyuni y Rurrenabaque.',soluciones:[{t:'Verificar con el aeropuerto',d:'Confirmar normalidad.'}]},

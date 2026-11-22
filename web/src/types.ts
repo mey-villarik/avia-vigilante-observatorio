@@ -263,6 +263,25 @@ export interface Senal {
   evento?: { inicio?: string | null; fin?: string | null };
   /** eje, acción y ficha para la Dirección, calculados por la base (49) */
   direccion?: { eje: EjeDireccion | null; accion?: 'actuar' | 'preparar' | 'seguir'; ficha?: FichaAccion };
+  /** en qué quedó la recomendación: pendiente, en curso, resuelta o sin efecto (desde el 50) */
+  seguimiento?: Seguimiento;
+}
+
+/** Estado de una recomendación (db/generico/50_seguimiento_recomendaciones.sql) */
+export type EstadoSeguimiento = 'pendiente' | 'en_curso' | 'resuelta' | 'sin_efecto';
+export interface CambioSeguimiento { de?: EstadoSeguimiento; a: EstadoSeguimiento; nota?: string; quien?: string; cuando?: string; recomendacion?: string }
+export interface Seguimiento {
+  estado: EstadoSeguimiento;
+  /** lo que recomendaba AVIA cuando se cambió el estado */
+  recomendacion?: string;
+  /** qué se hizo, quién actuó, qué pasó */
+  nota?: string;
+  /** quién lo registró y cuándo (ISO) */
+  quien?: string;
+  cuando?: string;
+  /** AVIA cambió la recomendación después del último cambio de estado */
+  cambio_reco?: boolean;
+  historial?: CambioSeguimiento[];
 }
 
 /** Los tres ejes de la premisa (db/generico/49_vista_direccion.sql) */
