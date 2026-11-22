@@ -3,14 +3,13 @@
 // datos de ejemplo o vigilante.json antiguos, se arma con lo que hay (sin inventar fechas).
 import type { Senal, Trazabilidad } from '../types';
 import { FUENTES_DEMO } from '../data/demo';
+import { enBolivia } from './hora';
 
 /** «12/11 14:05» en hora de Bolivia; solo «12/11/2026» si la fecha no trae hora */
 export function fechaBolivia(f?: string | null): string {
   if (!f) return '—';
   if (/^\d{4}-\d{2}-\d{2}$/.test(f)) { const [a, m, d] = f.split('-'); return `${d}/${m}/${a}`; }
-  const t = Date.parse(f);
-  if (Number.isNaN(t)) return f;
-  return new Date(t).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' });
+  return enBolivia(f, 'fechaHora');
 }
 
 export function trazaDe(s: Senal, ahora = Date.now()): Trazabilidad {

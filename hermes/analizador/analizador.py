@@ -52,7 +52,7 @@ AQUI = Path(__file__).resolve().parent
 PROMPT = AQUI / 'prompt_clasificador.md'
 
 NATURALEZAS = {'riesgo', 'oportunidad', 'mixta'}
-CATEGORIAS = {'clima', 'salud', 'vial', 'seguridad', 'conectividad', 'eventos', 'financiamiento', 'normativa', 'mercados'}
+CATEGORIAS = {'clima', 'salud', 'vial', 'seguridad', 'conectividad', 'eventos', 'financiamiento', 'normativa', 'mercados', 'economia'}
 PRIORIDADES = {'alta', 'media', 'baja'}
 CERTEZAS = ('confirmado', 'convocado', 'posible', 'rumor')
 TAREAS = {'corroborar', 'contradiccion', 'relacionar', 'oportunidad_inferida'}
@@ -253,6 +253,12 @@ def limpiar(res: list, claves: set[int], senales: dict[int, set[str]] | None = N
                            'importancia': ca.get('importancia') if ca.get('importancia') in PRIORIDADES else None}
         else:
             x.pop('cambio', None)
+        # migración 43: la noticia cuenta el mismo hecho que una señal que ya existe (solo una de las que se le mandaron)
+        ms = x.get('misma_senal')
+        if isinstance(ms, str) and ms.strip() in senales.get(clave, set()) and not isinstance(x.get('cambio'), dict):
+            x['misma_senal'] = ms.strip()
+        else:
+            x.pop('misma_senal', None)
         t = x.get('tarea')
         if not (x.get('necesita_agente') and isinstance(t, dict) and t.get('tipo') in TAREAS):
             x['necesita_agente'] = False

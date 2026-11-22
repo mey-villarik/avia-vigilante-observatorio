@@ -5,7 +5,10 @@
 // con «Ver anteriores» llega todo lo publicado en el periodo guardado).
 import { createClient } from '@supabase/supabase-js';
 import type { Naturaleza } from '../types';
-import { SENALES_DEMO, catName } from '../data/demo';
+import { SENALES_DEMO } from '../data/demo';
+import { DEMO } from '../lib/modo';
+import { esVerificada } from '../lib/verificada';
+import { categoriaCanonica, nombreCategoria } from '../lib/categorias';
 
 const URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
 const KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
@@ -24,6 +27,7 @@ export interface AlertaPublica {
   verificacion: 'confirmada' | 'en_verificacion';
   naturaleza: Naturaleza;
   categoria: string;
+  /** nombre legible; la web lo rellena si la base no lo trae (lib/categorias.ts) */
   categoria_nombre: string | null;
   prioridad: 'baja' | 'media' | 'alta';
   deps: string[];
@@ -65,11 +69,12 @@ export const MENSAJE_SIN_ALERTAS = 'No hay alertas confirmadas en este momento';
 
 function demo(anteriores: boolean): Publicas {
   const ahora = Date.now();
-  const alertas: AlertaPublica[] = SENALES_DEMO.filter((s) => s.estado === 'publicada' || s.estado === 'confirmada').map((s, i) => ({
+  const alertas: AlertaPublica[] = SENALES_DEMO.filter((s) => s.estado === 'publicada').map((s, i) => ({
       id: -(i + 1), codigo: s.id, titulo: s.titulo, texto: s.resumen, importancia: s.importancia || null,
       recomendacion: s.soluciones[0]?.t ?? null, enlace: null,
-      verificacion: s.estado === 'publicada' ? 'confirmada' : 'en_verificacion',
-      naturaleza: s.naturaleza, categoria: s.categoria, categoria_nombre: catName(s.categoria), prioridad: s.prioridad,
+      // misma regla que la base (40): fuente oficial o 2 o más fuentes distintas
+      verificacion: esVerificada(s) ? 'confirmada' : 'en_verificacion',
+      naturaleza: s.naturaleza, categoria: categoriaCanonica(s.categoria), categoria_nombre: nombreCategoria(s.categoria), prioridad: s.prioridad,
       deps: s.deps, destinos: s.destinos,
       plazo_hasta: s.plazo != null ? new Date(ahora + s.plazo * 864e5).toISOString() : null,
       publicada_en: new Date(ahora - s.min * 6e4).toISOString(), actual: true, util: 0, no_util: 0,
@@ -83,7 +88,11 @@ function demo(anteriores: boolean): Publicas {
 
 /** anteriores = true pide también lo publicado antes de la ventana (botón «Ver anteriores») */
 export async function leerPublicas(anteriores = false): Promise<Publicas> {
-  if (!sb) return demo(anteriores);
+  if (!sb) {
+    // sin base de datos no se inventan alertas: solo en desarrollo con VITE_DEMO=1
+    if (DEMO) return demo(anteriores);
+    throw new Error('La web pública aún no está conectada a la base de datos');
+  }
   // Sin «anteriores» se llama como antes del 16 (la base aún sin actualizar sigue funcionando)
   const { data, error } = await sb.schema('vigilante').rpc('alertas_publicas',
     anteriores ? { p_cliente: CLIENTE, p_anteriores: true } : { p_cliente: CLIENTE });
@@ -98,7 +107,9 @@ export async function leerPublicas(anteriores = false): Promise<Publicas> {
     ejemplo: false,
     // solo lo vigente: lo decide la base (vigilante.senal_vigente, db/generico/19), también en «Ver anteriores»
     alertas: (d.alertas ?? []).filter((a) => a.actual !== false)
-      .map((a) => ({ ...a, actual: a.actual ?? true, deps: a.deps ?? [], destinos: a.destinos ?? [] })),
+      .map((a) => ({ ...a, actual: a.actual ?? true, deps: a.deps ?? [], destinos: a.destinos ?? [],
+        // nunca un código interno («financiacion») en la tarjeta ni en el filtro (base 42)
+        categoria: categoriaCanonica(a.categoria), categoria_nombre: nombreCategoria(a.categoria, a.categoria_nombre) })),
     dias: d.dias_visibles ?? 7,
     nAnteriores: d.n_anteriores ?? 0,
     anteriores,

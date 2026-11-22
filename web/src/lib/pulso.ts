@@ -16,8 +16,9 @@
 //    un riesgo alto verificado → al menos Vigilancia; 5 o más → al menos Atención.
 // 4. Las fuentes no entran en los índices (una fuente caída no es un riesgo turístico), pero se
 //    informan como «cobertura» porque con fuentes caídas los índices pueden quedarse cortos.
-import type { Etapa, Fuente, Prioridad, Senal } from '../types';
+import type { Etapa, Fuente, Prioridad, PulsoDia, Senal } from '../types';
 import { puntuacionesDe } from './puntuaciones';
+import { cifrasFuentes } from './contadores';
 
 export const PESO_PRIORIDAD: Record<Prioridad, number> = { alta: 1, media: 0.5, baja: 0.2 };
 
@@ -46,7 +47,7 @@ export interface Pulso {
     oportunidades: number; plazoAbierto: number; plazoCorto: number; plazoVencido: number;
     /** % de señales activas que son riesgo (las mixtas cuentan como riesgo y oportunidad) */
     pctRiesgo: number;
-    fuentesOk: number; fuentesTotal: number;
+    fuentesLeidas: number; fuentesSinLeer: number; fuentesTotal: number;
   };
   /** desglose para explicar el cálculo: lo que aporta cada señal a su índice (0-1) */
   aportes: Aporte[];
@@ -116,7 +117,8 @@ export function calcularPulso(senales: Senal[], fuentes: Fuente[]): Pulso {
   if (altosVerificados >= 5 && (vigilancia === 'Normal' || vigilancia === 'Vigilancia')) vigilancia = 'Atención';
   else if (altosVerificados >= 1 && vigilancia === 'Normal') vigilancia = 'Vigilancia';
 
-  const conLectura = fuentes.filter((f) => f.estado !== 'MANT');
+  // la misma cifra de fuentes que el encabezado y la pestaña Fuentes (cifrasFuentes)
+  const cf = cifrasFuentes(fuentes);
   return {
     riesgo,
     nivelRiesgo: riesgo >= 75 ? 'Muy alto' : riesgo >= 50 ? 'Alto' : riesgo >= 25 ? 'Moderado' : 'Bajo',
@@ -132,8 +134,9 @@ export function calcularPulso(senales: Senal[], fuentes: Fuente[]): Pulso {
       oportunidades: opps.length,
       plazoAbierto, plazoCorto, plazoVencido,
       pctRiesgo: activas.length ? Math.round((100 * riesgos.length) / activas.length) : 0,
-      fuentesOk: conLectura.filter((f) => f.estado === 'OK').length,
-      fuentesTotal: conLectura.length,
+      fuentesLeidas: cf.leidas,
+      fuentesSinLeer: cf.sinLeer,
+      fuentesTotal: cf.total,
     },
     aportes,
     sumas: { riesgo: sumaRiesgo, nRiesgos: riesgos.length, oportunidad: sumaOpp, nOportunidades: opps.length },
@@ -145,6 +148,48 @@ export function posicionVigilancia(p: Pulso): number {
   const base: Record<NivelVigilancia, number> = { Normal: 0, Vigilancia: 25, Atención: 50, Crítico: 75 };
   // dentro de su tramo según el índice, pero nunca por debajo del tramo que marca la regla mínima
   return Math.max(base[p.vigilancia] + 2, Math.min(98, Math.max(2, p.riesgo)));
+}
+
+// ───────── Evolución a 7 y 30 días (DIANA 2.3, db/generico/46_pulso_evolucion.sql) ─────────
+// La base guarda el Pulso de cada día (tarea «vigilante-pulso», cada hora) y reconstruye los días
+// anteriores con el historial de las señales. Aquí se compara el Pulso de AHORA con el de ese día.
+
+/** menos de estos puntos de diferencia = estable */
+export const UMBRAL_ESTABLE = 5;
+
+export type Sentido = 'mejora' | 'empeora' | 'estable';
+
+export interface Tendencia {
+  indice: 'riesgo' | 'oportunidad';
+  /** valor de entonces y de ahora (0-100) */
+  antes: number; ahora: number;
+  /** ahora − antes, en puntos */
+  delta: number;
+  /** hacia dónde va el número */
+  flecha: 'sube' | 'baja' | 'igual';
+  /** si eso es bueno o malo: en riesgos, subir es empeorar; en oportunidades, subir es mejorar */
+  sentido: Sentido;
+  dia: string;
+  reconstruido: boolean;
+}
+
+export function tendencia(indice: 'riesgo' | 'oportunidad', ahora: number, antes: PulsoDia | null | undefined,
+                          umbral = UMBRAL_ESTABLE): Tendencia | null {
+  if (!antes) return null;
+  const valor = indice === 'riesgo' ? antes.riesgo : antes.oportunidad;
+  const delta = ahora - valor;
+  const flecha = Math.abs(delta) < umbral ? 'igual' : delta > 0 ? 'sube' : 'baja';
+  const sentido: Sentido = flecha === 'igual' ? 'estable'
+    : (flecha === 'sube') === (indice === 'oportunidad') ? 'mejora' : 'empeora';
+  return { indice, antes: valor, ahora, delta, flecha, sentido, dia: antes.dia, reconstruido: Boolean(antes.reconstruido) };
+}
+
+export const SENTIDO_TXT: Record<Sentido, string> = { mejora: 'Mejora', empeora: 'Empeora', estable: 'Estable' };
+
+/** «Empeora: de 31 a 50 (+19)» */
+export function tendenciaTexto(t: Tendencia): string {
+  const signo = t.delta > 0 ? '+' : t.delta < 0 ? '−' : '±';
+  return `${SENTIDO_TXT[t.sentido]}: de ${t.antes} a ${t.ahora} (${signo}${Math.abs(t.delta)})`;
 }
 
 // ───────── Explicación del cálculo (mejora 9 de la PoC) ─────────
@@ -171,6 +216,7 @@ export const EXPLICA = {
     'Nivel de vigilancia (barra): sale del índice de riesgo, Normal menos de 25 · Vigilancia 25-49 · Atención 50-74 · Crítico 75 o más. Con un riesgo alto ya verificado nunca baja de Vigilancia; con cinco o más, nunca de Atención.',
   ],
   noEntra: 'Las fuentes caídas no entran en los índices (una fuente caída no es un riesgo turístico), pero se avisa: con fuentes caídas el Pulso puede quedarse corto. Tampoco entran las señales descartadas.',
+  evolucion: 'Evolución: el Pulso de ahora frente al de hace 7 y hace 30 días (el valor con que cerró ese día). Una diferencia de menos de 5 puntos es «estable». En «Atención a riesgos», subir es empeorar; en «Oportunidad», subir es mejorar. La base guarda el Pulso cada hora; los días anteriores a ese registro se reconstruyeron con el historial de las señales (el estado que tenían ese día, pero la prioridad y la fiabilidad de hoy) y van marcados con «≈». Si ese día aún no había señales, dice «sin datos».',
   limites: 'La relevancia y la novedad las estima AVIA y todavía no se han contrastado con casos reales; por eso el Pulso es una guía de atención, no una medida exacta.',
 };
 

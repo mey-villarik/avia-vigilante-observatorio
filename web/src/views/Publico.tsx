@@ -4,12 +4,14 @@ import type { Naturaleza } from '../types';
 import { NatPill } from '../components/common';
 import { ago, norm } from '../lib/util';
 import { leerPublicas, votar, votoGuardado, type AlertaPublica, type Publicas } from '../services/publico';
+import { enBolivia } from '../lib/hora';
+import { resumenVisible } from '../lib/resumenPublico';
 
 const REFRESCO_MS = 5 * 60 * 1000;
 const NAT_OPTS: [Naturaleza | 'all', string][] = [['all', 'Todas'], ['oportunidad', 'Oportunidades'], ['riesgo', 'Riesgos'], ['mixta', 'Mixtas']];
 
 const minutosDesde = (iso: string) => Math.max(0, (Date.now() - new Date(iso).getTime()) / 60000);
-const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-BO', { day: 'numeric', month: 'short' });
+const fecha = (iso: string) => enBolivia(iso, 'diaCorto');
 
 function Voto({ a }: { a: AlertaPublica }) {
   const [mio, setMio] = useState<boolean | null>(() => votoGuardado(a.id));
@@ -35,8 +37,8 @@ function Detalle({ a }: { a: AlertaPublica }) {
       <div className="pub-meta">
         <NatPill n={a.naturaleza} />
         {a.verificacion === 'en_verificacion'
-          ? <span className="tag pub-verif" title="Publicada con fuente, pero el equipo sigue comprobándola">En verificación</span>
-          : <span className="tag pub-ok">Verificada</span>}
+          ? <span className="tag pub-verif" title="Por ahora la cuenta una sola fuente no oficial: falta una fuente oficial o una segunda fuente">En verificación</span>
+          : <span className="tag pub-ok" title="La respalda una fuente oficial o 2 o más fuentes distintas">Verificada</span>}
         {a.categoria_nombre && <span className="tag">{a.categoria_nombre}</span>}
         {a.prioridad === 'alta' && <span className="tag pub-alta">Prioridad alta</span>}
         {!a.actual && <span className="tag">Anterior</span>}
@@ -102,15 +104,23 @@ const PERIODOS: [Periodo, string][] = [['actuales', 'Actuales'], ['30', 'Último
 const PRIOS: ['all' | 'alta' | 'media' | 'baja', string][] = [['all', 'Cualquier prioridad'], ['alta', 'Prioridad alta'], ['media', 'Prioridad media'], ['baja', 'Prioridad baja']];
 
 function Resumen({ d }: { d: Publicas }) {
-  const r = d.resumen;
-  if (!r) return null;
-  const items = r.alertas.map((id) => d.alertas.find((a) => a.id === id)).filter((a): a is AlertaPublica => Boolean(a));
+  // se arma con las tarjetas actuales: nunca dice «no hay alertas» si hay alguna publicada
+  const { items, resto, nuevas, vacio } = resumenVisible(d);
+  const dia = d.resumen?.fecha ? d.resumen.fecha + 'T12:00:00' : new Date().toISOString();
   return (
     <section className="pub-resumen" aria-labelledby="pubResumenT">
-      <h2 id="pubResumenT">Resumen del día <small>{fecha(r.fecha + 'T12:00:00')}</small></h2>
+      <h2 id="pubResumenT">Resumen del día <small>{fecha(dia)}</small></h2>
       {items.length
-        ? <ol>{items.map((a) => <li key={a.id}><a href={`#alerta-${a.id}`}>{a.titulo}</a>{a.deps.length > 0 && <small> · {a.deps.join(', ')}</small>}</li>)}</ol>
-        : <p>{r.texto || d.mensajeVacio}</p>}
+        ? <>
+            <ol>{items.map((a) => <li key={a.id}><a href={`#alerta-${a.id}`}>{a.titulo}</a>{a.deps.length > 0 && <small> · {a.deps.join(', ')}</small>}</li>)}</ol>
+            {(nuevas > 0 || resto > 0) && (
+              <p className="note">
+                {nuevas > 0 && `Incluye ${nuevas === 1 ? '1 alerta publicada' : `${nuevas} alertas publicadas`} después del resumen de la mañana. `}
+                {resto > 0 && `${resto === 1 ? 'Hay 1 alerta más' : `Hay ${resto} alertas más`} abajo.`}
+              </p>
+            )}
+          </>
+        : <p>{vacio}</p>}
     </section>
   );
 }
@@ -171,7 +181,7 @@ export function Publico() {
         {d?.ejemplo && <p className="note">Ejemplo: esta página aún no está conectada a la base de datos.</p>}
       </header>
 
-      {d && !anteriores && !filtrando && <Resumen d={d} />}
+      {d && !anteriores && !filtrando && (d.resumen || d.alertas.some((a) => a.actual)) && <Resumen d={d} />}
 
       <div className="toolbar">
         <label className="sr" htmlFor="pubQ">Buscar</label>

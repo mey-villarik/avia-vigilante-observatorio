@@ -78,7 +78,7 @@ SENAL = {
         'resumen': {'type': 'string', 'description': '1 o 2 frases, solo hechos de la fuente'},
         'recomendacion': {'type': 'string', 'description': 'Qué hace el sector turismo'},
         'naturaleza': {'type': 'string', 'enum': ['riesgo', 'oportunidad', 'mixta']},
-        'categoria': {'type': 'string', 'description': 'clima, salud, vial, seguridad, conectividad, eventos, financiamiento, mercados, normativa'},
+        'categoria': {'type': 'string', 'description': 'clima, salud, vial, seguridad, conectividad, eventos, financiamiento, mercados, economia, normativa'},
         'prioridad': {'type': 'string', 'enum': ['alta', 'media', 'baja']},
         'motivos_prioridad': {'type': 'array', 'items': {'type': 'string'}},
         'departamentos': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Nombres de departamentos'},
@@ -195,7 +195,9 @@ HERRAMIENTAS = [
     {'name': 'contadores',
      'description': 'Los totales del panel con definiciones fijas y la hora del cálculo (señales activas, oportunidades, '
                     'riesgos, mixtas, verificadas, por verificar, alertas publicadas, noticias en 24 h). Usa SIEMPRE estos '
-                    'números para dar totales y cita la hora: son los mismos que ve la persona en el panel.',
+                    'números para dar totales y cita la hora: son los mismos que ve la persona en el panel. '
+                    '«Verificadas» = confirmadas o publicadas con fuente oficial o 2 o más fuentes distintas; '
+                    '«confirmadas_sin_verificar» = las de una sola fuente no oficial: no las llames verificadas.',
      'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'contadores_cliente', 'args': lambda a: {}},
     # 2.5 (migración 37): fuentes internacionales (OPS/OMS, CEPAL, BBC/Reuters/AP) y su impacto en Bolivia
     {'name': 'contexto_internacional',

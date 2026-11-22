@@ -9,7 +9,7 @@ export type Rol = 'visor' | 'analista' | 'admin';
 export type VistaId = 'panorama' | 'mapa' | 'fuentes' | 'senales' | 'oportunidades' | 'internacional' | 'analisis' | 'bitacora';
 export type CategoriaId =
   | 'clima' | 'salud' | 'vial' | 'seguridad' | 'conectividad'
-  | 'eventos' | 'financiacion' | 'mercado' | 'normativa' | 'turismo';
+  | 'eventos' | 'financiacion' | 'mercado' | 'economia' | 'normativa' | 'turismo';
 
 /** Fuente tal como la devuelve vigilante.fuentes_web() (db/generico/06, 07 y 08) */
 export interface FuenteBd {
@@ -135,6 +135,18 @@ export interface SintesisDia {
   que_pasa: ItemSintesis[];
   por_que_importa: ItemSintesis[];
   que_vigilar: ItemSintesis[];
+  /** aviso aparte, encima de todo (db/generico/45_aviso_revisiones_vencidas.sql) */
+  revisiones_vencidas?: RevisionesVencidas;
+}
+
+/** Señales a las que se les pasó el plazo de revisión y nadie decidió (45_aviso_revisiones_vencidas.sql) */
+export interface RevisionesVencidas {
+  total: number;
+  /** las más antiguas primero (hasta 5) */
+  senales: { codigo: string; titulo: string; desde?: string | null }[];
+  /** quien responde: el asignado por el administrador o los analistas activos; null si no hay nadie */
+  responsable: string | null;
+  responsable_origen?: 'asignado' | 'analistas' | null;
 }
 
 /** Cambios desde ayer (db/generico/27_comparacion_dia.sql) */
@@ -147,6 +159,31 @@ export interface ComparacionDia {
   subieron_certeza: { codigo: string; titulo: string; antes: NivelCerteza; ahora: NivelCerteza }[];
   bajaron_certeza: { codigo: string; titulo: string; antes: NivelCerteza; ahora: NivelCerteza }[];
   resueltas: { codigo: string; titulo: string; como: 'cerrada' | 'descartada' | 'terminada' }[];
+}
+
+/** El Pulso de un día (db/generico/46_pulso_evolucion.sql) */
+export interface PulsoDia {
+  dia: string;
+  riesgo: number;
+  oportunidad: number;
+  vigilancia: 'Normal' | 'Vigilancia' | 'Atención' | 'Crítico';
+  activas?: number; riesgos?: number; oportunidades?: number;
+  /** true = calculado después con el historial de las señales (la prioridad y la fiabilidad son las de hoy) */
+  reconstruido?: boolean;
+}
+
+/** Evolución del Pulso a 7 y 30 días (db/generico/46_pulso_evolucion.sql) */
+export interface PulsoEvolucion {
+  hoy?: PulsoDia | null;
+  /** null = ese día aún no había señales: sin datos */
+  hace_7: PulsoDia | null;
+  hace_30: PulsoDia | null;
+  /** primer día con señales */
+  desde?: string | null;
+  /** desde qué día el valor se guarda en el momento (antes, reconstruido) */
+  registro_desde?: string | null;
+  umbral_estable?: number;
+  serie?: { dia: string; riesgo: number; oportunidad: number; reconstruido?: boolean }[];
 }
 
 /** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */

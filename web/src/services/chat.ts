@@ -8,7 +8,7 @@ import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
 import { CERTEZAS, NIVELES_CERTEZA, certezaDe } from '../lib/certeza';
 import { recoCorta, recoTexto } from '../lib/recomendacion';
-import { sintesisDe, sintesisTexto } from '../lib/sintesis';
+import { separarVencidas, sintesisDe, sintesisTexto } from '../lib/sintesis';
 import { calcularPulso, pulsoTexto } from '../lib/pulso';
 import { contar } from '../lib/contadores';
 import { separarRespuesta } from '../lib/respuesta';
@@ -127,7 +127,7 @@ function localReply(q: string): { text: string; act?: string } {
     const l = act.filter((x) => !dep || x.deps.includes(dep));
     if (dep) return { text: `Resumen de ${dep}: ${l.length} señales activas${st.origen === 'vps' ? '' : ' (datos de ejemplo)'}.\n` + bloques(l) };
     // el resumen del día va siempre en 3 bloques (mejora 8): qué pasa, por qué importa, qué vigilar
-    const sd = st.sintesisDia ?? sintesisDe(st.senales, st.fuentes, st.contadores ?? contar(st.senales, st.noticiasRevisadas ?? 0));
+    const sd = st.sintesisDia ? separarVencidas(st.sintesisDia, st.senales) : sintesisDe(st.senales, st.fuentes, st.contadores ?? contar(st.senales, st.noticiasRevisadas ?? 0));
     return { text: `Resumen del día${st.origen === 'vps' ? '' : ' (datos de ejemplo)'}:\n` + sintesisTexto(sd) };
   }
   const m = q.match(/SEN-\d{4}/i);

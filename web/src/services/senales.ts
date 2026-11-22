@@ -44,7 +44,7 @@ export async function moverSenal(codigo: string, estado: Etapa, nota?: string): 
 export type Columna = 'detectadas' | 'confirmadas' | 'publicadas';
 export const COLUMNAS: [Columna, string, string][] = [
   ['detectadas', 'Detectadas', 'AVIA las encontró y las está evaluando'],
-  ['confirmadas', 'Confirmadas', 'Verificadas, listas para publicar'],
+  ['confirmadas', 'Confirmadas', 'Listas para publicar. «Verificada» si las respalda una fuente oficial o 2 o más fuentes distintas; si no, «Sin verificar»'],
   ['publicadas', 'Publicadas', 'Ya salen en la web pública y en Telegram'],
 ];
 /** columna en la que se ve cada etapa; descartadas no se muestra */

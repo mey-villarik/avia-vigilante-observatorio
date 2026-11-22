@@ -4,8 +4,9 @@ import { CATS, DEPS } from '../data/demo';
 import { COLUMNAS, DESTINO, columnaDe, motivoNoPasa, type Columna, type Destino } from '../services/senales';
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
-import { CertezaTag, IntlTag, NatPill } from '../components/common';
+import { AccionTag, CertezaTag, IntlTag, NatPill } from '../components/common';
 import { porqueAvia, porqueFrase, puntuacionesDe } from '../lib/puntuaciones';
+import { esConfirmada, esVerificada, motivoVerificada } from '../lib/verificada';
 
 /** Probabilidad de que ocurra y por qué (solo señales confirmadas, db/generico/33_probabilidad_senales.sql) */
 function Probabilidad({ s }: { s: Senal }) {
@@ -21,7 +22,7 @@ function Probabilidad({ s }: { s: Senal }) {
         <span className="cprob-o">{p.origen === 'avia' ? 'AVIA' : 'cálculo base'}</span>
       </span>
       <span className="cprob-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
-      <span className="cprob-r">{p.avia ? porqueFrase(p.avia) : p.justificacion}</span>
+      <span className="cprob-r">{p.avia ? porqueFrase(p.avia) : 'AVIA todavía no ha explicado el porqué.'}</span>
     </span>
   );
 }
@@ -34,7 +35,10 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       onDragEnd={onDragEnd}
       onClick={() => openDrawer({ kind: 'senal', id: s.id })}>
       <span className="cm">
-        <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span><IntlTag codigo={s.id} />
+        <NatPill n={s.naturaleza} /><AccionTag s={s} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span><IntlTag codigo={s.id} />
+        {esConfirmada(s) && !s.escenario && (esVerificada(s)
+          ? <span className="tag verificada" title={motivoVerificada(s)}>Verificada</span>
+          : <span className="tag sin-verificar" title={motivoVerificada(s)}>Sin verificar</span>)}
         {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
         {s.revisionVencida && <span className="tag vencida" title="Pasó la hora que tiene el analista para revisarla y nadie decidió todavía. No es el plazo de la oportunidad.">Revisión atrasada</span>}
         {!s.revisionVencida && s.sla ? <span className="sla" title="Tiempo restante para revisar">⏱ {plazoTexto(s.sla)}</span> : null}

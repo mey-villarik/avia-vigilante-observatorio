@@ -168,10 +168,16 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
 $$;
 REVOKE ALL ON FUNCTION vigilante.senales_nacionales_para(uuid, text, text, int) FROM public, anon, authenticated;
 
+-- La versión vigente de lote_para_clasificar (la del 31, o la del 43 si se ejecutó después) pasa a
+-- llamarse lote_para_clasificar_31 y esta la envuelve. Si otro archivo (p. ej. el 43) la reemplazó
+-- después del 37, volver a ejecutar el 37 la envuelve de nuevo sin perder ese cambio.
 DO $$
+DECLARE v_src text := (SELECT p.prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                        WHERE n.nspname = 'vigilante' AND p.proname = 'lote_para_clasificar');
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                  WHERE n.nspname = 'vigilante' AND p.proname = 'lote_para_clasificar_31') THEN
+  IF v_src IS NOT NULL AND position('senales_nacionales' IN v_src) = 0 THEN
+    -- no es la del 37: es la vigente de antes → queda dentro
+    DROP FUNCTION IF EXISTS vigilante.lote_para_clasificar_31(text, int);
     ALTER FUNCTION vigilante.lote_para_clasificar(text, int) RENAME TO lote_para_clasificar_31;
   END IF;
 END $$;

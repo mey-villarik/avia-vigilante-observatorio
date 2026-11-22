@@ -58,26 +58,57 @@ END $$;
 SELECT vigilante.guardar_clasificacion('prueba-intl', jsonb_build_array(
   jsonb_build_object('clave', (SELECT id FROM n WHERE k = 'dengue-ops'), 'relevante', true,
     'titulo', 'OPS: alerta por dengue en América del Sur, con casos en Bolivia', 'resumen', 'Aumento de casos en Brasil, Paraguay y Bolivia.',
-    'naturaleza', 'riesgo', 'categoria', 'salud', 'prioridad', 'alta', 'departamentos', '["Santa Cruz"]',
+    -- sin departamentos: la alerta es regional; si nombrara Santa Cruz, el 43 la uniría a la señal nacional (mismo hecho)
+    'naturaleza', 'riesgo', 'categoria', 'salud', 'prioridad', 'alta',
     'impacto_bolivia', jsonb_build_object('hay_impacto', true, 'ambitos', '["salud","turismo"]',
                                           'via', 'Brote regional con casos en Bolivia; afecta a viajeros que llegan desde Brasil y Paraguay',
                                           'nivel', 'alto', 'plazo', 'inmediato',
                                           'refuerza', jsonb_build_array((pg_temp.senal('dengue-nac')).codigo, 'NO-EXISTE')))),
   'prueba', 'clasificador-1.8') AS ops;
 DO $$
-DECLARE s vigilante.signals := pg_temp.senal('dengue-ops'); j jsonb;
+DECLARE s vigilante.signals := pg_temp.senal('dengue-ops'); nac vigilante.signals := pg_temp.senal('dengue-nac'); j jsonb;
 BEGIN
-  ASSERT s.internacional, 'la señal de la OPS es internacional';
   ASSERT s.impacto_bolivia ->> 'nivel' = 'alto' AND s.impacto_bolivia ->> 'plazo' = 'inmediato', 'guarda el impacto en Bolivia';
-  ASSERT s.refuerza = ARRAY[(pg_temp.senal('dengue-nac')).id], 'refuerza solo la señal nacional que existe';
-  ASSERT NOT (pg_temp.senal('dengue-nac')).internacional, 'la nacional sigue siendo nacional';
   j := vigilante._internacional_json((SELECT c FROM ids));
   RAISE NOTICE 'panel: %', j;
   ASSERT jsonb_array_length(j -> 'fuentes') = 2, 'el panel ve las dos fuentes internacionales';
-  ASSERT jsonb_array_length(j -> 'senales') = 1 AND j #>> '{senales,0,codigo}' = s.codigo, 'y la señal internacional';
-  ASSERT j #>> '{senales,0,refuerza,0,codigo}' = (pg_temp.senal('dengue-nac')).codigo, 'con la señal nacional que refuerza';
-  ASSERT j -> 'contexto' -> (pg_temp.senal('dengue-nac')).codigo -> 0 ->> 'codigo' = s.codigo,
-         'la señal nacional recibe el contexto internacional';
+  ASSERT j -> 'senales' @> jsonb_build_array(jsonb_build_object('codigo', s.codigo)), 'el panel ve la señal con impacto en Bolivia';
+  IF s.id = nac.id THEN
+    -- con el 43, la base puede ver que es el MISMO hecho que la señal nacional y sumar la noticia como otra fuente
+    ASSERT NOT s.internacional, 'unida a la nacional: sigue siendo nacional, con el impacto que vio la OPS';
+    RAISE NOTICE 'La alerta de la OPS se unió a la señal nacional % (mismo hecho, 43)', s.codigo;
+  ELSE
+    ASSERT s.internacional, 'la señal de la OPS es internacional';
+    ASSERT s.refuerza = ARRAY[nac.id], 'refuerza solo la señal nacional que existe';
+    ASSERT NOT nac.internacional, 'la nacional sigue siendo nacional';
+    ASSERT j -> 'contexto' -> nac.codigo -> 0 ->> 'codigo' = s.codigo, 'la señal nacional recibe el contexto internacional';
+  END IF;
+END $$;
+
+-- 2b. Una alerta regional de otro tema que da contexto a la nacional (no es el mismo hecho) ------------
+SELECT pg_temp.noticia('viajeros-ops', 'i-ops', 'OPS recomienda a los viajeros protegerse de picaduras de mosquitos en la región',
+                       'Ante el aumento de enfermedades transmitidas por mosquitos (dengue, chikungunya), la OPS recomienda repelente a los viajeros.');
+SELECT vigilante.lote_para_clasificar('prueba-intl', 10) IS NOT NULL AS lote_viajeros;
+SELECT vigilante.guardar_clasificacion('prueba-intl', jsonb_build_array(
+  jsonb_build_object('clave', (SELECT id FROM n WHERE k = 'viajeros-ops'), 'relevante', true,
+    'titulo', 'OPS: recomendaciones a viajeros por enfermedades transmitidas por mosquitos', 'resumen', 'Repelente y ropa larga.',
+    'naturaleza', 'riesgo', 'categoria', 'salud', 'prioridad', 'media',
+    'impacto_bolivia', jsonb_build_object('hay_impacto', true, 'ambitos', '["salud","turismo"]',
+                                          'via', 'Viajeros hacia las tierras bajas de Bolivia', 'nivel', 'medio', 'plazo', 'semanas',
+                                          'refuerza', jsonb_build_array((pg_temp.senal('dengue-nac')).codigo, 'NO-EXISTE')))),
+  'prueba', 'clasificador-1.10') AS viajeros;
+DO $$
+DECLARE s vigilante.signals := pg_temp.senal('viajeros-ops'); nac vigilante.signals := pg_temp.senal('dengue-nac'); j jsonb;
+BEGIN
+  IF s.id = nac.id THEN
+    RAISE NOTICE 'También se unió a la nacional: no se puede probar «refuerza» con este texto';
+  ELSE
+    ASSERT s.internacional, 'la recomendación de la OPS es internacional';
+    ASSERT s.refuerza = ARRAY[nac.id], 'refuerza solo la señal nacional que existe (el código inventado no)';
+    j := vigilante._internacional_json((SELECT c FROM ids));
+    ASSERT j -> 'contexto' -> nac.codigo @> jsonb_build_array(jsonb_build_object('codigo', s.codigo)),
+           'la señal nacional recibe el contexto internacional';
+  END IF;
 END $$;
 
 -- 3. Un medio boliviano cuenta lo mismo que la BBC: la señal deja de ser solo internacional ----------

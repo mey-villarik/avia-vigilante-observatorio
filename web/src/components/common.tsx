@@ -4,6 +4,7 @@ import { CATS, STATE_TXT, STL } from '../data/demo';
 import { clock, scoreOf } from '../lib/util';
 import { useStore } from '../store';
 import { CERTEZAS, certezaDe } from '../lib/certeza';
+import { ACCION_TXT, accionDe, accionTitulo } from '../lib/accion';
 import { AMBITO_TXT, useInternacional } from '../services/internacional';
 import { Icon } from './Icon';
 
@@ -43,12 +44,21 @@ export function SigList({ list, opp }: { list: Senal[]; opp: boolean }) {
             {opp && s.plazo
               ? <span className="score" style={{ color: 'var(--opp)' }}>{s.plazo} días</span>
               : <span className="tag">{STL[s.estado]}</span>}
-            <span className="tech">puntuación <span className="score">{scoreOf(s)}</span></span>
+            {opp
+              ? <span className="tech">puntuación <span className="score">{scoreOf(s)}</span></span>
+              : <AccionTag s={s} />}
           </span>
         </button>
       ))}
     </div>
   );
+}
+
+/** Riesgos: «Actuar hoy / Preparar / Seguir» en vez de un número (la Dirección decide con esto) */
+export function AccionTag({ s }: { s: Senal }) {
+  if (s.naturaleza === 'oportunidad') return null;
+  const a = accionDe(s).accion;
+  return <span className={`tag accion accion-${a}`} title={accionTitulo(s)}>{ACCION_TXT[a]}</span>;
 }
 
 export function CatBars({ list }: { list: Senal[] }) {
@@ -89,6 +99,7 @@ export function CatBars({ list }: { list: Senal[] }) {
 export function LineChart() {
   const S = useStore((s) => s.serie);
   const real = useStore((s) => s.origen === 'vps');
+  if (S.labels.length < 2) return <div className="chart"><p className="note" role="status">Sin datos todavía.</p></div>;
   const top = Math.max(1, ...S.det, ...S.opp, ...S.risk);
   const paso = Math.ceil(top / 3 / 5) * 5 || 5;
   const max = paso * 3;

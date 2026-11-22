@@ -3,6 +3,7 @@
 // solo para los datos de ejemplo y para vigilante.json antiguos que no las traen.
 import type { Puntuaciones, Senal } from '../types';
 import { FUENTES_DEMO } from '../data/demo';
+import { DEMO } from './modo';
 
 /** Cómo se calcula cada número (documentación). Desde el 36 el ratón ya no muestra esto, sino el porqué de AVIA (porqueAvia). */
 export const EXPLICA = {
@@ -66,7 +67,7 @@ const RAZONES_DEMO: Record<string, [string, string, string]> = {
 export function puntuacionesDe(s: Senal): Puntuaciones {
   if (s.puntos) return s.puntos;
   const p = { ...puntuacionesEjemplo(s), probabilidad: probabilidadEjemplo(s) };
-  const r = RAZONES_DEMO[s.id];
+  const r = DEMO ? RAZONES_DEMO[s.id] : undefined; // las razones de ejemplo nunca se pintan en producción
   if (!r || p.probabilidad.valor == null) return p;
   return {
     fiabilidad: { ...p.fiabilidad, avia: r[1] },

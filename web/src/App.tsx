@@ -9,6 +9,7 @@ import { Chat } from './components/Chat';
 import { AlertaEmergente, ListaEventos, useEventosEmergentes } from './components/Emergentes';
 import { AlertaCambio, ListaCambios, useCambiosNoticias } from './components/Cambios';
 import { Foot } from './components/common';
+import { Cargando } from './components/Cargando';
 import { useChat } from './services/chat';
 import { REFRESCO_MS } from './services/datos';
 import { Panorama } from './views/Panorama';
@@ -88,6 +89,7 @@ function useShortcuts() {
 
 export default function App() {
   const view = useStore((s) => s.view);
+  const origen = useStore((s) => s.origen);
   usePrefs();
   useDatosVps();
   useEventosEmergentes();
@@ -96,6 +98,8 @@ export default function App() {
   useLiveSimulation();
   useShortcuts();
   const Vista = VISTAS[view];
+  // hasta que lleguen datos reales no se pinta nada de ejemplo: solo «Cargando…»
+  if (origen === 'ninguno') return <Cargando />;
   return (
     <>
       <div className="shell">

@@ -110,7 +110,11 @@ async def _deepseek(session: aiohttp.ClientSession,
         json={'model': LLM_MODEL, 'messages': messages, 'max_tokens': max_tokens},
         timeout=aiohttp.ClientTimeout(total=60),
     ) as r:
-        data = await r.json()
+        data = await r.json(content_type=None)
+    if not isinstance(data, dict) or not data.get('choices'):
+        # el proveedor del modelo devolvió un error (sin saldo, clave mala, modelo inexistente…): que se vea en el log
+        err = data.get('error') if isinstance(data, dict) else data
+        raise RuntimeError(f'LLM {LLM_BASE} modelo {LLM_MODEL} HTTP {r.status}: {str(err)[:300]}')
     return data['choices'][0]['message']['content']
 
 
@@ -140,6 +144,7 @@ GLOSARIO = """GLOSARIO (usa estas palabras siempre con este significado):
 - Señal: un hecho que importa al turismo, armado a partir de una o varias noticias sobre lo mismo; tiene naturaleza (oportunidad, riesgo, mixta) y etapa. La mayoría se queda en el panel del equipo.
 - Alerta: una señal que una persona del equipo confirmó y publicó (web pública o Telegram). Solo las señales en estado «publicada» son alertas. Un escenario nunca es alerta.
 - Recomendación: lo que AVIA propone hacer ante una señal: acción concreta, para quién y qué falta comprobar. No es una orden ni un hecho.
+- Verificada: señal confirmada o publicada que respalda una fuente oficial o 2 o más fuentes DISTINTAS (dos notas del mismo medio son una fuente). Cada señal trae «verificada»: true/false; usa ese dato. Una confirmada con una sola fuente no oficial es «confirmada sin verificar» y en la web pública sale «En verificación». No uses «verificada» con ningún otro sentido.
 Grado de certeza (cada señal trae uno; usa solo estas cuatro palabras):
 - Confirmado: ya pasó o está pasando y lo respalda una fuente oficial, dos fuentes distintas o una persona del equipo.
 - Convocado: anunciado por quien lo organiza para una fecha futura (paro, bloqueo, feria, convocatoria). Está anunciado; no se sabe si ocurrirá.
@@ -213,6 +218,9 @@ REGLAS
    × etapa, y 0 si el plazo venció; índice = 100 × suma de pesos ÷ (señales + 2). Las mixtas y los escenarios
    cuentan la mitad. Niveles: menos de 25 normal o bajo, 25-49 vigilancia o moderado, 50-74 atención o alto,
    75 o más crítico o muy alto. Las fuentes caídas no entran en los índices.
+   Evolución: si abajo hay un bloque EVOLUCIÓN DEL PULSO, es de la base: cita esos valores tal cual (hace 7 y
+   hace 30 días frente a ahora, y si mejora, empeora o está estable) y di «aproximado» en los reconstruidos.
+   Si no hay bloque o un valor dice «sin datos», dilo así; no calcules tú la tendencia.
 13. Cambios desde ayer: si preguntan qué cambió, las novedades de hoy o cómo está «comparado con ayer» y abajo
    vienen CAMBIOS DESDE AYER, no uses los seis bloques: responde con estos cuatro, en este orden:
    #### Nuevas · #### Subieron de certeza · #### Bajaron de certeza · #### Resueltas
@@ -239,6 +247,7 @@ _CAMPOS = ('id', 'titulo', 'resumen', 'naturaleza', 'categoria', 'estado', 'prio
 
 def _compacta(x: dict) -> dict:
     c = {k: x[k] for k in _CAMPOS if x.get(k) not in (None, '', [], {})}
+    c['verificada'] = _verificada(x)   # antes de recortar la trazabilidad
     t = c.get('trazabilidad')
     if isinstance(t, dict):   # hasta 3 fuentes por señal, para no gastar tokens
         c['trazabilidad'] = {**t, 'fuentes': [{k: f[k] for k in ('nombre', 'oficial', 'url', 'publicada', 'recogida', 'fecha', 'nota') if k in f}
@@ -269,6 +278,43 @@ def _sintesis_txt(s) -> str:
             f"Qué vigilar:\n{lineas(s.get('que_vigilar'))}")
 
 
+# Preguntas por la tendencia del Pulso (DIANA 2.3, db/generico/46_pulso_evolucion.sql)
+_RE_TENDENCIA = re.compile(r'pulso|tendencia|evoluci|mejora|empeora|estable|hace (7|siete|30|treinta) d[ií]as|[uú]ltim[oa]s? (semana|mes)', re.I)
+_UMBRAL_ESTABLE = 5   # igual que UMBRAL_ESTABLE en web/src/lib/pulso.ts
+
+
+def _pulso_evol_txt(e) -> str:
+    """El Pulso de hoy frente al de hace 7 y 30 días (vigilante.pulso_evolucion), en texto para el prompt.
+    Mismas reglas que tendencia() en web/src/lib/pulso.ts: menos de 5 puntos = estable; en riesgos subir es empeorar."""
+    if not isinstance(e, dict) or not isinstance(e.get('hoy'), dict):
+        return ('EVOLUCIÓN DEL PULSO: la base aún no la calcula (falta ejecutar 46_pulso_evolucion.sql). '
+                'Si preguntan si mejora o empeora, dilo así y no lo estimes.')
+    hoy = e['hoy']
+    u = e.get('umbral_estable') or _UMBRAL_ESTABLE
+
+    def comp(indice, nombre, antes, cuando):
+        if not isinstance(antes, dict):
+            return f'- {nombre}, frente a {cuando}: sin datos (aún no había señales)'
+        a, h = antes.get(indice), hoy.get(indice)
+        if a is None or h is None:
+            return f'- {nombre}, frente a {cuando}: sin datos'
+        d = h - a
+        if abs(d) < u:
+            sentido = 'estable'
+        else:
+            sentido = 'mejora' if (d > 0) == (indice == 'oportunidad') else 'empeora'
+        aprox = ' (aproximado: reconstruido con el historial de las señales)' if antes.get('reconstruido') else ''
+        return f"- {nombre}, frente a {cuando} ({antes.get('dia')}): de {a} a {h} ({d:+d}) → {sentido}{aprox}"
+
+    lineas = []
+    for indice, nombre in (('riesgo', 'Atención a riesgos'), ('oportunidad', 'Oportunidad')):
+        lineas.append(comp(indice, nombre, e.get('hace_7'), 'hace 7 días'))
+        lineas.append(comp(indice, nombre, e.get('hace_30'), 'hace 30 días'))
+    return (f"EVOLUCIÓN DEL PULSO (calculada por la base con las mismas reglas que el panel; no la recalcules):\n"
+            f"Ahora: atención a riesgos {hoy.get('riesgo')}/100, oportunidad {hoy.get('oportunidad')}/100, nivel {hoy.get('vigilancia')}.\n"
+            + '\n'.join(lineas))
+
+
 # Preguntas por lo que cambió (mejora «vs ayer», db/generico/27_comparacion_dia.sql)
 _RE_CAMBIOS = re.compile(r'qu[eé] (ha )?cambi|cambios|novedad|nuevo hoy|nuevas hoy|(comparad[oa]s?|frente|respecto|vs\.?) (a |con )?ayer|desde ayer|'
                          r'[uú]ltimas 24|qu[eé] hay de nuevo|qu[eé] pas[oó] (hoy|desde)', re.I)
@@ -297,6 +343,70 @@ def _comparacion_txt(c) -> str:
             f"Resueltas:\n{lineas(c.get('resueltas'), resuelta)}")
 
 
+def _verificada(x: dict) -> bool:
+    """Regla única de «Verificada» (db/generico/40_verificada_unica.sql y web/src/lib/verificada.ts):
+    confirmada o publicada, no escenario, y fuente oficial o 2 o más fuentes distintas."""
+    if x.get('estado') not in ('confirmada', 'publicada') or x.get('escenario'):
+        return False
+    f = ((x.get('puntuaciones') or {}).get('fiabilidad') or {}) if isinstance(x.get('puntuaciones'), dict) else {}
+    if f:
+        return bool(f.get('oficial')) or (f.get('fuentes') or 0) >= 2
+    t = x.get('trazabilidad') if isinstance(x.get('trazabilidad'), dict) else {}
+    fu = [z for z in (t.get('fuentes') or []) if isinstance(z, dict)]
+    if fu:
+        return any(z.get('oficial') for z in fu) or len({z.get('nombre') or z.get('url') for z in fu}) >= 2
+    return len(x.get('enlaces') or []) >= 2
+
+
+def _al_dia(k: dict, activas: list) -> dict:
+    """Pasa los contadores de una base anterior al 40 a la regla única, igual que hace la web:
+    con el 39 las de una sola fuente salen de «verificadas»; sin el 39 se cuentan aquí."""
+    if k.get('confirmadas_sin_verificar') is not None:
+        return k
+    k = dict(k)
+    if k.get('verificadas_oficial') is not None and k.get('verificadas_una_fuente') is not None:
+        k['confirmadas_sin_verificar'] = k['verificadas_una_fuente']
+        k['verificadas'] = (k.get('verificadas_2_fuentes') or 0) + (k.get('verificadas_oficial') or 0)
+    else:
+        ver = [x for x in activas if _verificada(x)]
+        k['verificadas'] = len(ver)
+        k['verificadas_2_fuentes'] = None
+        k['verificadas_oficial'] = None
+        k['confirmadas_sin_verificar'] = sum(1 for x in activas if x.get('estado') in ('confirmada', 'publicada') and not _verificada(x))
+    k['verificadas_una_fuente'] = 0
+    return k
+
+
+def _desglose_verificadas(k: dict) -> str:
+    """«55 por fuente oficial · 2 con 2 o más fuentes» (las dos suman «verificadas»)."""
+    if k.get('verificadas_oficial') is None:
+        return 'por fuente oficial o con 2 o más fuentes distintas'
+    partes = [(k.get('verificadas_oficial'), 'por fuente oficial'), (k.get('verificadas_2_fuentes'), 'con 2 o más fuentes distintas')]
+    return ' · '.join(f'{v} {t}' for v, t in partes if v) or 'ninguna'
+
+
+def _cifras_fuentes(fuentes: list) -> dict:
+    """Misma regla que web/src/lib/contadores.ts → cifrasFuentes() y vigilante.contadores() (41):
+    activas = no MANT; leídas = OK o WARN; sin leer = el resto de las activas (CRIT o UNKNOWN)."""
+    act = [f for f in fuentes if isinstance(f, dict) and f.get('estado') != 'MANT']
+    leidas = sum(1 for f in act if f.get('estado') in ('OK', 'WARN'))
+    return {'fuentes_activas': len(act), 'fuentes_leidas': leidas, 'fuentes_sin_leer': len(act) - leidas,
+            'fuentes_en_pausa': sum(1 for f in fuentes if isinstance(f, dict) and f.get('estado') == 'MANT')}
+
+
+def _fuentes_txt(k: dict) -> str:
+    """«28 de 33 fuentes leídas · 5 sin leer»: la misma cifra que el encabezado, el Pulso y la pestaña Fuentes."""
+    if k.get('fuentes_activas') is None:
+        return ''
+    pausa = k.get('fuentes_en_pausa') or 0
+    extra = f" ({pausa} en pausa o propuestas, no cuentan)" if pausa else ''
+    if k.get('fuentes_leidas') is None:
+        return f"- Fuentes que AVIA vigila: {k.get('fuentes_activas')} activas{extra}\n"
+    return (f"- Fuentes que AVIA vigila: {k.get('fuentes_leidas')} de {k.get('fuentes_activas')} leídas · "
+            f"{k.get('fuentes_sin_leer')} sin leer{extra}. Leída = su última comprobación dio OK o AVISO; "
+            "sin leer = CRÍTICO o todavía sin comprobar\n")
+
+
 def _contar(activas: list, ctx: dict) -> dict:
     """Solo si la base aún no tiene el 21: mismas definiciones que vigilante.contadores()."""
     n = lambda f: sum(1 for x in activas if f(x))
@@ -307,8 +417,8 @@ def _contar(activas: list, ctx: dict) -> dict:
         'riesgos': n(lambda x: x.get('naturaleza') == 'riesgo'),
         'mixtas': n(lambda x: x.get('naturaleza') == 'mixta'),
         'plazo_corto': '¿?', 'riesgos_altos': n(lambda x: x.get('naturaleza') == 'riesgo' and x.get('prioridad') == 'alta'),
-        'verificadas': n(lambda x: x.get('estado') in ver),
-        'verificadas_2_fuentes': n(lambda x: x.get('estado') in ver and len(x.get('enlaces') or []) >= 2),
+        'verificadas': n(_verificada),
+        'confirmadas_sin_verificar': n(lambda x: x.get('estado') in ver and not _verificada(x)),
         'por_verificar': n(lambda x: x.get('estado') in pend),
         'esperan_aprobacion': n(lambda x: x.get('estado') in pend and bool(x.get('revision'))),
         'alertas_publicadas': n(lambda x: x.get('estado') == 'publicada'),
@@ -411,7 +521,10 @@ async def handle_chat(request: web.Request) -> web.Response:
         senales = pedidas + [_compacta(x) for x in activas[:_MAX_SENALES] if x not in pedidas]
         fuentes = [f for f in ctx.get('fuentes', []) if f.get('estado') not in ('activa', 'OK', None)][:5]
         sin_datos = not ctx
-        k       = ctx.get('contadores') or _contar(activas, ctx)
+        k       = _al_dia(ctx.get('contadores') or _contar(activas, ctx), activas)
+        if k.get('fuentes_leidas') is None and ctx.get('fuentes'):
+            # base anterior al 41: las cuatro cifras de la misma lista que cuenta la web, para que cuadren entre sí
+            k = {**k, **_cifras_fuentes(ctx['fuentes'])}
         hora    = _hora_bolivia(k.get('actualizado') or ctx.get('generado'))
 
         system = f"""Eres AVIA, el asistente inteligente del Observatorio Turístico de Bolivia (ORBITA).
@@ -429,8 +542,9 @@ CONTADORES (usa estos números tal cual; no cuentes tú la lista):
 - Oportunidades: {k.get('oportunidades')} · Riesgos: {k.get('riesgos')} · Mixtas: {k.get('mixtas')}
 - Oportunidades con plazo en menos de 15 días: {k.get('plazo_corto')}
 - Riesgos de prioridad alta: {k.get('riesgos_altos')}
-- Verificadas (confirmadas o publicadas): {k.get('verificadas')} ({k.get('verificadas_2_fuentes')} con 2 o más fuentes)
-- Por verificar: {k.get('por_verificar')} ({k.get('esperan_aprobacion')} esperan aprobación de un analista)
+- Verificadas (confirmadas o publicadas con fuente oficial o 2 o más fuentes distintas): {k.get('verificadas')} ({_desglose_verificadas(k)})
+- Confirmadas sin verificar (una sola fuente no oficial; NO las llames verificadas): {k.get('confirmadas_sin_verificar') or 0}
+{_fuentes_txt(k)}- Por verificar: {k.get('por_verificar')} ({k.get('esperan_aprobacion')} esperan aprobación de un analista)
 - Alertas publicadas: {k.get('alertas_publicadas')}
 - Noticias revisadas en 24 h: {k.get('noticias_24h')}
 
@@ -440,6 +554,8 @@ Cuando des un número total, cita la hora: «según los datos actualizados a las
 {_sintesis_txt(ctx.get('sintesis_dia'))}
 
 {_comparacion_txt(ctx.get('comparacion_dia')) if _RE_CAMBIOS.search(ultima) else ''}
+
+{_pulso_evol_txt(ctx.get('pulso_evolucion')) if _RE_TENDENCIA.search(ultima) else ''}
 
 SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}

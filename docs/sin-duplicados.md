@@ -37,7 +37,7 @@ Ejemplos reales de parecido: «Lanzan nueva ruta turística al Salar de Uyuni» 
    select * from vigilante.senales_repetidas();      -- solo mira (últimos 30 días)
    select vigilante.juntar_senales_repetidas();       -- junta: la repetida pasa a «descartada» y apunta a la otra
    ```
-   Lo publicado nunca se junta solo; si dos publicadas se repiten, decide una persona.
+   Lo publicado nunca se junta solo; si dos publicadas se repiten, decide una persona. **Desde el 43** sí se juntan (se queda la publicada): ver [mismo-hecho.md](mismo-hecho.md).
 3. Para ver fuentes con la misma dirección (debería salir vacío tras el paso 1):
    ```sql
    select * from vigilante.fuentes_misma_direccion();

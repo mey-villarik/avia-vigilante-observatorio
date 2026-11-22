@@ -5,22 +5,25 @@ import type { PanelId } from '../types';
 import { DEPS, CATS, STL, catName } from '../data/demo';
 import { activeSignals, canDecide, pendingDecision, useContadores, useSintesisDia, useStore } from '../store';
 import { CERTEZAS } from '../lib/certeza';
+import { textoResponsable, textoVencidas } from '../lib/sintesis';
 import type { ItemSintesis } from '../types';
-import { horaBolivia } from '../lib/contadores';
+import { desgloseVerificadas, horaBolivia, textoFuentes, textoSinVerificar } from '../lib/contadores';
+import { DEF_SIN_VERIFICAR, DEF_VERIFICADA } from '../lib/verificada';
 import { puntuacionesDe } from '../lib/puntuaciones';
 import { esReciente, plazoTexto, scoreOf } from '../lib/util';
+import { ordenAccion } from '../lib/accion';
 import { useEventos } from '../services/eventos';
 import { useCambios } from '../services/cambios';
 import { resumenRegion } from '../lib/regiones';
 import { MapaBolivia } from '../views/Mapa';
-import { calcularPulso, posicionVigilancia } from '../lib/pulso';
+import { calcularPulso, posicionVigilancia, SENTIDO_TXT, tendencia, tendenciaTexto, type Pulso as PulsoCalc, type Tendencia } from '../lib/pulso';
+import { enBolivia } from '../lib/hora';
 import { leerVotos, type VotoPublicacion } from '../services/senales';
 import { supabase } from '../services/auth';
 import { Icon } from '../components/Icon';
 import { CatBars, Empty, EventsList, Histo, LineChart, NatPill, SigList, StPill } from '../components/common';
 
 /** noticias leídas: la cifra del VPS, o el último punto de la serie */
-const PRIO = { alta: 0, media: 1, baja: 2 } as const;
 
 /** «Cambios desde ayer» (db/generico/27_comparacion_dia.sql): solo los conteos; si todo es 0, no se muestra */
 function CambiosAyer() {
@@ -64,8 +67,22 @@ function Sintesis() {
       {l.length ? <ul>{l.map((i, n) => <Item key={`${i.codigo ?? i.tipo}-${n}`} i={i} />)}</ul> : <p className="note" style={{ margin: 0 }}>{vacio}</p>}
     </section>
   );
+  const rv = sd.revisiones_vencidas;
   return (
     <div className="synth">
+      {rv && rv.total > 0 && (
+        <section className="aviso-vencidas" role="alert" aria-label="Revisiones vencidas">
+          <p className="av-t"><Icon name="clock" /> <b>{textoVencidas(rv.total)}</b>: nadie {rv.total === 1 ? 'la decidió' : 'las decidió'} a tiempo</p>
+          <p className={`av-r ${rv.responsable ? '' : 'sin'}`}>{textoResponsable(rv)}</p>
+          {rv.senales.length > 0 && (
+            <ul>
+              {rv.senales.map((x) => <li key={x.codigo}><button className="linklike" onClick={() => abrir(x.codigo)}>{x.titulo}</button></li>)}
+              {rv.total > rv.senales.length && <li className="muted">y {rv.total - rv.senales.length} más</li>}
+            </ul>
+          )}
+          <button className="btn sm" onClick={() => useStore.getState().go('senales')}>Revisar ahora</button>
+        </section>
+      )}
       <p className="sd-t">{sd.totales}</p>
       <CambiosAyer />
       <Bloque t="Qué pasa" l={sd.que_pasa} vacio="Sin novedades confirmadas ni convocadas." />
@@ -75,7 +92,7 @@ function Sintesis() {
         <div className="kpi"><small>Señales activas</small><b className="num">{k.senales_activas}</b><em>sin descartadas</em></div>
         <div className="kpi"><small>Oportunidades</small><b className="num" style={{ color: 'var(--opp)' }}>{k.oportunidades}</b><em>{k.plazo_corto} con plazo &lt; 15 días{k.mixtas ? ` · ${k.mixtas} mixtas aparte` : ''}</em></div>
         <div className="kpi"><small>Riesgos</small><b className="num" style={{ color: 'var(--risk)' }}>{k.riesgos}</b><em>{k.riesgos_altos} de prioridad alta</em></div>
-        <div className="kpi"><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{k.verificadas}</b><em>{k.verificadas_2_fuentes} con 2 o más fuentes</em></div>
+        <div className="kpi" title={`${DEF_VERIFICADA}\n${DEF_SIN_VERIFICAR}`}><small>Verificadas</small><b className="num" style={{ color: 'var(--ok)' }}>{k.verificadas}</b><em>{desgloseVerificadas(k)}{textoSinVerificar(k) ? <><br />{textoSinVerificar(k)}</> : null}</em></div>
       </div>
       <p className="note actualizado" title="Los mismos números que recibe AVIA (vigilante.contadores)">
         Datos actualizados a las {horaBolivia(k.actualizado)} (hora de Bolivia){real ? '' : ' · datos de ejemplo'}
@@ -94,6 +111,44 @@ function Ring({ v, col }: { v: number; col: string }) {
       <text x={59} y={63} textAnchor="middle" fill="var(--ink)" style={{ fontFamily: 'var(--f-display)', fontSize: 30 }}>{v}</text>
       <text x={59} y={81} textAnchor="middle" fill="var(--faint)" style={{ fontFamily: 'var(--f-mono)', fontSize: 9 }}>DE 100</text>
     </svg>
+  );
+}
+
+/** Una celda de la evolución: flecha, mejora/empeora/estable y de cuánto a cuánto */
+function CeldaTendencia({ t, cuando }: { t: Tendencia | null; cuando: string }) {
+  if (!t) return <div className="evo-c evo-sin" title={`${cuando} aún no había señales: no hay con qué comparar`}>sin datos</div>;
+  const flecha = t.flecha === 'sube' ? '↑' : t.flecha === 'baja' ? '↓' : '→';
+  const titulo = `${tendenciaTexto(t)} · ${cuando} (${enBolivia(t.dia, 'diaCorto')})${t.reconstruido ? '. ≈ Reconstruido con el historial de las señales' : ''}`;
+  return (
+    <div className={`evo-c evo-${t.sentido}`} title={titulo} aria-label={titulo}>
+      <span className="evo-f" aria-hidden="true">{flecha}</span>
+      <span className="evo-s">{SENTIDO_TXT[t.sentido]}</span>
+      <span className="evo-n mono">{t.reconstruido ? '≈' : ''}{t.antes} → {t.ahora}</span>
+    </div>
+  );
+}
+
+/** Evolución del Pulso a 7 y 30 días (DIANA 2.3, db/generico/46_pulso_evolucion.sql) */
+function EvolucionPulso({ p }: { p: PulsoCalc }) {
+  const e = useStore((s) => s.pulsoEvolucion);
+  if (!e) return <p className="note evo-falta">Evolución a 7 y 30 días: la base aún no guarda el historial del Pulso.</p>;
+  const u = e.umbral_estable ?? undefined;
+  const filas: [string, 'riesgo' | 'oportunidad', number][] = [['Atención a riesgos', 'riesgo', p.riesgo], ['Oportunidad', 'oportunidad', p.oportunidad]];
+  const reconstruido = [e.hace_7, e.hace_30].some((d) => d?.reconstruido);
+  return (
+    <div className="evo">
+      <div className="evo-g">
+        <span className="evo-h">Evolución</span><span className="evo-h">Hace 7 días</span><span className="evo-h">Hace 30 días</span>
+        {filas.map(([nombre, i, ahora]) => (
+          <div className="evo-r" key={i}>
+            <span className="evo-l">{nombre}</span>
+            <CeldaTendencia t={tendencia(i, ahora, e.hace_7, u)} cuando="hace 7 días" />
+            <CeldaTendencia t={tendencia(i, ahora, e.hace_30, u)} cuando="hace 30 días" />
+          </div>
+        ))}
+      </div>
+      {reconstruido ? <p className="note evo-nota">≈ reconstruido con el historial de las señales{e.registro_desde ? `; se guarda cada hora desde el ${enBolivia(e.registro_desde, 'diaLargo')}` : ''}.</p> : null}
+    </div>
   );
 }
 
@@ -117,6 +172,7 @@ function Pulso() {
           <small className="gauge-d">{d.oportunidades} {d.oportunidades === 1 ? 'oportunidad' : 'oportunidades'}{d.plazoCorto ? ` · ${d.plazoCorto} cierran en menos de 15 días` : ''}</small>
         </div>
       </div>
+      <EvolucionPulso p={p} />
       <div className="scale">
         <div className="scale-bar"><i style={{ left: `${posicionVigilancia(p)}%` }} /></div>
         <div className="scale-l">{niveles.map((n) => <span key={n} className={n === p.vigilancia ? 'on' : undefined}>{n}</span>)}</div>
@@ -126,7 +182,7 @@ function Pulso() {
         {real ? <>Calculado con las {d.activas} señales activas{ventana ? ` de las últimas ${ventana} h` : ''}</> : <>Datos de ejemplo</>}.
         {' '}Los índices miden lo serias que son las señales, no cuántas hay: los riesgos según prioridad, fiabilidad de la evidencia y si ya están verificados; las oportunidades según su relevancia, novedad y fiabilidad, y si el plazo sigue abierto.
         {d.revisionVencida ? <> <b>{d.revisionVencida} con la revisión vencida.</b></> : null}
-        {d.fuentesTotal ? <> Fuentes leyendo bien: {d.fuentesOk} de {d.fuentesTotal}{d.fuentesOk < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
+        {d.fuentesTotal ? <> Fuentes: {d.fuentesLeidas} de {d.fuentesTotal} leídas · {d.fuentesSinLeer} sin leer{d.fuentesLeidas < d.fuentesTotal * 0.7 ? ', así que puede haber señales sin detectar' : ''}.</> : null}
       </p>
     </>
   );
@@ -179,7 +235,7 @@ function Oportunidades() {
 }
 
 function Riesgos() {
-  const l = activeSignals(useStore((s) => s.senales)).filter((s) => s.naturaleza === 'riesgo').sort((a, b) => PRIO[a.prioridad] - PRIO[b.prioridad]).slice(0, 5);
+  const l = activeSignals(useStore((s) => s.senales)).filter((s) => s.naturaleza === 'riesgo').sort(ordenAccion).slice(0, 5);
   return <SigList list={l} opp={false} />;
 }
 
@@ -313,11 +369,11 @@ export const PANEL_BODY: Record<PanelId, () => JSX.Element> = {
 };
 
 export function usePanelMeta(id: PanelId): string {
-  const nFuentes = useStore((s) => s.fuentes.length);
+  const fuentesTxt = textoFuentes(useStore((s) => s.fuentes), false);
   const real = useStore((s) => s.origen === 'vps');
   const nPend = pendingDecision(useStore((s) => s.senales)).length;
   const meta: Record<PanelId, string> = {
-    sintesis: 'Borrador de AVIA', fuentes: `${nFuentes} fuentes`, oportunidades: 'por puntuación', riesgos: 'vigentes',
+    sintesis: 'Borrador de AVIA', fuentes: fuentesTxt, oportunidades: 'por puntuación', riesgos: 'vigentes',
     mapa: '9 departamentos', evolucion: real ? 'VPS' : 'demo', decision: `${nPend} pendientes`, actividad: real ? 'VPS' : 'en vivo', temas: real ? 'VPS' : '7 días',
     cadena: 'hoy', pulso: 'índice', categorias: 'activas', valoracion: 'web pública',
   };

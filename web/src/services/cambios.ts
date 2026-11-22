@@ -106,8 +106,16 @@ export function sonarAlarma(): void {
   } catch { /* sin sonido */ }
 }
 
+// Alertas cerradas con clic fuera de la ventana: no vuelven a saltar en esta sesión, pero siguen sin ver.
+const POSPUESTOS_KEY = 'orbita.cambios.pospuestos';
+function leerPospuestos(): string[] {
+  try { const v = JSON.parse(sessionStorage.getItem(POSPUESTOS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+
 interface CambiosState {
   cambios: Cambio[];
+  /** códigos de las alertas cerradas con clic fuera */
+  pospuestos: string[];
   /** false si la base aún no tiene el 31 */
   disponible: boolean;
   error: string | null;
@@ -118,12 +126,15 @@ interface CambiosState {
   cargar: () => Promise<void>;
   marcarVisto: (codigo: string | null) => Promise<void>;
   descartar: (codigo: string, motivo: string) => Promise<void>;
+  /** cierra todas las alertas pendientes sin marcarlas como vistas */
+  posponer: () => void;
   setListaAbierta: (v: boolean) => void;
   setSonido: (v: boolean) => void;
 }
 
 export const useCambios = create<CambiosState>((set, get) => ({
   cambios: [],
+  pospuestos: leerPospuestos(),
   disponible: true,
   error: null,
   listaAbierta: false,
@@ -143,7 +154,8 @@ export const useCambios = create<CambiosState>((set, get) => ({
     const cambios = visibles((Array.isArray(data) ? data : []) as Cambio[]);
     set({ cambios, error: null, cargadoUnaVez: true });
     // suena cuando aparece un cambio nuevo sin ver (y al entrar, si hay alguno pendiente)
-    if (get().sonido && cambios.some((c) => c.alerta && !c.visto && (primera || !antes.has(c.codigo)))) sonarAlarma();
+    const pos = new Set(get().pospuestos);
+    if (get().sonido && cambios.some((c) => c.alerta && !c.visto && !pos.has(c.codigo) && (primera || !antes.has(c.codigo)))) sonarAlarma();
   },
   marcarVisto: async (codigo) => {
     // se oculta al momento; si la base falla, vuelve a salir en la siguiente consulta
@@ -158,6 +170,14 @@ export const useCambios = create<CambiosState>((set, get) => ({
     if (error) throw new Error(traducir(error.message));
     set({ cambios: get().cambios.filter((c) => c.codigo !== codigo) });
   },
+  posponer: () => {
+    const pos = new Set(get().pospuestos);
+    get().cambios.forEach((c) => { if (c.alerta && !c.visto) pos.add(c.codigo); });
+    const vivos = new Set(get().cambios.map((c) => c.codigo));
+    const pospuestos = [...pos].filter((k) => vivos.has(k));
+    try { sessionStorage.setItem(POSPUESTOS_KEY, JSON.stringify(pospuestos)); } catch { /* solo en memoria */ }
+    set({ pospuestos });
+  },
   setListaAbierta: (v) => set({ listaAbierta: v }),
   setSonido: (v) => {
     try { localStorage.setItem(SONIDO_KEY, v ? '1' : '0'); } catch { /* solo en esta sesión */ }
@@ -170,5 +190,6 @@ export const useCambios = create<CambiosState>((set, get) => ({
 const visibles = (cs: Cambio[]) => cs.filter((c) => !c.oculta_en || Date.parse(c.oculta_en) > Date.now());
 
 /** El cambio sin ver más antiguo primero: se leen en el orden en que pasaron */
-export const cambioPendiente = (cs: Cambio[]) => [...cs].reverse().find((c) => c.alerta && !c.visto) ?? null;
+export const cambioPendiente = (cs: Cambio[], pospuestos: string[] = []) =>
+  [...cs].reverse().find((c) => c.alerta && !c.visto && !pospuestos.includes(c.codigo)) ?? null;
 export const sinVer = (cs: Cambio[]) => cs.filter((c) => !c.visto).length;

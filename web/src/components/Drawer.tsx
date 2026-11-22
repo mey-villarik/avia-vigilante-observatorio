@@ -5,13 +5,14 @@ import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
 import { ago, clock, plazoTexto, porRevisar } from '../lib/util';
 import { Icon } from './Icon';
-import { CertezaTag, ContextoIntl, Histo, IntlTag, NatPill, StPill } from './common';
+import { AccionTag, CertezaTag, ContextoIntl, Histo, IntlTag, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { porqueAvia, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
+import { enBolivia } from '../lib/hora';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 import { afirmaOperativo, recoDe } from '../lib/recomendacion';
 import { EXPLICA as PULSO_EXPLICA, calcularPulso, factoresTexto, masPesan } from '../lib/pulso';
@@ -87,21 +88,21 @@ function FuenteDetalle({ id }: { id: string }) {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{s.bd.palabras_clave!.map((p) => <span className="tag" key={p}>{p}</span>)}</div>
             )}
             <p className="note" style={{ margin: 0 }}>
-              {s.bd.alta_por ? `Alta de ${s.bd.alta_por}` : 'Alta por AVIA'}{s.bd.creada_en ? ` el ${new Date(s.bd.creada_en).toLocaleDateString('es-BO')}` : ''}
-              {s.bd.editada_por ? ` · Última edición: ${s.bd.editada_por}${s.bd.editada_en ? `, ${new Date(s.bd.editada_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}` : ''}
+              {s.bd.alta_por ? `Alta de ${s.bd.alta_por}` : 'Alta por AVIA'}{s.bd.creada_en ? ` el ${enBolivia(s.bd.creada_en, 'fecha')}` : ''}
+              {s.bd.editada_por ? ` · Última edición: ${s.bd.editada_por}${s.bd.editada_en ? `, ${enBolivia(s.bd.editada_en, 'fechaHora')}` : ''}` : ''}
             </p>
           </>
         )}
         {s.bd?.revision_pedida_en && (!s.bd.ultima_consulta_en || Date.parse(s.bd.ultima_consulta_en) < Date.parse(s.bd.revision_pedida_en)) && (
-          <p className="note" style={{ margin: 0 }}>↻ {s.bd.revision_pedida_por ?? 'Alguien'} pidió una revisión el {new Date(s.bd.revision_pedida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}: AVIA la revisa en su próxima ronda.</p>
+          <p className="note" style={{ margin: 0 }}>↻ {s.bd.revision_pedida_por ?? 'Alguien'} pidió una revisión el {enBolivia(s.bd.revision_pedida_en, 'fechaHora')}: AVIA la revisa en su próxima ronda.</p>
         )}
         {s.ack && s.bd?.reconocida_por && (
-          <p className="note" style={{ margin: 0 }}>✓ {s.bd.reconocida_por} reconoció el problema{s.bd.reconocida_en ? ` el ${new Date(s.bd.reconocida_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}{s.bd.reconocida_nota ? `: ${s.bd.reconocida_nota}` : ''}. Se quita solo cuando la fuente vuelve a OK.</p>
+          <p className="note" style={{ margin: 0 }}>✓ {s.bd.reconocida_por} reconoció el problema{s.bd.reconocida_en ? ` el ${enBolivia(s.bd.reconocida_en, 'fechaHora')}` : ''}{s.bd.reconocida_nota ? `: ${s.bd.reconocida_nota}` : ''}. Se quita solo cuando la fuente vuelve a OK.</p>
         )}
         {s.bd && (s.bd.errores_seguidos ?? 0) > 0 && (
           <p className="note" style={{ margin: 0, color: 'var(--crit)' }}>
             Lleva {s.bd.errores_seguidos} {s.bd.errores_seguidos === 1 ? 'comprobación fallida' : 'comprobaciones fallidas seguidas'}
-            {s.bd.ultimo_exito_en ? ` · Último acierto: ${new Date(s.bd.ultimo_exito_en).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+            {s.bd.ultimo_exito_en ? ` · Último acierto: ${enBolivia(s.bd.ultimo_exito_en, 'fechaHora')}` : ''}
             {s.bd.ultimo_error ? ` · ${s.bd.ultimo_error}` : ''}
           </p>
         )}
@@ -162,7 +163,7 @@ function SenalDetalle({ id }: { id: string }) {
       <Head icon="senales">Señal {s.id}{real ? '' : ' · ejemplo'}</Head>
       <div className="drawer-b">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span><IntlTag codigo={s.id} />
+          <NatPill n={s.naturaleza} /><AccionTag s={s} /><CertezaTag s={s} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span><IntlTag codigo={s.id} />
           {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
           {s.revisionVencida && <span className="tag vencida">Plazo de revisión vencido</span>}
           {!s.revisionVencida && s.sla ? <span className="sla">⏱ {plazoTexto(s.sla)} para revisar</span> : null}
@@ -374,17 +375,19 @@ function Puntos({ s }: { s: Parameters<typeof puntuacionesDe>[0] }) {
           <b className="mono">{p.fiabilidad.valor}/100 · {p.fiabilidad.nivel}</b>
           {p.fiabilidad.avia
             ? <p className="avia-porque">{porqueAvia('fiabilidad', p)}</p>
-            : <ul>{p.fiabilidad.motivos.map((m) => <li key={m}>{m}</li>)}</ul>}
+            : <p>AVIA todavía no ha explicado el porqué.</p>}
         </div>
         <div className={`punto ${p.probabilidad.valor == null ? 'n-sin' : 'n-' + p.probabilidad.nivel}`} title={porqueAvia('probabilidad', p)}>
           <small>{p.probabilidad.origen ? 'Probabilidad de que ocurra' : 'Probabilidad'}</small>
           <b className="mono">{prob}</b>
-          {p.probabilidad.avia ? <p className="avia-porque">{porqueAvia('probabilidad', p)}</p> : <p>{p.probabilidad.justificacion}</p>}
+          {p.probabilidad.avia
+            ? <p className="avia-porque">{porqueAvia('probabilidad', p)}</p>
+            : <p>{p.probabilidad.origen ? 'AVIA todavía no ha explicado el porqué.' : p.probabilidad.justificacion}</p>}
           {p.probabilidad.origen && (
             <p className="note" style={{ margin: '4px 0 0' }}>
               {p.probabilidad.origen === 'avia'
                 ? `Ajustada por AVIA${p.probabilidad.base != null ? ` (la base calculó ${Math.round(p.probabilidad.base * 100)} %)` : ''}.`
-                : 'Cálculo de la base; AVIA la está ajustando.'}
+                : 'Número provisional de la base, a la espera de AVIA.'}
             </p>
           )}
         </div>
@@ -461,6 +464,8 @@ function PulsoExplica() {
         <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.indice}</p>
         <ul className="pulso-r">{PULSO_EXPLICA.niveles.map((n) => <li key={n}>{n}</li>)}</ul>
         <p className="note" style={{ margin: '4px 0 0' }}><b>Nivel de vigilancia ahora:</b> {p.vigilancia}</p>
+        <div className="sect">Evolución a 7 y 30 días</div>
+        <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.evolucion}</p>
         <div className="sect">Qué no entra y límites</div>
         <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.noEntra}</p>
         <p className="note" style={{ margin: 0 }}>{PULSO_EXPLICA.limites}</p>

@@ -6,7 +6,7 @@
 //    Deja VITE_DATA_URL vacío cuando Hermes ya suba al almacenamiento privado.
 // Si nada responde, la web sigue con los datos de ejemplo de src/data/demo.ts.
 import type {
-  CategoriaId, Certeza, Enlace, RecomendacionSegura, ComparacionDia, SintesisDia, Puntuaciones, Trazabilidad, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
+  CategoriaId, Certeza, Enlace, RecomendacionSegura, ComparacionDia, PulsoEvolucion, SintesisDia, Puntuaciones, Trazabilidad, EstadoFuente, Etapa, Evento, Fuente, Naturaleza, Prioridad, Senal, Serie, Tema, TipoEvento,
 } from '../types';
 import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
@@ -63,6 +63,8 @@ export interface VigilanteJson {
   sintesis_dia?: SintesisDia | null;
   /** desde el 27: qué cambió en las últimas 24 h */
   comparacion_dia?: ComparacionDia | null;
+  /** desde el 46: el Pulso de hace 7 y 30 días */
+  pulso_evolucion?: PulsoEvolucion | null;
   fuentes?: JFuente[];
   senales?: JSenal[];
   temas?: Tema[];
@@ -81,6 +83,7 @@ export interface DatosVps {
   sintesis: { frase: string; texto: string } | null;
   sintesisDia: SintesisDia | null;
   comparacionDia: ComparacionDia | null;
+  pulsoEvolucion: PulsoEvolucion | null;
   generado: string | null;
   ventanaHoras: number | null;
   noticiasRevisadas: number | null;
@@ -97,7 +100,7 @@ const sinTildes = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-�
 const CANAL: Record<string, CategoriaId | string> = {
   'vias terrestres': 'vial', carretera: 'vial', transporte: 'vial',
   aerolineas: 'conectividad',
-  inversion: 'financiacion', economia: 'mercado',
+  inversion: 'financiacion',
   estadisticas: 'estadísticas', politica: 'política', pais: 'país',
   prensa: 'prensa', medios: 'prensa',
 };
@@ -231,6 +234,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     sintesis: j.sintesis?.frase || j.sintesis?.texto ? { frase: j.sintesis.frase ?? '', texto: j.sintesis.texto ?? '' } : null,
     sintesisDia: j.sintesis_dia ?? null,
     comparacionDia: j.comparacion_dia?.conteos ? j.comparacion_dia : null,
+    pulsoEvolucion: j.pulso_evolucion && 'hace_7' in j.pulso_evolucion ? j.pulso_evolucion : null,
     generado: j.generado ?? null,
     ventanaHoras: j.ventana_horas ?? null,
     oportunidades,

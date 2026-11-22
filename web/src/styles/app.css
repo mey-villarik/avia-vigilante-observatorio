@@ -292,6 +292,11 @@ h1 em{color:var(--opp);font-weight:400}
 .candidatas a{color:var(--accent)}
 .candidatas select{min-height:34px}
 .nag-box.st-total{color:var(--ink)}
+.nag-summary.nag-cifras{grid-template-columns:repeat(3,minmax(0,1fr))}
+.nag-summary.nag-estados{grid-template-columns:repeat(5,minmax(0,1fr))}
+.nag-estados .nag-box{padding:8px 12px}
+.nag-estados .nag-box b{font-size:calc(20px * var(--fs))}
+.nag-nota{margin:8px 0 6px;font-size:12px}
 .nag-box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);text-align:left;display:flex;flex-direction:column;gap:2px}
 .nag-box b{font-family:var(--f-display);font-size:calc(30px * var(--fs));font-weight:500;line-height:1.1}
 .nag-box small{font-size:12px;color:var(--muted)}
@@ -488,6 +493,8 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
   h1{font-size:calc(27px * var(--fs))}
   .catalog,.an-types{grid-template-columns:1fr}
   .nag-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nag-summary.nag-cifras{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .nag-summary.nag-estados{grid-template-columns:repeat(3,minmax(0,1fr))}
   .top-right .hide-sm{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -527,6 +534,9 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 /* Plazo de revisión vencido, predicciones y enlaces dentro de un texto (16_tareas_programadas.sql) */
 .tag.vencida{color:var(--crit);border-color:var(--crit-soft);background:var(--crit-soft)}
 .tag.escenario{color:var(--mix);border-color:var(--mix-soft);font-style:italic}
+/* «Verificada» (40): fuente oficial o 2+ fuentes distintas; si no, «Sin verificar» */
+.tag.verificada{color:var(--ok);border-color:var(--ok)}
+.tag.sin-verificar{color:var(--warn);border-color:var(--warn)}
 .linklike{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit}
 .vot-list{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
 .vot-list li{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
@@ -625,6 +635,10 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .evc-tipo.t-oportunidad_combinada{color:var(--opp);border-color:var(--opp-soft)}
 .evc-tipo.t-confluencia{color:var(--mix);border-color:var(--mix-soft)}
 .tag.p-alta{color:var(--crit);background:var(--crit-soft)}
+.tag.accion{font-weight:700}
+.tag.accion-actuar{color:var(--crit);background:var(--crit-soft)}
+.tag.accion-preparar{color:var(--warn);background:var(--warn-soft)}
+.tag.accion-seguir{color:var(--ok);background:var(--ok-soft)}
 .tag.p-media{color:var(--warn);background:var(--warn-soft)}
 .evc-sig{font-size:calc(15px * var(--fs))}
 .evc-bloques{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -807,6 +821,43 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 @media (max-width:520px){.mp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.mp-nombre{font-size:46px}.mp-cuenta{font-size:32px}.mp-evento{transform:scale(1.4)}.mp-ciudad text,.mp-vecino{display:none}}
 @media (prefers-reduced-motion:reduce){.mp-evento circle.pulso{animation:none;opacity:0}}
 
+/* ───────── Ventanas flotantes: clic fuera cierra todas; eventos cerrados o descartados (38) ───────── */
+.evc-mas + .icon-btn{margin-left:8px}
+.evc-h .icon-btn{color:inherit}
+.evc-cerrados{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.evc-cerrados summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.evc-cerrados .evc-lista{opacity:.75}
+.evc-cerrado{margin:0 0 10px;padding:8px 12px;border-radius:10px;background:var(--surface2);font-size:13px}
+
+/* Aviso de revisiones vencidas, arriba de la síntesis (45_aviso_revisiones_vencidas.sql) */
+.aviso-vencidas{border:1px solid var(--crit);border-left:5px solid var(--crit);border-radius:10px;padding:10px 12px;background:color-mix(in srgb,var(--crit) 10%,var(--surface2));display:flex;flex-direction:column;gap:6px}
+.synth .aviso-vencidas p{margin:0;color:var(--ink);max-width:none}
+.aviso-vencidas .av-t{font-size:15px}
+.aviso-vencidas .av-t svg{display:inline-block;width:18px;height:18px;margin-right:4px;vertical-align:-3px;color:var(--crit)}
+.aviso-vencidas .av-t b{color:var(--crit);font-weight:700}
+.aviso-vencidas .av-r{font-size:13.5px;font-weight:600}
+.aviso-vencidas .av-r.sin{color:var(--crit)}
+.aviso-vencidas ul{margin:0;padding-left:18px;font-size:13px}
+.aviso-vencidas li{margin:0 0 2px}
+.aviso-vencidas .btn{align-self:flex-start}
+
+/* Evolución del Pulso a 7 y 30 días (46) */
+.evo{margin-top:12px}
+.evo-g{display:grid;grid-template-columns:auto 1fr 1fr;column-gap:10px;font-size:12px;align-items:center}
+.evo-r{display:contents}
+.evo-h{font-size:11px;color:var(--faint);padding-bottom:4px;border-bottom:1px solid var(--line)}
+.evo-l{color:var(--muted);padding:6px 0;white-space:nowrap}
+.evo-c{padding:6px 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 5px}
+.evo-f{font-size:15px;font-weight:700;line-height:1}
+.evo-s{font-weight:600}
+.evo-n{color:var(--faint);font-size:11px}
+.evo-mejora .evo-f,.evo-mejora .evo-s{color:var(--ok)}
+.evo-empeora .evo-f,.evo-empeora .evo-s{color:var(--crit)}
+.evo-estable .evo-f,.evo-estable .evo-s{color:var(--muted)}
+.evo-sin{color:var(--faint);font-style:italic}
+.evo-nota{margin:4px 0 0;font-size:11px}
+.evo-falta{margin:10px 0 0;font-size:11px}
+@media (max-width:520px){.evo-l{white-space:normal}}
 /* ───────── Internacional (37): fuentes de fuera con impacto en Bolivia ───────── */
 .intl-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
 .intl-layout>.panel{grid-column:auto}
