@@ -7,8 +7,8 @@ import {
 } from './data/demo';
 import { cargarVps, convertir, type DatosVps } from './services/datos';
 import {
-  decidirCandidata, decidirOportunidad, decidirPropuesta, leerCandidatas, leerPropuestas, leerVigilanteBd,
-  type AltaCandidata, type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
+  decidirOportunidad, decidirPropuesta, leerCandidatas, leerPropuestas, leerVigilanteBd,
+  type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
 } from './services/recolector';
 import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
 import { PULSO_EVOLUCION_DEMO } from './data/demoPulso';
@@ -146,8 +146,6 @@ interface Actions {
   askReview: (id: string) => void;
   /** el administrador aprueba o rechaza una propuesta de AVIA */
   decideProposal: (id: number, aprobar: boolean) => Promise<void>;
-  /** el administrador aprueba (entra en el catálogo) o rechaza una fuente candidata */
-  decideCandidate: (id: number, aprobar: boolean, alta?: AltaCandidata) => Promise<void>;
   /** el equipo valida o descarta una oportunidad propuesta */
   decideOpportunity: (id: number, estado: EstadoOportunidad) => Promise<void>;
   moveSignal: (id: string, to: Etapa, note?: string) => boolean;
@@ -441,27 +439,6 @@ export const useStore = create<Store>()((set, get) => {
           ? `Aprobado: ${p?.nombre ?? 'la fuente'} se leerá de otra forma desde la próxima ronda.`
           : `Rechazada la propuesta de AVIA para ${p?.nombre ?? 'la fuente'}.`);
         set({ propuestas: get().propuestas.map((x) => (x.id === id ? { ...x, estado: aprobar ? 'aprobada' : 'rechazada' } : x)) });
-        await get().loadRemote(true);
-      } catch (e) {
-        get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    },
-
-    decideCandidate: async (id, aprobar, alta) => {
-      const c = get().candidatas.find((x) => x.id === id);
-      const marcar = () => set({ candidatas: get().candidatas.map((x) => (x.id === id
-        ? { ...x, estado: aprobar ? 'aprobada' : 'rechazada', decidida_en: new Date().toISOString() } : x)) });
-      if (get().origen === 'demo') {
-        marcar();
-        get().toast(aprobar ? `Ejemplo: ${c?.nombre ?? 'la fuente'} entraría en el catálogo.` : `Ejemplo: ${c?.nombre ?? 'la fuente'} quedaría rechazada.`);
-        return;
-      }
-      try {
-        await decidirCandidata(id, aprobar, undefined, alta);
-        marcar();
-        get().toast(aprobar
-          ? `${c?.nombre ?? 'La fuente'} entra en el catálogo: el recolector la lee desde su próxima ronda.`
-          : `Rechazada: ${c?.nombre ?? 'la fuente'} no se vigilará.`);
         await get().loadRemote(true);
       } catch (e) {
         get().toast(`No se guardó: ${e instanceof Error ? e.message : String(e)}`);

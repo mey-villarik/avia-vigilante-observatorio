@@ -903,3 +903,8 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .intl-sub{color:var(--faint)}
 @media (max-width:1180px){.intl-layout{grid-template-columns:1fr}}
 .intl-seg{flex-wrap:wrap;max-width:100%}
+/* 47: fuentes que encontró AVIA (sin aprobación) y columna de origen */
+.tag.origen-avia{color:var(--accent);border-color:var(--accent);background:transparent;font-weight:600}
+.avia-encontro h2 .note{font-weight:400}
+.avia-encontro > .btn{margin-top:6px}
+.avia-encontro .cand-txt .tag{width:max-content;justify-self:start}
