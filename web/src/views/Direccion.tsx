@@ -4,7 +4,7 @@
 // «Acción recomendada · Plazo · Cómo verificar», el semáforo por departamento y «Lo que viene».
 // Es la pantalla de entrada del visor y del administrador; todos la ven. Reglas en lib/direccion.ts.
 import { useMemo, useState } from 'react';
-import { useStore } from '../store';
+import { useStore, useSintesisDia } from '../store';
 import { useChat } from '../services/chat';
 import { Icon } from '../components/Icon';
 import { AccionTag, CertezaTag, Empty } from '../components/common';
@@ -20,6 +20,7 @@ import { resumenRegion, type ResumenRegion } from '../lib/regiones';
 import { clock } from '../lib/util';
 import { enBolivia } from '../lib/hora';
 import { storage } from '../lib/util';
+import { descargarInforme, TIPO_INFORME_TXT, type TipoInforme } from '../lib/informe';
 
 function Luz({ e, grande = false }: { e: EstadoEje; grande?: boolean }) {
   return <span className={`sem-luz sem-${ESTADO_COLOR[e]}${grande ? ' grande' : ''}`} aria-hidden="true" />;
@@ -181,6 +182,32 @@ function LoQueViene() {
   );
 }
 
+/** Informe de 1 página en PDF con los 3 bloques de esta vista (lib/informe.ts) */
+function BotonesInforme() {
+  const senales = useStore((s) => s.senales);
+  const fuentes = useStore((s) => s.fuentes);
+  const sintesis = useSintesisDia();
+  const [haciendo, setHaciendo] = useState<TipoInforme | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const bajar = async (t: TipoInforme) => {
+    setHaciendo(t); setError(null);
+    try { await descargarInforme(senales, fuentes, sintesis, t); }
+    catch (e) { console.error(e); setError('No se pudo generar el PDF. Vuelve a intentarlo.'); }
+    finally { setHaciendo(null); }
+  };
+  return (
+    <div className="dir-informe" role="group" aria-label="Descargar informe en PDF">
+      {(['diario', 'semanal'] as TipoInforme[]).map((t) => (
+        <button key={t} className="btn" disabled={!!haciendo} onClick={() => bajar(t)}
+          title={`${TIPO_INFORME_TXT[t]} en PDF, 1 página: estado de los 3 ejes, las 3 decisiones de hoy y lo que viene en 7 días${t === 'semanal' ? ', con el balance de la semana' : ''}`}>
+          <Icon name="pdf" /> {haciendo === t ? 'Generando…' : t === 'diario' ? 'PDF del día' : 'PDF semanal'}
+        </button>
+      ))}
+      {error && <span className="note" role="alert">{error}</span>}
+    </div>
+  );
+}
+
 export function Direccion() {
   const senales = useStore((s) => s.senales);
   const generado = useStore((s) => s.generado);
@@ -197,6 +224,7 @@ export function Direccion() {
         </div>
         <div className="head-actions">
           <span className="updated">{generado ? `Datos generados ${clock(-(Date.now() - Date.parse(generado)) / 60000)}` : `Última comprobación ${clock(-1)}`}</span>
+          <BotonesInforme />
           <button className="btn gold" onClick={() => openChat('Para la Dirección: qué decisiones hay que tomar hoy en movilidad, servicios esenciales y atención turística, y hasta cuándo.')}><Icon name="sintesis" /> Preguntar a AVIA</button>
         </div>
       </section>
