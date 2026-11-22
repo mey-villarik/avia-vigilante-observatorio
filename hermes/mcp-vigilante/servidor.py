@@ -136,8 +136,10 @@ HERRAMIENTAS = [
          'required': ['tipo', 'hecho', 'evidencias']}}, 'required': ['oportunidad']},
      'fn': 'guardar_oportunidad', 'args': lambda a: {'p_op': a['oportunidad']}},
     {'name': 'proponer_fuente',
-     'description': 'Propone vigilar una fuente que NO está en el catálogo. No la crea: queda como candidata y un '
-                    'administrador decide. Necesita una dirección real vista en noticias de la base (evidencia = sus ids).',
+     'description': 'Añade una fuente que NO está en el catálogo. Si su sitio es nuevo, la base la da de alta y la activa '
+                    'al momento (origen «avia», el usuario puede eliminarla). Si ese sitio ya se vigila, o un usuario lo '
+                    'eliminó, no la repite (duplicada=true). Necesita una dirección real vista en noticias de la base '
+                    '(evidencia = sus ids).',
      'inputSchema': {'type': 'object', 'properties': {
          'nombre': {'type': 'string'}, 'url': {'type': 'string'}, 'motivo': {'type': 'string'},
          'tipo': {'type': 'string', 'enum': ['oficial', 'organismo_internacional', 'medio', 'no_oficial']},

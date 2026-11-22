@@ -56,7 +56,7 @@ export function mezclarFuentes(jsonOriginal: Fuente[], bdTodas: FuenteBd[], ahor
     if (!b) return f;
     // lo que se escribió en la web (nombre, dirección, canal…) manda sobre el archivo de Hermes
     const extra = {
-      nombre: b.nombre, url: b.url, freq: b.frecuencia_minutos, enBd: true, bd: b,
+      nombre: b.nombre, url: b.url, freq: b.frecuencia_minutos, enBd: true, bd: b, origen: b.origen ?? 'usuario',
       // reconocido por una persona: lo ve todo el equipo (la base lo borra cuando vuelve a OK)
       ack: Boolean(b.reconocida_por) && f.estado !== 'OK',
       metodo: METODO_TXT[b.metodo] ?? b.metodo,
@@ -82,7 +82,7 @@ export function mezclarFuentes(jsonOriginal: Fuente[], bdTodas: FuenteBd[], ahor
         : b.activa
         ? `Pendiente de la primera comprobación de AVIA${b.alta_por ? ` · alta de ${b.alta_por}` : ''}${b.que_buscar ? ` · Buscar: ${b.que_buscar}` : ''}`
         : b.propuesta ? PROPUESTA : 'En pausa: AVIA no la vigila hasta que se reactive',
-      lat: null, items: 0, hist: [], verif: '—', enBd: true, bd: b,
+      lat: null, items: 0, hist: [], verif: '—', enBd: true, bd: b, origen: b.origen ?? 'usuario',
     });
   });
   return out;

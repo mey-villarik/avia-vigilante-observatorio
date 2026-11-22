@@ -88,7 +88,8 @@ function FuenteDetalle({ id }: { id: string }) {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{s.bd.palabras_clave!.map((p) => <span className="tag" key={p}>{p}</span>)}</div>
             )}
             <p className="note" style={{ margin: 0 }}>
-              {s.bd.alta_por ? `Alta de ${s.bd.alta_por}` : 'Alta por AVIA'}{s.bd.creada_en ? ` el ${enBolivia(s.bd.creada_en, 'fecha')}` : ''}
+              {s.origen === 'avia' ? 'Sugerida por AVIA: la añadió sola' : s.bd.alta_por ? `Alta de ${s.bd.alta_por}` : 'Alta por AVIA'}{s.bd.creada_en ? ` el ${enBolivia(s.bd.creada_en, 'fecha')}` : ''}
+              {s.origen === 'avia' && s.bd.motivo_avia ? ` · Por qué: ${s.bd.motivo_avia}` : ''}
               {s.bd.editada_por ? ` · Última edición: ${s.bd.editada_por}${s.bd.editada_en ? `, ${enBolivia(s.bd.editada_en, 'fechaHora')}` : ''}` : ''}
             </p>
           </>
@@ -125,7 +126,7 @@ function FuenteDetalle({ id }: { id: string }) {
           )}
           {isAdmin(role) && (
             <button className="btn ghost danger" onClick={() => {
-              if (window.confirm(`¿Eliminar la fuente «${s.nombre}»?\n\nAVIA dejará de vigilarla y desaparecerá de la lista. Las señales que ya salieron de ella se conservan. Si la vuelves a añadir con la misma dirección, se recupera.`)) void removeSource(s.id);
+              if (window.confirm(`¿Eliminar la fuente «${s.nombre}»?\n\nAVIA dejará de vigilarla y desaparecerá de la lista. Las señales que ya salieron de ella se conservan.${s.origen === 'avia' ? ' AVIA no volverá a añadir ese sitio por su cuenta.' : ''} Si la vuelves a añadir con la misma dirección, se recupera.`)) void removeSource(s.id);
             }}><Icon name="papelera" /> Eliminar fuente</button>
           )}
         </div>

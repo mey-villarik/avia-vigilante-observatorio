@@ -25,6 +25,8 @@ export interface FuenteBd {
   reconocida_por?: string | null; reconocida_en?: string | null; reconocida_nota?: string | null;
   /** desde 11_fuentes_revision.sql */
   revision_pedida_en?: string | null; revision_pedida_por?: string | null;
+  /** desde 47_fuentes_avia_directas.sql: quién la puso y, si la encontró AVIA, por qué */
+  origen?: 'usuario' | 'avia'; motivo_avia?: string | null;
   /** desde 12_fuentes_repetidas.sql: código de la fuente con la que se juntó */
   fusionada_en?: string | null;
 }
@@ -55,6 +57,8 @@ export interface Fuente {
   enBd?: boolean;
   /** lo que guarda la base de datos sobre la fuente (para verla y editarla) */
   bd?: FuenteBd;
+  /** usuario = la puso una persona (o el catálogo inicial); avia = la encontró AVIA y se añadió sola */
+  origen?: 'usuario' | 'avia';
   /** dada de alta hace tiempo y AVIA todavía no la ha comprobado nunca */
   sinLeer?: boolean;
   /** minutos desde la última comprobación */

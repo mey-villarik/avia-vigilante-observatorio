@@ -41,14 +41,14 @@ export const CANDIDATAS_DEMO: Candidata[] = [
   {
     id: 1, nombre: 'Gobernación de Potosí · noticias (ejemplo)', url: 'https://potosi.gob.bo/noticias',
     motivo: 'Ejemplo: publica cortes de ruta y eventos del departamento que hoy solo llegan por la prensa.',
-    propuesta_por: 'avia', veces: 3, estado: 'pendiente', propuesta_en: hace(180),
-    decidida_por: null, decidida_en: null, nota: null, codigo: null,
+    propuesta_por: 'avia', veces: 3, estado: 'aprobada', propuesta_en: hace(180),
+    decidida_por: 'AVIA (automático)', decidida_en: hace(180), nota: null, codigo: 'gobernacion_potosi',
     evidencia: [{ id: 105, titulo: 'Anuncio de bloqueo en la ruta Oruro – Potosí (ejemplo)', url: '' }],
   },
   {
-    id: 2, nombre: 'Radio local de Uyuni (ejemplo)', url: 'https://radio-uyuni.example/noticias',
+    id: 2, nombre: 'SENAMHI (ejemplo)', url: 'https://senamhi.gob.bo/api/alertas/active-alerts',
     motivo: 'Ejemplo: apareció en una búsqueda; no estaba en el catálogo.',
-    propuesta_por: 'sincronizacion', veces: 1, estado: 'pendiente', propuesta_en: hace(60 * 26),
-    decidida_por: null, decidida_en: null, nota: null, codigo: null, evidencia: [],
+    propuesta_por: 'sincronizacion', veces: 2, estado: 'duplicada', propuesta_en: hace(60 * 26),
+    decidida_por: 'AVIA (automático)', decidida_en: hace(60 * 26), nota: 'Ese sitio ya se vigila en la fuente «SENAMHI · alertas»', codigo: 'senamhi_alertas', evidencia: [],
   },
 ];
