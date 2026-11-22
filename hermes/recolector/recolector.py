@@ -14,6 +14,10 @@ Cada vez que se ejecuta (cron cada 5 minutos):
        urls_alternativas    otras direcciones que se prueban, en orden, si la principal falla
        extractor: "tabla"   lee una tabla fila a fila (p. ej. avisos SENAMHI); tabla_filtro = texto o
                             expresión que debe tener la fila
+       extractor: "tarjetas" lee una lista de tarjetas (p. ej. comunicados de NAABOL): cada tarjeta con su
+                            título (h1-h6), fecha dd/mm/aaaa y enlace (el PDF si lo hay) es un documento;
+                            tarjeta_inicio = expresión que marca dónde empieza cada tarjeta (por defecto
+                            class="card"), tarjeta_filtro = texto o expresión que debe tener la tarjeta
        respaldo             {"metodo": "google_news_rss", "query": "..."}: si nada responde, se leen
                             las noticias sobre esa fuente y queda en aviso (WARN), no en fallo
   3. Manda lo leído a vigilante.guardar_comprobacion(): la base reconoce cada documento (id del
@@ -62,7 +66,7 @@ UA = 'Mozilla/5.0 (compatible; AVIA-Vigilante/1.0; recolector)'
 TIMEOUT = 25
 MAX_ITEMS = 50
 HILOS = 6
-VERSION = '1.2.0'
+VERSION = '1.3.0'
 
 
 # ───────────────────────── configuración ─────────────────────────
@@ -174,7 +178,7 @@ def leer_feed(cuerpo: bytes) -> list[dict]:
         if 'link' in campos:
             enlace = (campos['link'].text or campos['link'].get('href') or '').strip()
         resumen = ''
-        for k in ('description', 'summary', 'content'):
+        for k in ('description', 'summary', 'content', 'encoded'):   # encoded = content:encoded (WordPress)
             if k in campos and campos[k].text:
                 resumen = sin_html(campos[k].text)
                 break
@@ -325,6 +329,65 @@ def filas_de_tabla(url: str, texto_html: str, cfg: dict) -> list[dict]:
     return items[:MAX_ITEMS]
 
 
+TARJETA = r"""<div[^>]*\bclass=['"]card['"\s]"""
+FECHA_DMA = re.compile(r'\b(\d{1,2})/(\d{1,2})/(\d{4})\b')
+# códigos OACI que NAABOL usa en los nombres de sus comunicados (p. ej. «Comunicado SLCB 17-11-2026»)
+OACI = {'SLLP': 'Aeropuerto El Alto (La Paz)', 'SLVR': 'Aeropuerto Viru Viru (Santa Cruz)',
+        'SLET': 'Aeropuerto El Trompillo (Santa Cruz)', 'SLCB': 'Aeropuerto Jorge Wilstermann (Cochabamba)',
+        'SLAL': 'Aeropuerto Alcantarí (Sucre)', 'SLTJ': 'Aeropuerto Oriel Lea Plaza (Tarija)',
+        'SLUY': 'Aeropuerto Joya Andina (Uyuni)', 'SLRQ': 'Aeropuerto de Rurrenabaque (Beni)',
+        'SLPS': 'Aeropuerto Capitán Nicolás Rojas (Potosí)', 'SLOR': 'Aeropuerto Juan Mendoza (Oruro)',
+        'SLTR': 'Aeropuerto Jorge Henrich (Trinidad)', 'SLCO': 'Aeropuerto Aníbal Arab (Cobija)',
+        'SLRI': 'Aeropuerto de Riberalta (Beni)', 'SLGM': 'Aeropuerto de Guayaramerín (Beni)',
+        'SLYA': 'Aeropuerto de Yacuiba (Tarija)'}
+
+
+def tarjetas(url: str, texto_html: str, cfg: dict) -> list[dict]:
+    """Una noticia por tarjeta (bloques <div class="card">): título, fecha dd/mm/aaaa y enlace.
+
+    Para listados sin titulares enlazados, como los comunicados de NAABOL: el título va en un <h5> y el
+    enlace es un botón «Descargar PDF», así que la lectura normal de enlaces no los ve.
+    """
+    trozos = re.split((cfg.get('tarjeta_inicio') or TARJETA) + r'[^>]*>', texto_html, flags=re.I)[1:]
+    filtro = cfg.get('tarjeta_filtro')
+    patron = re.compile(filtro, re.I) if filtro else None
+    items, vistos = [], set()
+    for t in trozos:
+        t = re.split(r'<(?:script|footer|nav)\b', t, maxsplit=1, flags=re.I)[0]   # la última tarjeta no se lleva el pie
+        texto = sin_html(t)[:1500]
+        if patron and not patron.search(texto):
+            continue
+        m = re.search(r'<h[1-6][^>]*>(.*?)</h[1-6]>', t, re.S | re.I)
+        titulo = sin_html(m.group(1)) if m else ''
+        hrefs = [h for h in re.findall(r'<a[^>]+href=["\']([^"\'#][^"\']*)["\']', t, re.I)
+                 if not h.startswith(('javascript:', 'mailto:'))]
+        hrefs.sort(key=lambda h: not h.lower().split('?')[0].endswith('.pdf'))   # primero el PDF
+        enlace = urllib.parse.urljoin(url, html.unescape(hrefs[0])) if hrefs else None
+        if not titulo and enlace:   # tarjeta sin título: el nombre del archivo dice de qué trata
+            titulo = urllib.parse.unquote(enlace.rsplit('/', 1)[-1]).rsplit('.', 1)[0].replace('_', ' ').strip(' -')
+        if not titulo or len(titulo) < 8:
+            continue
+        lugares = [v for k, v in OACI.items() if re.search(rf'\b{k}\b', titulo + ' ' + urllib.parse.unquote(enlace or ''))]
+        if lugares:   # el código OACI no lo entiende el filtro ni el clasificador: se añade el nombre
+            texto = f'{texto} · {", ".join(lugares)}'[:1500]
+        f = FECHA_DMA.search(texto)
+        fecha = None
+        if f:
+            try:
+                fecha = datetime(int(f.group(3)), int(f.group(2)), int(f.group(1)), 12, tzinfo=timezone.utc).isoformat()
+            except ValueError:
+                fecha = None
+        clave = enlace or f'{url}#tarjeta-{hashlib.sha256(titulo.encode()).hexdigest()[:16]}'
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        it = {'titulo': titulo[:300], 'url': clave, 'resumen': texto, 'id': clave}
+        if fecha:
+            it['publicado_en'] = fecha
+        items.append(it)
+    return items[:MAX_ITEMS]
+
+
 def leer_pagina(url: str, huella_anterior: str | None, cabeceras: dict | None = None,
                 timeout: int = TIMEOUT, cfg: dict | None = None) -> tuple[list[dict], str, str]:
     """Devuelve (items, huella, info). Si la página no cambió, items = []. Lanza NoModificado si hay 304."""
@@ -346,6 +409,11 @@ def leer_pagina(url: str, huella_anterior: str | None, cabeceras: dict | None = 
         if filas:
             return filas, huella, f'Página cambiada: {len(filas)} filas de tabla'
         # sin filas reconocibles: se sigue con la lectura normal (enlaces o página entera)
+    if cfg.get('extractor') == 'tarjetas':
+        lista = tarjetas(url, texto_html, cfg)
+        if lista:
+            return lista, huella, f'Página cambiada: {len(lista)} tarjetas'
+        # sin tarjetas reconocibles: se sigue con la lectura normal
     base = urllib.parse.urlparse(url)
     vistos, items = set(), []
     for href, txt in p.enlaces:

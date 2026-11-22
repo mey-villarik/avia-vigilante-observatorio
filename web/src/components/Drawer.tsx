@@ -38,11 +38,11 @@ function checksFor(s: Fuente): [Fuente['estado'], string, string][] {
   const st = s.estado;
   if (st === 'MANT') return [['MANT', 'Disponibilidad', 'En mantenimiento programado'], ['MANT', 'Frescura', '—'], ['MANT', 'Estructura', '—'], ['MANT', 'Novedad', '—']];
   if (st === 'UNKNOWN') return [['UNKNOWN', 'Disponibilidad', 'Sin datos: URL por confirmar'], ['UNKNOWN', 'Frescura', '—'], ['UNKNOWN', 'Estructura', '—'], ['UNKNOWN', 'Novedad', '—']];
-  const abc = s.id === 'abc_caminos';
+  const caida = st === 'CRIT';
   return [
-    [abc ? 'CRIT' : (s.lat ?? 0) > 5000 ? 'WARN' : 'OK', 'Disponibilidad', abc ? 'Sin respuesta en 30 s (3/3)' : `HTTP 200 en ${((s.lat ?? 0) / 1000).toFixed(1)} s`],
-    [abc ? 'CRIT' : 'OK', 'Frescura', abc ? 'Último dato hace 48 min (umbral 45)' : 'Último elemento dentro del plazo'],
-    [s.id === 'minsalud' ? 'WARN' : abc ? 'UNKNOWN' : 'OK', 'Estructura', s.id === 'minsalud' ? 'El selector no encontró la lista de comunicados' : abc ? 'No evaluable' : 'Campos extraídos: título, fecha, enlace'],
+    [caida ? 'CRIT' : (s.lat ?? 0) > 5000 ? 'WARN' : 'OK', 'Disponibilidad', caida ? s.info : `HTTP 200 en ${((s.lat ?? 0) / 1000).toFixed(1)} s`],
+    [caida ? 'CRIT' : 'OK', 'Frescura', caida ? 'Sin datos nuevos mientras no responda' : 'Último elemento dentro del plazo'],
+    [s.id === 'minsalud' ? 'WARN' : caida ? 'UNKNOWN' : 'OK', 'Estructura', s.id === 'minsalud' ? 'El selector no encontró la lista de comunicados' : caida ? 'No evaluable' : 'Campos extraídos: título, fecha, enlace'],
     [s.items ? 'OK' : st === 'OK' ? 'OK' : 'WARN', 'Novedad', s.items ? `${s.items} elemento(s) nuevo(s)` : 'Sin elementos nuevos'],
   ];
 }
