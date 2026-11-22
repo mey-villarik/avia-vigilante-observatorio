@@ -5,7 +5,7 @@ import { CATS, PANELS, STATE_TXT, STL, catName } from '../data/demo';
 import { canDecide, isAdmin, useStore } from '../store';
 import { ago, clock, plazoTexto, porRevisar } from '../lib/util';
 import { Icon } from './Icon';
-import { CertezaTag, Histo, NatPill, StPill } from './common';
+import { AccionTag, CertezaTag, Histo, NatPill, StPill } from './common';
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
@@ -163,7 +163,7 @@ function SenalDetalle({ id }: { id: string }) {
       <Head icon="senales">Señal {s.id}{real ? '' : ' · ejemplo'}</Head>
       <div className="drawer-b">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <NatPill n={s.naturaleza} /><CertezaTag s={s} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span>
+          <NatPill n={s.naturaleza} /><AccionTag s={s} /><CertezaTag s={s} /><span className="tag">{STL[s.estado]}</span><span className="tag">{CATS[s.categoria]}</span><span className="tag">Prioridad {s.prioridad}</span>
           {s.escenario && <span className="tag escenario" title="Predicción: no es un hecho y no se publica">Escenario</span>}
           {s.revisionVencida && <span className="tag vencida">Plazo de revisión vencido</span>}
           {!s.revisionVencida && s.sla ? <span className="sla">⏱ {plazoTexto(s.sla)} para revisar</span> : null}

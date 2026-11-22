@@ -635,6 +635,10 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .evc-tipo.t-oportunidad_combinada{color:var(--opp);border-color:var(--opp-soft)}
 .evc-tipo.t-confluencia{color:var(--mix);border-color:var(--mix-soft)}
 .tag.p-alta{color:var(--crit);background:var(--crit-soft)}
+.tag.accion{font-weight:700}
+.tag.accion-actuar{color:var(--crit);background:var(--crit-soft)}
+.tag.accion-preparar{color:var(--warn);background:var(--warn-soft)}
+.tag.accion-seguir{color:var(--ok);background:var(--ok-soft)}
 .tag.p-media{color:var(--warn);background:var(--warn-soft)}
 .evc-sig{font-size:calc(15px * var(--fs))}
 .evc-bloques{display:grid;grid-template-columns:1fr 1fr;gap:12px}

@@ -9,6 +9,7 @@ import type { Oportunidad } from '../services/recolector';
 import type { EventoCompuesto } from '../services/eventos';
 import type { Cambio } from '../services/cambios';
 import { scoreOf } from './util';
+import { ACCION_ORDEN, accionDe } from './accion';
 
 export const NACIONAL = 'nacional';
 
@@ -76,10 +77,9 @@ function noticiasDe(s: Senal): NoticiaRegion[] {
   return (s.enlaces ?? []).map((e) => ({ titulo: e.nombre, url: e.url, fecha: e.fecha, senal: s }));
 }
 
-const ordenSenal = (a: Senal, b: Senal) => {
-  const p = { alta: 0, media: 1, baja: 2 } as const;
-  return p[a.prioridad] - p[b.prioridad] || scoreOf(b) - scoreOf(a) || a.min - b.min;
-};
+// riesgos y mixtas primero por acción (Actuar hoy → Preparar → Seguir); las oportunidades no la llevan
+const rango = (s: Senal) => (s.naturaleza === 'oportunidad' ? { alta: 0, media: 1, baja: 2 }[s.prioridad] : ACCION_ORDEN[accionDe(s).accion]);
+const ordenSenal = (a: Senal, b: Senal) => rango(a) - rango(b) || scoreOf(b) - scoreOf(a) || a.min - b.min;
 
 export function resumenRegion(
   dep: string, senales: Senal[], fichas: Oportunidad[], eventos: EventoCompuesto[], cambios: Cambio[],

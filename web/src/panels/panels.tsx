@@ -10,6 +10,7 @@ import { desgloseVerificadas, horaBolivia, textoFuentes, textoSinVerificar } fro
 import { DEF_SIN_VERIFICAR, DEF_VERIFICADA } from '../lib/verificada';
 import { puntuacionesDe } from '../lib/puntuaciones';
 import { esReciente, plazoTexto, scoreOf } from '../lib/util';
+import { ordenAccion } from '../lib/accion';
 import { useEventos } from '../services/eventos';
 import { useCambios } from '../services/cambios';
 import { resumenRegion } from '../lib/regiones';
@@ -21,7 +22,6 @@ import { Icon } from '../components/Icon';
 import { CatBars, Empty, EventsList, Histo, LineChart, NatPill, SigList, StPill } from '../components/common';
 
 /** noticias leídas: la cifra del VPS, o el último punto de la serie */
-const PRIO = { alta: 0, media: 1, baja: 2 } as const;
 
 /** «Cambios desde ayer» (db/generico/27_comparacion_dia.sql): solo los conteos; si todo es 0, no se muestra */
 function CambiosAyer() {
@@ -180,7 +180,7 @@ function Oportunidades() {
 }
 
 function Riesgos() {
-  const l = activeSignals(useStore((s) => s.senales)).filter((s) => s.naturaleza === 'riesgo').sort((a, b) => PRIO[a.prioridad] - PRIO[b.prioridad]).slice(0, 5);
+  const l = activeSignals(useStore((s) => s.senales)).filter((s) => s.naturaleza === 'riesgo').sort(ordenAccion).slice(0, 5);
   return <SigList list={l} opp={false} />;
 }
 
