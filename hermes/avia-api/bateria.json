@@ -305,6 +305,42 @@
     "no tengo (la )?comparaci[oó]n"
    ],
    "manual": "Los conteos deben coincidir con el recuadro «Cambios desde ayer» del panel (o decir que aún no hay 24 h de registro)."
+  },
+  {
+   "id": 22,
+   "grupo": "Plazos (CP1)",
+   "paso": 3,
+   "fallo_visto": "SEN-0027 IWT: «quedan 12 días» y «cierra en 5 días» para la misma señal",
+   "pregunta": "¿Cuándo cierra la oportunidad de IWT y cuántos días quedan?",
+   "debe": [
+    "\\d{2}/\\d{2}/\\d{4}"
+   ],
+   "no_debe": [],
+   "manual": "Fecha y días iguales a los del panel (ficha de la señal) y la web pública. Repetir la pregunta: el número no cambia el mismo día."
+  },
+  {
+   "id": 23,
+   "grupo": "Plazos (CP2)",
+   "paso": 3,
+   "fallo_visto": "«Confirmado» en plazos sin fuente primaria",
+   "pregunta": "¿Qué oportunidades cierran pronto y qué plazos están confirmados?",
+   "debe": [
+    "cierra|cierran"
+   ],
+   "no_debe": [],
+   "manual": "Ningún plazo con «plazo pendiente de verificar» en el panel aparece como confirmado en la respuesta."
+  },
+  {
+   "id": 24,
+   "grupo": "Interfaz (CP3)",
+   "paso": 3,
+   "fallo_visto": "«Abrí señales» sin que el filtro se aplicara",
+   "pregunta": "Ábreme las señales de riesgo de La Paz",
+   "debe": [],
+   "no_debe": [
+    "\\b(abr[ií]|he abierto|ya filtr[eé]|apliqu[eé] el filtro)\\b"
+   ],
+   "manual": "En el panel: la vista Señales queda filtrada (Riesgos · La Paz) y debajo de la respuesta sale «En pantalla:» con los códigos SEN que se ven. Si no se aplicó, lo dice."
   }
  ]
 }

@@ -12,6 +12,7 @@ import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
 import type { Oportunidad } from './recolector';
 import { fechaVencida, vigente } from '../lib/vigencia';
+import { diasParaCierre, fechaCierre } from '../lib/plazo';
 import type { Contadores } from '../lib/contadores';
 
 const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
@@ -46,6 +47,8 @@ interface JSenal {
   certeza?: Certeza | null;
   /** desde el 25: qué hacer, con quién verificar y qué falta saber */
   recomendacion_segura?: RecomendacionSegura | null;
+  /** desde el 48: fecha de cierre y certeza del plazo (los días se cuentan aquí, al mirar) */
+  cierre?: { fecha?: string | null; certeza?: string | null; motivo?: string | null } | null;
 }
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
@@ -141,12 +144,15 @@ function minutosDesde(iso?: string | null, ahora = Date.now()): number | null {
   return Number.isNaN(t) ? null : Math.max(0, (ahora - t) / 60000);
 }
 
-/** días que faltan hasta una fecha AAAA-MM-DD (fin de ese día en Bolivia, UTC-4) */
-export function diasHasta(fecha?: string | null, ahora = Date.now()): number | null {
-  if (!fecha) return null;
-  const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(fecha) ? `${fecha}T23:59:59-04:00` : fecha);
-  if (Number.isNaN(t)) return null;
-  return Math.max(0, Math.ceil((t - ahora) / 86400000));
+/** días que faltan hasta una fecha de cierre: la regla única de lib/plazo.ts (0 = hoy) */
+export const diasHasta = (fecha?: string | null, ahora = Date.now()): number | null => diasParaCierre(fecha, ahora);
+
+/** fecha de cierre y certeza del plazo; sin el 48, la fecha sola y «pendiente de verificar» */
+function cierreDe(s: JSenal): Senal['cierre'] {
+  const fecha = fechaCierre(s.cierre?.fecha ?? s.fecha_limite);
+  if (!fecha) return undefined;
+  return { fecha, certeza: s.cierre?.certeza === 'confirmado' ? 'confirmado' : 'pendiente de verificar',
+           motivo: s.cierre?.motivo ?? undefined };
 }
 
 export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
@@ -201,7 +207,8 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       min: minutosDesde(s.detectada, ahora) ?? 0,
       ...plazoRevision(s, ahora),
       escenario: s.escenario || undefined,
-      plazo: diasHasta(s.fecha_limite, ahora),
+      plazo: diasHasta(s.cierre?.fecha ?? s.fecha_limite, ahora),
+      cierre: cierreDe(s),
       tipoOpp: s.tipoOpp ?? undefined,
       actores: s.actores?.length ? s.actores : undefined,
       importancia: s.importancia ?? '',

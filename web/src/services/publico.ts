@@ -33,6 +33,9 @@ export interface AlertaPublica {
   deps: string[];
   destinos: string[];
   plazo_hasta: string | null;
+  /** desde el 48: certeza del plazo, aparte de la del evento (CP2) */
+  plazo_certeza?: 'confirmado' | 'pendiente de verificar' | null;
+  plazo_motivo?: string | null;
   /** inicio (o fin) del evento, si lo es */
   fecha_evento?: string | null;
   publicada_en: string;

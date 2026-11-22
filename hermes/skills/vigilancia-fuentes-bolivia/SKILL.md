@@ -97,6 +97,8 @@ Usa `metricas_oportunidades` (no las noticias) y escribe: qué crece y dónde, q
 - **Sin duplicados**: la base no crea una señal que ya existe. Si `guardar_senal` responde `repetida: true`, la noticia se sumó a esa señal (`codigo`): sigue con ella, no intentes crear otra.
 - **Sin evidencia no hay señal ni oportunidad**: `guardar_senal` nueva y `guardar_oportunidad` exigen ids de noticias que existan en la base.
 - Copia tal cual números de aviso, nombres de normas, fechas, plazos y cifras. Si un dato falta, dilo y baja `confianza` a 0,6 o menos.
+- **Plazos como fecha, nunca como cuenta.** `plazo_hasta` es la fecha de cierre (AAAA-MM-DD). No escribas «quedan 12 días» ni «cierra en 5 días» en títulos ni resúmenes: deja de ser verdad al día siguiente. Para decir cuántos días faltan, usa `dias_plazo` o `cierre` de la base, que se cuentan el día que se consulta.
+- **Certeza del plazo aparte de la del evento.** Un evento puede estar confirmado y su fecha de cierre no. Llama «confirmado» a un plazo solo si `certeza_plazo` (o `cierre.certeza`) es «confirmado»; si no, di «plazo pendiente de verificar» y con quién comprobarlo.
 - Proyecciones y predicciones → `es_escenario: true` y la palabra «escenario» en el título.
 - Una fuente no oficial nunca confirma por sí sola.
 - Fechas en AAAA-MM-DD o ISO 8601 con `-04:00` (hora de Bolivia).

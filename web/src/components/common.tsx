@@ -2,6 +2,7 @@
 import type { EstadoFuente, Evento, Naturaleza, Senal } from '../types';
 import { CATS, STATE_TXT, STL } from '../data/demo';
 import { clock, scoreOf } from '../lib/util';
+import { diasCorto } from '../lib/plazo';
 import { useStore } from '../store';
 import { CERTEZAS, certezaDe } from '../lib/certeza';
 import { ACCION_TXT, accionDe, accionTitulo } from '../lib/accion';
@@ -41,8 +42,8 @@ export function SigList({ list, opp }: { list: Senal[]; opp: boolean }) {
             <span className="sig-m"><NatPill n={s.naturaleza} /><span>{s.deps.join(', ')}</span><span className="tech">· {s.corr} fuente(s)</span></span>
           </span>
           <span className="sig-r">
-            {opp && s.plazo
-              ? <span className="score" style={{ color: 'var(--opp)' }}>{s.plazo} días</span>
+            {opp && s.plazo != null && s.plazo >= 0
+              ? <span className="score" style={{ color: 'var(--opp)' }} title={s.cierre ? `Cierre ${s.cierre.fecha} · plazo ${s.cierre.certeza}` : undefined}>{diasCorto(s.plazo)}</span>
               : <span className="tag">{STL[s.estado]}</span>}
             {opp
               ? <span className="tech">puntuación <span className="score">{scoreOf(s)}</span></span>

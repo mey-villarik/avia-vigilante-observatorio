@@ -23,6 +23,10 @@ llegan con «internacional»: true y las señales nacionales que pueden tener qu
 si afectan a Bolivia (impacto_bolivia: ámbitos, vía, nivel, plazo, señales que refuerza). Sin impacto
 en Bolivia, la noticia se descarta aquí mismo; con impacto, la base lo guarda en la señal.
 
+Desde la migración 48 (CP1 y CP2), los plazos se guardan siempre como fecha: si la fuente dice «quedan 12 días»,
+la fecha se calcula aquí con el día de publicación (plazo_origen «calculado», que la base muestra como «pendiente
+de verificar») y esa cuenta relativa se cambia por la fecha en el título y el resumen.
+
 Uso:
   analizador.py                 # lo normal
   analizador.py --prueba        # pide un lote y muestra la respuesta del modelo, sin guardar (las noticias vuelven a la cola)
@@ -43,7 +47,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 LOTE = 15
@@ -62,6 +66,21 @@ AMBITOS = {'turismo', 'salud', 'economia', 'clima', 'infraestructura'}
 PLAZOS = {'inmediato', 'semanas', 'meses'}
 CAMBIOS = {'fecha', 'plazo', 'cancelado', 'desviado', 'resuelto', 'agravado', 'atenuado', 'lugar', 'desmentido', 'confirmado', 'otro'}
 FECHA = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+BOLIVIA = timezone(timedelta(hours=-4))
+# CP1 (migración 48): los plazos se guardan como FECHA. «Quedan 12 días» se convierte aquí en fecha con la
+# fecha de publicación de la noticia, y nunca se deja escrito en el título ni en el resumen: esa frase
+# era verdad el día de la noticia y deja de serlo al día siguiente.
+_NUM = {'un': 1, 'una': 1, 'uno': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5, 'seis': 6, 'siete': 7, 'ocho': 8,
+        'nueve': 9, 'diez': 10, 'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15, 'veinte': 20,
+        'treinta': 30}
+_N = r'(?P<n>\d{1,3}|' + '|'.join(_NUM) + r')'
+_RESTO = r'\s+(?:solo\s+|s[oó]lo\s+|apenas\s+|unos?\s+)?' + _N + r'\s+(?P<unidad>d[ií]as?|semanas?)(?:\s+h[aá]biles)?'
+# plazos: «quedan 12 días», «cierra en 5 días», «plazo de 10 días»
+PLAZO_REL = re.compile(r'\b(?P<verbo>quedan|queda|faltan|falta|restan|resta|plazo\s+de|'
+                       r'(?:cierra|vence|termina|finaliza|concluye|caduca)\s+en)' + _RESTO, re.I)
+# cualquier cuenta relativa que hay que cambiar por la fecha en el texto (también «dentro de dos semanas»)
+RELATIVO = re.compile(r'\b(?P<verbo>quedan|queda|faltan|falta|restan|resta|plazo\s+de|'
+                      r'(?:cierra|vence|termina|finaliza|concluye|caduca)\s+en|dentro\s+de|en\s+los\s+pr[oó]ximos)' + _RESTO, re.I)
 # lo que el modelo NO puede decidir: la procedencia la pone la base
 PROHIBIDOS = {'fuente_id', 'fuente', 'enlace_oficial', 'enlace', 'url', 'codigo', 'noticias', 'ids'}
 
@@ -173,8 +192,81 @@ def impacto_bolivia(ib: object, permitidas: set[str]) -> dict | None:
             'refuerza': [c for c in dict.fromkeys(ref) if c in permitidas]}
 
 
+def _dia_publicacion(publicado: object) -> date | None:
+    """Día de publicación de la noticia en Bolivia (lote_para_clasificar trae «publicado_en»)."""
+    if not publicado:
+        return None
+    try:
+        t = datetime.fromisoformat(str(publicado).replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).astimezone(BOLIVIA).date()
+
+
+def _dias_relativos(m: re.Match) -> int:
+    n = m.group('n').lower()
+    n = int(n) if n.isdigit() else _NUM.get(n, 0)
+    return n * 7 if m.group('unidad').lower().startswith('semana') else n
+
+
+def _fecha_txt(d: date) -> str:
+    return d.strftime('%d/%m/%Y')
+
+
+def _sin_relativos(t: object, base: date) -> object:
+    """Cambia cada cuenta relativa por su fecha: «quedan 12 días» → «hasta el 30/11/2026»,
+    «cierra en 5 días» → «cierra el 23/11/2026», «dentro de dos semanas» → «el 02/12/2026»."""
+    if not isinstance(t, str):
+        return t
+
+    def uno(m: re.Match) -> str:
+        f = _fecha_txt(base + timedelta(days=_dias_relativos(m)))
+        v = re.sub(r'\s+', ' ', m.group('verbo').lower())
+        if v.endswith(' en'):
+            r = f'{v[:-3]} el {f}'
+        elif v in ('dentro de', 'en los próximos', 'en los proximos'):
+            r = f'el {f}'
+        elif v == 'plazo de':
+            r = f'plazo hasta el {f}'
+        else:
+            r = f'hasta el {f}'
+        inicio = m.start() == 0 or t[:m.start()].rstrip().endswith(('.', '!', '?', ':', '\n'))
+        return r[0].upper() + r[1:] if inicio else r
+    return RELATIVO.sub(uno, t)
+
+
+def fijar_plazo(x: dict, publicado: object, hoy: date | None = None) -> dict:
+    """CP1: deja en x una fecha de cierre absoluta y de dónde sale (plazo_origen 'texto' o 'calculado'),
+    y cambia en el texto las cuentas relativas («quedan 12 días») por su fecha."""
+    base = _dia_publicacion(publicado) or hoy or datetime.now(BOLIVIA).date()
+    cita = str(x.get('plazo_cita') or '').strip()[:200]
+    op = x.get('oportunidad') if isinstance(x.get('oportunidad'), dict) else {}
+    textos = [cita, str(x.get('resumen') or ''), str(x.get('titulo') or ''), str(op.get('hecho') or '')]
+    rel = next((m for t in textos if t for m in [PLAZO_REL.search(t)] if m), None)
+    if rel:
+        # nunca nos fiamos de la cuenta del modelo: fecha = día de publicación + N
+        x['plazo_hasta'] = (base + timedelta(days=_dias_relativos(rel))).isoformat()
+        x['plazo_origen'] = 'calculado'
+        x['plazo_cita'] = cita if cita and PLAZO_REL.search(cita) else rel.group(0)
+    elif isinstance(x.get('plazo_hasta'), str) and FECHA.match(x['plazo_hasta']):
+        x['plazo_origen'] = 'texto'
+        if cita:
+            x['plazo_cita'] = cita
+    else:
+        x.pop('plazo_origen', None)
+        x.pop('plazo_cita', None)
+    for k in ('titulo', 'resumen', 'recomendacion'):
+        if k in x:
+            x[k] = _sin_relativos(x[k], base)
+    if isinstance(x.get('oportunidad'), dict):
+        for k in ('hecho', 'accion', 'interpretacion'):
+            if k in x['oportunidad']:
+                x['oportunidad'][k] = _sin_relativos(x['oportunidad'][k], base)
+    return x
+
+
 def limpiar(res: list, claves: set[int], senales: dict[int, set[str]] | None = None,
-            internacionales: dict[int, set[str]] | None = None) -> list[dict]:
+            internacionales: dict[int, set[str]] | None = None, publicados: dict[int, object] | None = None) -> list[dict]:
     """Solo claves del lote, valores permitidos y nada de procedencia."""
     senales = senales or {}
     internacionales = internacionales or {}
@@ -211,6 +303,8 @@ def limpiar(res: list, claves: set[int], senales: dict[int, set[str]] | None = N
         for k in ('fecha_evento_inicio', 'fecha_evento_fin', 'plazo_hasta'):
             if not (isinstance(x.get(k), str) and FECHA.match(x[k])):
                 x.pop(k, None)
+        if x['relevante']:
+            fijar_plazo(x, (publicados or {}).get(clave))
         if not isinstance(x.get('departamentos'), list):
             x.pop('departamentos', None)
         try:
@@ -306,7 +400,8 @@ def main() -> int:
                                      'p_mensaje': f'Fallo del modelo: {str(e)[:300]}', 'p_detalle': None,
                                      'p_costo_usd': None, 'p_codigo_fuente': None})
             return 1
-        limpios = limpiar(res, {n['clave'] for n in lote}, senales_del_lote(lote), nacionales_del_lote(lote))
+        limpios = limpiar(res, {n['clave'] for n in lote}, senales_del_lote(lote), nacionales_del_lote(lote),
+                          {n['clave']: n.get('publicado_en') for n in lote})
         if a.prueba:
             print(json.dumps({'lote': lote, 'resultado': limpios, 'uso': uso}, ensure_ascii=False, indent=2))
             sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': ids, 'p_estado': 'nuevo', 'p_motivo': None})

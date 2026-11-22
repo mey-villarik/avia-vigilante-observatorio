@@ -160,7 +160,7 @@ function FilaSenal({ s }: { s: Senal }) {
           <span className="tag">{catName(s.categoria)}</span>
           {s.naturaleza === 'oportunidad' ? <span className={`tag p-${s.prioridad}`}>Prioridad {s.prioridad}</span> : <AccionTag s={s} />}
           {s.estado !== 'detectada' && <CertezaTag s={s} />}
-          {s.plazo != null && s.plazo >= 0 && <span className="tag mp-plazo">{s.plazo === 0 ? 'Vence hoy' : `${s.plazo} días para actuar`}</span>}
+          {s.plazo != null && s.plazo >= 0 && <span className="tag mp-plazo">{s.plazo === 0 ? 'Vence hoy' : s.plazo === 1 ? 'Vence mañana' : `${s.plazo} días para actuar`}</span>}
           <span className="mp-sig-a">{STL[s.estado]} · {ago(s.min)}</span>
         </span>
       </span>

@@ -3,10 +3,11 @@ import type { Senal } from '../types';
 import { CATS, DEPS } from '../data/demo';
 import { COLUMNAS, DESTINO, columnaDe, motivoNoPasa, type Columna, type Destino } from '../services/senales';
 import { canDecide, useStore, type SigFilter } from '../store';
-import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
+import { ago, esReciente, plazoTexto, porRevisar } from '../lib/util';
 import { AccionTag, CertezaTag, IntlTag, NatPill } from '../components/common';
 import { porqueAvia, porqueFrase, puntuacionesDe } from '../lib/puntuaciones';
 import { esConfirmada, esVerificada, motivoVerificada } from '../lib/verificada';
+import { filtrarSenales } from '../lib/filtroSenales';
 
 /** Probabilidad de que ocurra y por qué (solo señales confirmadas, db/generico/33_probabilidad_senales.sql) */
 function Probabilidad({ s }: { s: Senal }) {
@@ -62,10 +63,7 @@ function Pase({ de, a, nombreDe, nombreA }: { de: Columna; a: Columna; nombreDe:
   const passSignals = useStore((s) => s.passSignals);
   const [ocupado, setOcupado] = useState(false);
   const decide = canDecide(role);
-  const visibles = (f.periodo === 'todo' ? senales : senales.filter((s) => esReciente(s))).filter((s) => (!f.revisar || porRevisar(s))
-    && (f.nat === 'all' || s.naturaleza === f.nat)
-    && (f.dep === 'all' || s.deps.includes(f.dep))
-    && (!f.q || norm(`${s.titulo} ${s.resumen} ${s.destinos.join(' ')} ${s.id}`).includes(norm(f.q))));
+  const visibles = filtrarSenales(senales, f);
   const lista = (col: Columna, to: Destino) => visibles.filter((s) => columnaDe(s.estado) === col && !motivoNoPasa(s, to));
   const adelante = lista(de, DESTINO[a]);
   const atras = lista(a, DESTINO[de]);
@@ -105,10 +103,8 @@ export function Senales() {
   const pendientes = senales.filter(porRevisar);
   const vencidas = pendientes.filter((s) => s.revisionVencida).length;
   const descartadas = visibles.filter((s) => s.estado === 'descartada').length;
-  const list = visibles.filter((s) => (!f.revisar || porRevisar(s))
-    && (f.nat === 'all' || s.naturaleza === f.nat)
-    && (f.dep === 'all' || s.deps.includes(f.dep))
-    && (!f.q || norm(`${s.titulo} ${s.resumen} ${s.destinos.join(' ')} ${s.id}`).includes(norm(f.q))));
+  // la misma función que usa el chat para decir qué señales se ven (CP3)
+  const list = filtrarSenales(senales, f);
 
   return (
     <>

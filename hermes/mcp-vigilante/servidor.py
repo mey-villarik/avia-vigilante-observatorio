@@ -86,7 +86,9 @@ SENAL = {
         'alcance_nacional': {'type': 'boolean'},
         'fecha_evento_inicio': {'type': 'string', 'description': 'AAAA-MM-DD o ISO 8601 con -04:00'},
         'fecha_evento_fin': {'type': 'string'},
-        'plazo_hasta': {'type': 'string', 'description': 'AAAA-MM-DD: cierre de una convocatoria o plazo'},
+        'plazo_hasta': {'type': 'string', 'description': 'AAAA-MM-DD: FECHA de cierre de una convocatoria o plazo, nunca «quedan N días». '
+                                                         'Si la fuente solo da una cuenta, calcula la fecha con el día de PUBLICACIÓN de la noticia '
+                                                         'y dilo en el resumen; ese plazo sale «pendiente de verificar» (migración 48)'},
         'enlace_oficial': {'type': 'string', 'description': 'Solo una dirección que aparece en las noticias de la señal. '
                                                             'Si no hay enlace oficial comprobado, NO lo mandes: la base pide verificación.'},
         'requiere_revision': {'type': 'boolean'},
@@ -130,7 +132,7 @@ HERRAMIENTAS = [
          'tipo': {'type': 'string', 'description': 'convocatoria, licitacion, evento, conectividad, financiamiento, formacion, normativa, demanda'},
          'hecho': {'type': 'string'}, 'interpretacion': {'type': 'string'},
          'beneficiarios': {'type': 'array', 'items': {'type': 'string'}}, 'accion': {'type': 'string'},
-         'plazo_hasta': {'type': 'string', 'description': 'AAAA-MM-DD si la fuente lo da'},
+         'plazo_hasta': {'type': 'string', 'description': 'AAAA-MM-DD si la fuente lo da (fecha, nunca «quedan N días»)'},
          'importancia': {'type': 'integer', 'minimum': 1, 'maximum': 5},
          'evidencias': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'ids de noticias de la base (obligatorio)'}},
          'required': ['tipo', 'hecho', 'evidencias']}}, 'required': ['oportunidad']},
@@ -190,7 +192,9 @@ HERRAMIENTAS = [
          'p_parametros': {k: v for k, v in {'dias': a.get('dias', 7), 'apify_actor': a.get('apify_actor'),
                                              'apify_input': a.get('apify_input')}.items() if v is not None}}},
     {'name': 'metricas_oportunidades',
-     'description': 'Métricas calculadas en SQL (sin IA): oportunidades vigentes con días hasta el plazo o el evento, '
+     'description': 'Métricas calculadas en SQL (sin IA): oportunidades vigentes con días hasta el plazo (dias_plazo, contados HOY en '
+                    'Bolivia: 0 = cierra hoy), fecha_cierre y certeza_plazo («confirmado» solo si una fuente primaria da la fecha; '
+                    'si no, «pendiente de verificar»: nunca lo llames confirmado), días hasta el evento, '
                     'eventos de los próximos 60 días, impulso por territorio (menciones de 7 días frente a la media semanal '
                     'anterior) y temas que aparecen en varias fuentes. Úsalas para el radar diario de oportunidades.',
      'inputSchema': {'type': 'object', 'properties': {}}, 'fn': 'metricas_oportunidades', 'args': lambda a: {}},
