@@ -15,9 +15,6 @@ import { fechaVencida, vigente } from '../lib/vigencia';
 import { diasParaCierre, fechaCierre } from '../lib/plazo';
 import type { Contadores } from '../lib/contadores';
 
-/** responsable sugerido por eje para la vista Dirección (49) */
-export type Responsables = Partial<Record<'movilidad' | 'servicios' | 'atencion' | 'otros', string>>;
-
 const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
 /** URL pública de respaldo; vacía = desactivada */
 export const DATA_URL = URL_ENV === undefined ? '/data/vigilante.json' : URL_ENV.trim();
@@ -73,8 +70,6 @@ export interface VigilanteJson {
   comparacion_dia?: ComparacionDia | null;
   /** desde el 46: el Pulso de hace 7 y 30 días */
   pulso_evolucion?: PulsoEvolucion | null;
-  /** desde el 49: responsable sugerido de cada eje (parámetros responsable_movilidad, _servicios, _atencion) */
-  responsables?: Responsables | null;
   fuentes?: JFuente[];
   senales?: JSenal[];
   temas?: Tema[];
@@ -94,7 +89,6 @@ export interface DatosVps {
   sintesisDia: SintesisDia | null;
   comparacionDia: ComparacionDia | null;
   pulsoEvolucion: PulsoEvolucion | null;
-  responsables: Responsables | null;
   generado: string | null;
   ventanaHoras: number | null;
   noticiasRevisadas: number | null;
@@ -252,7 +246,6 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     sintesisDia: j.sintesis_dia ?? null,
     comparacionDia: j.comparacion_dia?.conteos ? j.comparacion_dia : null,
     pulsoEvolucion: j.pulso_evolucion && 'hace_7' in j.pulso_evolucion ? j.pulso_evolucion : null,
-    responsables: j.responsables ?? null,
     generado: j.generado ?? null,
     ventanaHoras: j.ventana_horas ?? null,
     oportunidades,

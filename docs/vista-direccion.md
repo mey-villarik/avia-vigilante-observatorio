@@ -11,9 +11,9 @@ Pantalla única para la Dirección de Turismo (P1 de la auditoría del 20/11/202
 ## Qué muestra
 
 1. **Semáforo de Bolivia**: el peor estado de los tres ejes, con el motivo.
-2. **Tres tarjetas, una por eje**, cada una Normal / Atención / Acción, con lo que la pone así, hasta 3 riesgos y el responsable sugerido.
+2. **Tres tarjetas, una por eje**, cada una Normal / Atención / Acción, con lo que la pone así y hasta 3 riesgos.
 3. **Decisiones de hoy**: las 3 más urgentes, cada una con su ficha fija
-   **Acción recomendada · Responsable sugerido · Plazo · Cómo verificar**.
+   **Acción recomendada · Plazo · Cómo verificar** (sin responsable: la Dirección no tiene responsables asignados por eje).
 4. **Semáforo por departamento** (verde / amarillo / rojo) con el motivo en una frase y qué se recomienda. También en la vista Mapa (modo «Semáforo», el de entrada para visor y administrador).
 5. **Lo que viene**: lo que ocurre en 24 h, 72 h o 7 días (se elige arriba), ordenado por la fecha en que pasa, no por cuándo lo detectó AVIA: marchas y paros anunciados, eventos, cierres de convocatorias y avisos con fecha.
 
@@ -43,28 +43,15 @@ Un departamento toma el color de su señal que más pesa. Las señales de todo e
 ### Ficha
 
 - **Acción recomendada**: la recomendación segura (25). Si da algo por bueno sin dato oficial de las últimas 24 h, la acción pasa a ser «Comprobar con … antes de avisar a nadie».
-- **Responsable sugerido**: el del eje, de los parámetros del cliente. Mientras no se configuren sale un texto genérico (por ejemplo «Responsable de movilidad y seguridad del visitante»).
+- **A quién afecta** (en letra pequeña, solo si AVIA lo dice): operadores, comunidades, visitantes…
 - **Plazo**: riesgo para actuar → «Hoy»; para preparar → antes de 72 h, o la víspera si empieza antes; para seguir → «Revisar en 7 días». Oportunidad → antes del cierre (con «fecha pendiente de verificar» si el plazo no lo dio una fuente primaria) o antes de que empiece.
 - **Cómo verificar**: con quién comprobarlo y lo primero que falta saber.
 
 ## Dónde vive
 
-- Base: `db/generico/49_vista_direccion.sql` (`vigilante.eje_de`, `accion_direccion`, `estado_direccion`, `ficha_direccion`, `direccion`). `vigilante_bd()` y `vigilante_json()` añaden `direccion` a cada señal y, arriba, `responsables` y `direccion`. Prueba: `99_prueba_vista_direccion.sql`.
+- Base: `db/generico/49_vista_direccion.sql` (`vigilante.eje_de`, `accion_direccion`, `estado_direccion`, `ficha_direccion`, `direccion`). `vigilante_bd()` y `vigilante_json()` añaden `direccion` a cada señal y, arriba, `direccion`. Prueba: `99_prueba_vista_direccion.sql`.
 - Web: `web/src/lib/direccion.ts` (mismas reglas, para los datos de ejemplo y bases sin el 49), `views/Direccion.tsx`, `components/FichaDireccion.tsx`, modo «Semáforo» en `views/Mapa.tsx`.
 - Chat AVIA: `avia_api.py` recibe el bloque VISTA DIRECCIÓN cuando la pregunta habla de la Dirección, el semáforo, un eje, un departamento, decisiones o lo que viene (regla 17), y cada señal lleva su eje y su ficha.
-
-## Poner los responsables reales
-
-```sql
-INSERT INTO vigilante.parametros (cliente_id, clave, valor, descripcion)
-SELECT id, x.clave, to_jsonb(x.valor), 'Responsable sugerido (vista Dirección)'
-  FROM vigilante.clientes, (VALUES
-    ('responsable_movilidad', 'Nombre o unidad'),
-    ('responsable_servicios', 'Nombre o unidad'),
-    ('responsable_atencion',  'Nombre o unidad')) x(clave, valor)
- WHERE slug = 'orbita-bolivia'
-ON CONFLICT (cliente_id, clave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = now();
-```
 
 ## Límites conocidos
 

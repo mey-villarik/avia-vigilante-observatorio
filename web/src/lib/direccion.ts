@@ -4,7 +4,7 @@
 // categorías técnicas de AVIA (clima, salud, vial…) a esos ejes y se saca de ellos:
 //   · el estado de cada eje (Normal / Atención / Acción) y el semáforo de Bolivia,
 //   · el semáforo de cada departamento con su motivo en una frase y qué se recomienda,
-//   · la ficha fija de cada señal: Acción recomendada · Responsable sugerido · Plazo · Cómo verificar,
+//   · la ficha fija de cada señal: Acción recomendada · Plazo · Cómo verificar (sin responsable: Meysel, 22/11),
 //   · las 3 decisiones más urgentes,
 //   · «Lo que viene»: lo que ocurre en las próximas 24 h, 72 h o 7 días, por fecha de ocurrencia.
 //
@@ -36,13 +36,6 @@ export const EJE_AYUDA: Record<Eje, string> = {
   movilidad: 'Rutas, seguridad del visitante, conflictos sociales (bloqueos, marchas, paros) y clima que afecta a las rutas.',
   servicios: 'Salud, agua, energía, combustible y telecomunicaciones (internet y telefonía).',
   atencion: 'Eventos, demanda de visitantes, aeropuertos y vuelos, y alojamiento.',
-};
-/** responsable sugerido si el cliente no puso uno (parámetros responsable_movilidad, _servicios, _atencion) */
-export const RESPONSABLE_DEFECTO: Record<Eje | 'otros', string> = {
-  movilidad: 'Responsable de movilidad y seguridad del visitante',
-  servicios: 'Responsable de enlace con servicios esenciales',
-  atencion: 'Responsable de atención al turista',
-  otros: 'Analista de turno',
 };
 
 // Palabras sin tildes, igual que en vigilante.eje_de() (49)
@@ -89,7 +82,7 @@ export function estadoDeSenal(s: Senal): EstadoEje {
   return 'atencion';
 }
 
-// ───────── 3. Ficha fija: Acción recomendada · Responsable · Plazo · Cómo verificar ─────────
+// ───────── 3. Ficha fija: Acción recomendada · Plazo · Cómo verificar ─────────
 
 const dmy = (d: string) => enBolivia(d, 'diaCorto');
 
@@ -101,12 +94,10 @@ export function cierreDe(s: Senal, ahora = Date.now()): string | null {
 }
 const sumarDias = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
-export function fichaDe(s: Senal, responsables: Partial<Record<Eje | 'otros', string>> = {}, ahora = Date.now()): FichaAccion {
+export function fichaDe(s: Senal, ahora = Date.now()): FichaAccion {
   if (s.direccion?.ficha) return s.direccion.ficha;
   const r = recoDe(s);
-  const eje = ejeDe(s);
   const hoy = hoyBolivia(ahora);
-  const responsable = responsables[eje ?? 'otros'] || RESPONSABLE_DEFECTO[eje ?? 'otros'];
   const accion = r.afirma_sin_verificar
     ? `Comprobar con ${r.verificar_con} antes de avisar a nadie: no hay dato oficial de las últimas 24 h`
     : (r.texto ?? s.soluciones[0]?.t ?? 'Seguir la evolución').replace(/\.$/, '');
@@ -132,7 +123,7 @@ export function fichaDe(s: Senal, responsables: Partial<Record<Eje | 'otros', st
     } else { plazo = 'Revisar en 7 días'; plazo_fecha = sumarDias(hoy, 7); }
   }
   const verificar = `Con ${r.verificar_con}${r.falta_saber[0] ? `. Falta saber: ${r.falta_saber[0].replace(/\.$/, '').toLowerCase()}` : ''}`;
-  return { accion, responsable, afecta: r.para_quien, plazo, plazo_fecha, verificar, sin_verificar: r.afirma_sin_verificar || undefined };
+  return { accion, afecta: r.para_quien, plazo, plazo_fecha, verificar, sin_verificar: r.afirma_sin_verificar || undefined };
 }
 
 // ───────── 4. Ejes, semáforo de Bolivia y top 3 decisiones ─────────
@@ -142,7 +133,6 @@ export interface ResumenEje {
   estado: EstadoEje;
   /** una frase: qué lo pone así */
   motivo: string;
-  responsable: string;
   /** señales del eje, primero las que más pesan */
   senales: Senal[];
   cuenta: { accion: number; atencion: number; oportunidades: number };
@@ -151,7 +141,7 @@ export interface ResumenEje {
 const ordenSenal = (a: Senal, b: Senal) =>
   ORDEN_ESTADO[estadoDeSenal(a)] - ORDEN_ESTADO[estadoDeSenal(b)] || a.min - b.min;
 
-export function resumenEjes(senales: Senal[], responsables: Partial<Record<Eje | 'otros', string>> = {}): ResumenEje[] {
+export function resumenEjes(senales: Senal[]): ResumenEje[] {
   const activas = senales.filter((s) => s.estado !== 'descartada');
   return EJES.map((eje) => {
     const l = activas.filter((s) => ejeDe(s) === eje).sort(ordenSenal);
@@ -165,7 +155,6 @@ export function resumenEjes(senales: Senal[], responsables: Partial<Record<Eje |
       : opp.length ? `Sin riesgos que pidan medidas; ${opp.length} oportunidad(es) abiertas` : 'Sin riesgos que pidan medidas';
     return {
       eje, estado, motivo, senales: l,
-      responsable: responsables[eje] || RESPONSABLE_DEFECTO[eje],
       cuenta: { accion: accion.length, atencion: atencion.length, oportunidades: opp.length },
     };
   });
@@ -211,7 +200,7 @@ export interface SemaforoDep {
   senal: Senal | null;
 }
 
-export function semaforoDepartamentos(senales: Senal[], responsables: Partial<Record<Eje | 'otros', string>> = {}): Record<string, SemaforoDep> {
+export function semaforoDepartamentos(senales: Senal[]): Record<string, SemaforoDep> {
   const activas = senales.filter((s) => s.estado !== 'descartada' && ejeDe(s)).sort(ordenSenal);
   const por: Record<string, SemaforoDep> = {};
   DEPS.forEach((dep) => {
@@ -224,7 +213,7 @@ export function semaforoDepartamentos(senales: Senal[], responsables: Partial<Re
       motivo: top
         ? `${EJE_TXT[ejeDe(top)!]}: ${top.titulo}${otras > 0 ? ` (y ${otras} más)` : ''}`
         : l.length ? `Sin riesgos que pidan medidas (${l.length} señal(es) en seguimiento)` : 'Sin señales propias',
-      recomendacion: top ? fichaDe(top, responsables).accion : null,
+      recomendacion: top ? fichaDe(top).accion : null,
     };
   });
   return por;

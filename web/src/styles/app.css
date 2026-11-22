@@ -925,9 +925,7 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .eje-lista{margin:0;padding:0;list-style:none;font-size:13.5px;display:grid;gap:6px}
 .eje-lista li{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline}
 .eje-lista .linklike{text-align:left}
-.eje-resp{margin:auto 0 0;font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
-.eje-resp svg{width:14px;height:14px}
-.eje-card .btn{align-self:flex-start}
+.eje-card .btn{align-self:flex-start;margin-top:auto}
 .dir-decisiones{margin-bottom:16px}
 .dec-lista{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .dec{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--surface2)}
@@ -943,6 +941,7 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .ficha-dir dt svg{width:13px;height:13px}
 .ficha-dir dd{margin:0;line-height:1.4}
 .ficha-dir .fd-accion dd{font-weight:700;font-size:15px}
+.ficha-dir .fd-afecta{display:block;font-weight:400;font-size:13px;color:var(--muted);margin-top:2px}
 .ficha-dir.compacta{grid-template-columns:1fr;margin:0;padding:10px 12px;gap:7px;background:var(--surface)}
 .ficha-dir.compacta .fd-accion dd{font-size:14px}
 .dir-fila{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}

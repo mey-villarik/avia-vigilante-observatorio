@@ -268,10 +268,9 @@ export interface Senal {
 /** Los tres ejes de la premisa (db/generico/49_vista_direccion.sql) */
 export type EjeDireccion = 'movilidad' | 'servicios' | 'atencion';
 
-/** Ficha fija para la Dirección: Acción recomendada · Responsable sugerido · Plazo · Cómo verificar (49) */
+/** Ficha fija para la Dirección: Acción recomendada · Plazo · Cómo verificar (49) */
 export interface FichaAccion {
   accion: string;
-  responsable: string;
   /** a quién afecta, si AVIA lo dice */
   afecta?: string;
   plazo: string;

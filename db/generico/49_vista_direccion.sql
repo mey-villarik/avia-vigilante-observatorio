@@ -5,8 +5,9 @@
 --   · una sola pantalla, sin editar nada, con el semáforo de Bolivia y 3 tarjetas: movilidad,
 --     servicios esenciales y atención turística (los 3 ejes de la premisa), cada una Normal /
 --     Atención / Acción;
---   · las 3 decisiones de hoy con una ficha fija: Acción recomendada · Responsable sugerido ·
---     Plazo · Cómo verificar (sale de la recomendación segura del 25, no la sustituye);
+--   · las 3 decisiones de hoy con una ficha fija: Acción recomendada · Plazo · Cómo verificar
+--     (sale de la recomendación segura del 25, no la sustituye). Sin responsable: la Dirección no
+--     tiene responsables asignados por eje (Meysel, 2026-11-22);
 --   · el semáforo de cada departamento con su motivo en una frase y qué se recomienda;
 --   · «Lo que viene» en 24 h, 72 h y 7 días, por fecha de OCURRENCIA, no de detección.
 --
@@ -28,15 +29,6 @@
 --     Normal   = seguir, oportunidades o nada.
 --   Semáforo de Bolivia = el peor de los 3 ejes. Departamento = su señal que más pesa
 --   (las nacionales se listan aparte y no tiñen todo el mapa).
---   Responsable sugerido por eje: parámetros responsable_movilidad, responsable_servicios,
---   responsable_atencion (y responsable_otros); si no están, un texto genérico.
---
--- Cómo poner los responsables reales (ejemplo):
---   INSERT INTO vigilante.parametros (cliente_id, clave, valor, descripcion)
---   SELECT id, 'responsable_movilidad', to_jsonb('Unidad de Gestión de Riesgos · Nombre Apellido'::text),
---          'Responsable sugerido del eje Movilidad (vista Dirección)'
---     FROM vigilante.clientes WHERE slug = 'orbita-bolivia'
---   ON CONFLICT (cliente_id, clave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = now();
 --
 -- Qué hace:
 --   1. vigilante.eje_de(categoría, texto), vigilante.accion_direccion(señal),
@@ -44,7 +36,7 @@
 --   2. vigilante.direccion(cliente): semáforo de Bolivia, ejes, 3 decisiones, departamentos y lo que
 --      viene en 7 días (el chat AVIA lo usa para responder lo mismo que la pantalla).
 --   3. vigilante_bd() y vigilante_json() añaden a cada señal «direccion» (eje, acción y ficha) y, arriba,
---      «responsables» y «direccion». No se toca _vigilante_json(): los scripts que la cambien después
+--      «direccion». No se toca _vigilante_json(): los scripts que la cambien después
 --      siguen valiendo.
 --
 -- Necesita el 48 (y lo anterior). Se puede ejecutar varias veces.
@@ -114,22 +106,11 @@ RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, p
   WHERE s.id = p_signal
 $$;
 
--- responsable sugerido de un eje (parámetro del cliente o texto genérico)
-CREATE OR REPLACE FUNCTION vigilante.responsable_eje(p_cliente uuid, p_eje text)
-RETURNS text LANGUAGE sql STABLE AS $$
-  SELECT coalesce(nullif(trim(vigilante.param(p_cliente, 'responsable_' || coalesce(p_eje, 'otros')) #>> '{}'), ''),
-    CASE p_eje WHEN 'movilidad' THEN 'Responsable de movilidad y seguridad del visitante'
-               WHEN 'servicios' THEN 'Responsable de enlace con servicios esenciales'
-               WHEN 'atencion'  THEN 'Responsable de atención al turista'
-               ELSE 'Analista de turno' END)
-$$;
-
--- 1d. Ficha fija: Acción recomendada · Responsable sugerido · Plazo · Cómo verificar -----------------
+-- 1d. Ficha fija: Acción recomendada · Plazo · Cómo verificar ------------------------------------------
 CREATE OR REPLACE FUNCTION vigilante.ficha_direccion(p_signal bigint)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, pg_temp AS $$
   WITH s AS (
     SELECT sg.*, vigilante.recomendacion_segura(sg.id) AS r, vigilante.hoy_bo() AS hoy,
-           vigilante.eje_de(sg.categoria, sg.titulo || ' ' || coalesce(sg.resumen, '')) AS eje,
            vigilante.accion_direccion(sg.id) AS accion,
            vigilante.dia_bo(sg.plazo_hasta) AS cierre,
            (sg.fecha_evento_inicio AT TIME ZONE 'UTC')::date AS inicio,
@@ -149,7 +130,6 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
     'accion', CASE WHEN coalesce((r ->> 'afirma_sin_verificar')::boolean, false)
                    THEN 'Comprobar con ' || (r ->> 'verificar_con') || ' antes de avisar a nadie: no hay dato oficial de las últimas 24 h'
                    ELSE regexp_replace(coalesce(r ->> 'texto', salida_modelo -> 'soluciones' -> 0 ->> 't', 'Seguir la evolución'), '\.$', '') END,
-    'responsable', vigilante.responsable_eje(cliente_id, eje),
     'afecta', r ->> 'para_quien',
     'plazo', CASE
         WHEN naturaleza = 'oportunidad' AND cierre >= hoy
@@ -244,7 +224,6 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
                 'motivo', coalesce(e.peor || CASE WHEN e.n_accion + e.n_atencion > 1 THEN ' y ' || (e.n_accion + e.n_atencion - 1) || ' más' ELSE '' END,
                                    'Sin riesgos que pidan medidas'),
                 'para_actuar_hoy', e.n_accion, 'para_preparar', e.n_atencion, 'oportunidades', e.n_opp,
-                'responsable', vigilante.responsable_eje(p_cliente, e.eje),
                 'senales', (SELECT jsonb_agg(x) FROM (SELECT jsonb_array_elements(e.senales) x LIMIT 5) y))
               ORDER BY array_position(ARRAY['movilidad','servicios','atencion'], e.eje)) FROM e),
     'decisiones', (SELECT coalesce(jsonb_agg(jsonb_build_object('codigo', x.codigo, 'titulo', x.titulo, 'eje', x.eje,
@@ -267,7 +246,7 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
   )
 $$;
 
--- 3. vigilante_bd() y vigilante_json(): cada señal con su eje, acción y ficha; arriba responsables y direccion
+-- 3. vigilante_bd() y vigilante_json(): cada señal con su eje, acción y ficha; arriba la direccion
 CREATE OR REPLACE FUNCTION vigilante._con_direccion(p_json jsonb, p_cliente uuid)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, pg_temp AS $$
   SELECT CASE WHEN p_json IS NULL THEN NULL ELSE
@@ -280,11 +259,6 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = vigilante, 
                     'ficha', vigilante.ficha_direccion(s.id)))) END ORDER BY o)
              FROM jsonb_array_elements(p_json -> 'senales') WITH ORDINALITY e(x, o)
              LEFT JOIN vigilante.signals s ON s.cliente_id = p_cliente AND s.codigo = x ->> 'id'), '[]'),
-         'responsables', jsonb_build_object(
-           'movilidad', vigilante.responsable_eje(p_cliente, 'movilidad'),
-           'servicios', vigilante.responsable_eje(p_cliente, 'servicios'),
-           'atencion', vigilante.responsable_eje(p_cliente, 'atencion'),
-           'otros', vigilante.responsable_eje(p_cliente, 'otros')),
          'direccion', vigilante.direccion(p_cliente))
   END
 $$;
@@ -310,6 +284,8 @@ REVOKE ALL ON FUNCTION vigilante._con_direccion(jsonb, uuid) FROM public, anon, 
 GRANT EXECUTE ON FUNCTION vigilante.accion_direccion(bigint), vigilante.estado_direccion(bigint),
   vigilante.ficha_direccion(bigint), vigilante.departamentos_senal(bigint) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION vigilante.direccion(uuid), vigilante._con_direccion(jsonb, uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION vigilante.eje_de(text, text), vigilante.responsable_eje(uuid, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION vigilante.eje_de(text, text) TO authenticated, service_role;
+-- si se ejecutó una versión anterior del 49
+DROP FUNCTION IF EXISTS vigilante.responsable_eje(uuid, text);
 
 COMMIT;

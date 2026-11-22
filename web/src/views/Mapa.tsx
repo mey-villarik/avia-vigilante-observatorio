@@ -438,12 +438,11 @@ export function Mapa() {
   const origen = useStore((s) => s.origen);
   const role = useStore((s) => s.role);
   const senales = useStore((s) => s.senales);
-  const responsables = useStore((s) => s.responsables);
   const [mostrar, setMostrar] = useState<Mostrar>(role === 'analista' ? 'todo' : 'semaforo');
   const [periodo, setPeriodo] = useState<'recientes' | 'todo'>('recientes');
   const { por, total, nacionales, sinLugar } = useResumenes(mostrar, periodo);
   const destinos = useMemo(() => [...new Set(total.flatMap((s) => s.destinos ?? []))], [total]);
-  const semaforo = useMemo(() => (mostrar === 'semaforo' ? semaforoDepartamentos(senales, responsables) : undefined), [mostrar, senales, responsables]);
+  const semaforo = useMemo(() => (mostrar === 'semaforo' ? semaforoDepartamentos(senales) : undefined), [mostrar, senales]);
   const nacPeso = useMemo(() => (mostrar === 'semaforo' ? nacionalesConPeso(senales) : []), [mostrar, senales]);
   const elegir = (d: string) => setMapaSel(sel === d ? null : d);
   const lado = useRef<HTMLElement>(null);

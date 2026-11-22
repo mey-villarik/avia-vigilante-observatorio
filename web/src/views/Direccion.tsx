@@ -1,7 +1,7 @@
 // Vista Dirección (P1, auditoría para la Dirección de Turismo, 2026-11-22).
 // Una sola pantalla, sin editar ni aprobar nada: semáforo de Bolivia, los 3 ejes de la premisa
 // (movilidad, servicios esenciales, atención turística), las 3 decisiones de hoy con su ficha
-// «Acción · Responsable · Plazo · Cómo verificar», el semáforo por departamento y «Lo que viene».
+// «Acción recomendada · Plazo · Cómo verificar», el semáforo por departamento y «Lo que viene».
 // Es la pantalla de entrada del visor y del administrador; todos la ven. Reglas en lib/direccion.ts.
 import { useMemo, useState } from 'react';
 import { useStore } from '../store';
@@ -49,8 +49,7 @@ function TarjetaEje({ r }: { r: ResumenEje }) {
           ))}
         </ul>
       )}
-      <p className="eje-resp"><Icon name="usuario" /> {r.responsable}</p>
-      <button className="btn sm ghost" onClick={() => openChat(`¿Cómo está la ${EJE_TXT[r.eje].toLowerCase()} para el turismo en Bolivia? Qué hay que hacer, quién y hasta cuándo.`)}><Icon name="spark" /> Preguntar a AVIA</button>
+      <button className="btn sm ghost" onClick={() => openChat(`¿Cómo está la ${EJE_TXT[r.eje].toLowerCase()} para el turismo en Bolivia? Qué hay que hacer y hasta cuándo.`)}><Icon name="spark" /> Preguntar a AVIA</button>
     </section>
   );
 }
@@ -94,9 +93,8 @@ function Decisiones() {
 
 function SemaforoDepartamentos() {
   const senales = useStore((s) => s.senales);
-  const responsables = useStore((s) => s.responsables);
   const [sel, setSel] = useState<string | null>(null);
-  const sem = useMemo(() => semaforoDepartamentos(senales, responsables), [senales, responsables]);
+  const sem = useMemo(() => semaforoDepartamentos(senales), [senales]);
   const nac = useMemo(() => nacionalesConPeso(senales), [senales]);
   // el mapa pide un resumen por departamento; aquí solo se usa para la etiqueta del departamento
   const por = useMemo(() => {
@@ -185,10 +183,9 @@ function LoQueViene() {
 
 export function Direccion() {
   const senales = useStore((s) => s.senales);
-  const responsables = useStore((s) => s.responsables);
   const generado = useStore((s) => s.generado);
   const { openChat } = useChat();
-  const ejes = useMemo(() => resumenEjes(senales, responsables), [senales, responsables]);
+  const ejes = useMemo(() => resumenEjes(senales), [senales]);
   const bo = semaforoBolivia(ejes);
   return (
     <>
@@ -200,7 +197,7 @@ export function Direccion() {
         </div>
         <div className="head-actions">
           <span className="updated">{generado ? `Datos generados ${clock(-(Date.now() - Date.parse(generado)) / 60000)}` : `Última comprobación ${clock(-1)}`}</span>
-          <button className="btn gold" onClick={() => openChat('Para la Dirección: qué decisiones hay que tomar hoy en movilidad, servicios esenciales y atención turística, quién y hasta cuándo.')}><Icon name="sintesis" /> Preguntar a AVIA</button>
+          <button className="btn gold" onClick={() => openChat('Para la Dirección: qué decisiones hay que tomar hoy en movilidad, servicios esenciales y atención turística, y hasta cuándo.')}><Icon name="sintesis" /> Preguntar a AVIA</button>
         </div>
       </section>
       <div className="dir-ejes">

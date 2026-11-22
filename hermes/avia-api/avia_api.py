@@ -250,9 +250,9 @@ REGLAS
 17. Dirección (ejes, semáforo y qué hacer): si preguntan por la Dirección, el semáforo, un eje (movilidad,
    servicios esenciales, atención turística), un departamento, las decisiones de hoy o lo que viene, y abajo hay
    un bloque VISTA DIRECCIÓN, usa sus estados tal cual (Normal / Atención / Acción): no los recalcules ni los
-   subas. Cada acción va con su ficha, con estas cuatro etiquetas y en este orden:
-   «Acción recomendada · Responsable sugerido · Plazo · Cómo verificar». Copia el responsable y el plazo de la
-   ficha; si el responsable es genérico, no inventes un nombre. «Lo que viene» va por fecha de ocurrencia."""
+   subas. Cada acción va con su ficha, con estas tres etiquetas y en este orden:
+   «Acción recomendada · Plazo · Cómo verificar». Copia el plazo de la ficha. No asignes responsables ni
+   inventes quién debe hacerlo: la Dirección no tiene responsables por eje. «Lo que viene» va por fecha de ocurrencia."""
 
 
 # ── Plazos (CP1 y CP2; misma regla que vigilante.cierre() del 48 y web/src/lib/plazo.ts) ──
@@ -349,12 +349,12 @@ def _compacta(x: dict) -> dict:
     ci = _cierre(x)
     if ci:
         c['cierre'] = ci
-    d = x.get('direccion')   # 49: eje y ficha «Acción · Responsable · Plazo · Cómo verificar»
+    d = x.get('direccion')   # 49: eje y ficha «Acción · Plazo · Cómo verificar»
     if isinstance(d, dict):
         if d.get('eje'):
             c['eje'] = _EJE_TXT.get(d['eje'], d['eje'])
         if isinstance(d.get('ficha'), dict):
-            c['ficha_direccion'] = {k: d['ficha'][k] for k in ('accion', 'responsable', 'plazo', 'verificar') if d['ficha'].get(k)}
+            c['ficha_direccion'] = {k: d['ficha'][k] for k in ('accion', 'plazo', 'verificar') if d['ficha'].get(k)}
     for k in ('titulo', 'resumen', 'importancia'):
         if k in c:
             c[k] = _sin_relativos(c[k])
@@ -431,7 +431,7 @@ _RE_CAMBIOS = re.compile(r'qu[eé] (ha )?cambi|cambios|novedad|nuevo hoy|nuevas 
 
 
 _RE_DIRECCION = re.compile(r'direcci[oó]n|sem[aá]foro|\bejes?\b|movilidad|servicios esenciales|atenci[oó]n tur[ií]stica|departament|'
-                           r'decisi[oó]n|decisiones|qu[eé] hago|qu[eé] hacemos|responsable|lo que viene|pr[oó]xim[oa]s? (24|48|72|d[ií]as|semana|horas)|'
+                           r'decisi[oó]n|decisiones|qu[eé] hago|qu[eé] hacemos|lo que viene|pr[oó]xim[oa]s? (24|48|72|d[ií]as|semana|horas)|'
                            r'ma[nñ]ana|esta semana', re.I)
 _ESTADO_TXT = {'normal': 'Normal', 'atencion': 'Atención', 'accion': 'Acción'}
 _EJE_TXT = {'movilidad': 'Movilidad', 'servicios': 'Servicios esenciales', 'atencion': 'Atención turística'}
@@ -445,14 +445,13 @@ def _direccion_txt(d) -> str:
          f"- Bolivia: {_ESTADO_TXT.get(d.get('bolivia'), d.get('bolivia'))}"]
     for e in d.get('ejes') or []:
         l.append(f"- {_EJE_TXT.get(e.get('eje'), e.get('eje'))}: {_ESTADO_TXT.get(e.get('estado'), e.get('estado'))} · "
-                 f"{e.get('motivo')} · {e.get('para_actuar_hoy', 0)} para actuar hoy, {e.get('para_preparar', 0)} para preparar · "
-                 f"responsable sugerido: {e.get('responsable')}")
+                 f"{e.get('motivo')} · {e.get('para_actuar_hoy', 0)} para actuar hoy, {e.get('para_preparar', 0)} para preparar")
     dec = d.get('decisiones') or []
     l.append('DECISIONES DE HOY:' if dec else 'DECISIONES DE HOY: ninguna.')
     for i, x in enumerate(dec, 1):
         f = x.get('ficha') or {}
         l.append(f"{i}. {x.get('codigo')} {x.get('titulo')} [{x.get('certeza')}] — Acción recomendada: {f.get('accion')} · "
-                 f"Responsable sugerido: {f.get('responsable')} · Plazo: {f.get('plazo')} · Cómo verificar: {f.get('verificar')}")
+                 f"Plazo: {f.get('plazo')} · Cómo verificar: {f.get('verificar')}")
     deps = d.get('departamentos') or {}
     if deps:
         l.append('DEPARTAMENTOS: ' + ' | '.join(f"{k}: {_ESTADO_TXT.get(v.get('estado'), v.get('estado'))} ({v.get('motivo')})"

@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import {
   CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
 } from './data/demo';
-import { cargarVps, convertir, type DatosVps, type Responsables } from './services/datos';
+import { cargarVps, convertir, type DatosVps } from './services/datos';
 import {
   decidirOportunidad, decidirPropuesta, leerCandidatas, leerPropuestas, leerVigilanteBd,
   type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
@@ -92,8 +92,6 @@ interface State {
   comparacionDia: ComparacionDia | null;
   /** el Pulso de hace 7 y 30 días (46); null = la base aún no lo da */
   pulsoEvolucion: PulsoEvolucion | null;
-  /** responsable sugerido por eje (vista Dirección, 49); vacío = los de lib/direccion.ts */
-  responsables: Responsables;
   temas: Tema[];
   serie: Serie;
   fuentes: Fuente[];
@@ -262,7 +260,6 @@ export const useStore = create<Store>()((set, get) => {
     sintesisDia: null,
     comparacionDia: null,
     pulsoEvolucion: DEMO ? PULSO_EVOLUCION_DEMO : null,
-    responsables: {},
     // sin VITE_DEMO=1 todo empieza vacío: nada inventado llega a la pantalla
     temas: DEMO ? TEMAS_DEMO : [],
     serie: DEMO ? SERIE_DEMO : SERIE_VACIA,
@@ -685,7 +682,7 @@ export const useStore = create<Store>()((set, get) => {
         set({
           origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
-          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia, pulsoEvolucion: d.pulsoEvolucion, responsables: d.responsables ?? {},
+          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia, pulsoEvolucion: d.pulsoEvolucion,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
           oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });

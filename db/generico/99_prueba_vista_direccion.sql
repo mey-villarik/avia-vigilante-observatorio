@@ -69,16 +69,11 @@ BEGIN
 
   -- ficha
   f := vigilante.ficha_direccion((SELECT id FROM vigilante.signals WHERE codigo = 'D-1'));
-  IF f ->> 'plazo' <> 'Hoy' OR f ->> 'responsable' IS NULL OR f ->> 'verificar' NOT LIKE 'Con %' OR f ->> 'accion' IS NULL THEN
+  IF f ->> 'plazo' <> 'Hoy' OR f ? 'responsable' OR f ->> 'verificar' NOT LIKE 'Con %' OR f ->> 'accion' IS NULL THEN
     RAISE EXCEPTION 'ficha D-1 incompleta: %', f; END IF;
   f := vigilante.ficha_direccion((SELECT id FROM vigilante.signals WHERE codigo = 'D-4'));
   IF f ->> 'plazo' NOT LIKE 'Antes del cierre: cierra el %' OR f ->> 'plazo_fecha' <> to_char(v_hoy + 5, 'YYYY-MM-DD') THEN
     RAISE EXCEPTION 'ficha D-4 plazo mal: %', f; END IF;
-  -- responsable configurable
-  INSERT INTO vigilante.parametros (cliente_id, clave, valor, descripcion)
-  VALUES (v_c, 'responsable_movilidad', to_jsonb('Unidad de prueba'::text), 'prueba');
-  IF vigilante.ficha_direccion((SELECT id FROM vigilante.signals WHERE codigo = 'D-1')) ->> 'responsable' <> 'Unidad de prueba' THEN
-    RAISE EXCEPTION 'el responsable del parámetro no se usa'; END IF;
 
   -- vista completa
   d := vigilante.direccion(v_c);
@@ -102,7 +97,7 @@ BEGIN
   j := vigilante.vigilante_json('orbita-bolivia');
   SELECT e INTO x FROM jsonb_array_elements(j -> 'senales') e WHERE e ->> 'id' = 'D-1';
   IF x #>> '{direccion,eje}' <> 'movilidad' OR x #>> '{direccion,ficha,plazo}' <> 'Hoy' THEN RAISE EXCEPTION 'vigilante.json sin direccion: %', x -> 'direccion'; END IF;
-  IF j #>> '{responsables,movilidad}' <> 'Unidad de prueba' OR j -> 'direccion' IS NULL THEN RAISE EXCEPTION 'vigilante.json sin responsables/direccion'; END IF;
+  IF j -> 'direccion' IS NULL OR j ? 'responsables' THEN RAISE EXCEPTION 'vigilante.json sin direccion (o con responsables)'; END IF;
   RAISE NOTICE 'OK: vista Dirección';
 END $$;
 
