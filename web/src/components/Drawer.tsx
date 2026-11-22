@@ -463,6 +463,8 @@ function PulsoExplica() {
         <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.indice}</p>
         <ul className="pulso-r">{PULSO_EXPLICA.niveles.map((n) => <li key={n}>{n}</li>)}</ul>
         <p className="note" style={{ margin: '4px 0 0' }}><b>Nivel de vigilancia ahora:</b> {p.vigilancia}</p>
+        <div className="sect">Evolución a 7 y 30 días</div>
+        <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.evolucion}</p>
         <div className="sect">Qué no entra y límites</div>
         <p style={{ margin: '0 0 4px' }}>{PULSO_EXPLICA.noEntra}</p>
         <p className="note" style={{ margin: 0 }}>{PULSO_EXPLICA.limites}</p>

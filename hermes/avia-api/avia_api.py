@@ -218,6 +218,9 @@ REGLAS
    × etapa, y 0 si el plazo venció; índice = 100 × suma de pesos ÷ (señales + 2). Las mixtas y los escenarios
    cuentan la mitad. Niveles: menos de 25 normal o bajo, 25-49 vigilancia o moderado, 50-74 atención o alto,
    75 o más crítico o muy alto. Las fuentes caídas no entran en los índices.
+   Evolución: si abajo hay un bloque EVOLUCIÓN DEL PULSO, es de la base: cita esos valores tal cual (hace 7 y
+   hace 30 días frente a ahora, y si mejora, empeora o está estable) y di «aproximado» en los reconstruidos.
+   Si no hay bloque o un valor dice «sin datos», dilo así; no calcules tú la tendencia.
 13. Cambios desde ayer: si preguntan qué cambió, las novedades de hoy o cómo está «comparado con ayer» y abajo
    vienen CAMBIOS DESDE AYER, no uses los seis bloques: responde con estos cuatro, en este orden:
    #### Nuevas · #### Subieron de certeza · #### Bajaron de certeza · #### Resueltas
@@ -273,6 +276,43 @@ def _sintesis_txt(s) -> str:
     return (f"SÍNTESIS DEL DÍA (armada por la base; úsala para el resumen del día):\nTotales: {s.get('totales', '')}\n"
             f"Qué pasa:\n{lineas(s.get('que_pasa'))}\nPor qué importa:\n{lineas(s.get('por_que_importa'))}\n"
             f"Qué vigilar:\n{lineas(s.get('que_vigilar'))}")
+
+
+# Preguntas por la tendencia del Pulso (DIANA 2.3, db/generico/46_pulso_evolucion.sql)
+_RE_TENDENCIA = re.compile(r'pulso|tendencia|evoluci|mejora|empeora|estable|hace (7|siete|30|treinta) d[ií]as|[uú]ltim[oa]s? (semana|mes)', re.I)
+_UMBRAL_ESTABLE = 5   # igual que UMBRAL_ESTABLE en web/src/lib/pulso.ts
+
+
+def _pulso_evol_txt(e) -> str:
+    """El Pulso de hoy frente al de hace 7 y 30 días (vigilante.pulso_evolucion), en texto para el prompt.
+    Mismas reglas que tendencia() en web/src/lib/pulso.ts: menos de 5 puntos = estable; en riesgos subir es empeorar."""
+    if not isinstance(e, dict) or not isinstance(e.get('hoy'), dict):
+        return ('EVOLUCIÓN DEL PULSO: la base aún no la calcula (falta ejecutar 46_pulso_evolucion.sql). '
+                'Si preguntan si mejora o empeora, dilo así y no lo estimes.')
+    hoy = e['hoy']
+    u = e.get('umbral_estable') or _UMBRAL_ESTABLE
+
+    def comp(indice, nombre, antes, cuando):
+        if not isinstance(antes, dict):
+            return f'- {nombre}, frente a {cuando}: sin datos (aún no había señales)'
+        a, h = antes.get(indice), hoy.get(indice)
+        if a is None or h is None:
+            return f'- {nombre}, frente a {cuando}: sin datos'
+        d = h - a
+        if abs(d) < u:
+            sentido = 'estable'
+        else:
+            sentido = 'mejora' if (d > 0) == (indice == 'oportunidad') else 'empeora'
+        aprox = ' (aproximado: reconstruido con el historial de las señales)' if antes.get('reconstruido') else ''
+        return f"- {nombre}, frente a {cuando} ({antes.get('dia')}): de {a} a {h} ({d:+d}) → {sentido}{aprox}"
+
+    lineas = []
+    for indice, nombre in (('riesgo', 'Atención a riesgos'), ('oportunidad', 'Oportunidad')):
+        lineas.append(comp(indice, nombre, e.get('hace_7'), 'hace 7 días'))
+        lineas.append(comp(indice, nombre, e.get('hace_30'), 'hace 30 días'))
+    return (f"EVOLUCIÓN DEL PULSO (calculada por la base con las mismas reglas que el panel; no la recalcules):\n"
+            f"Ahora: atención a riesgos {hoy.get('riesgo')}/100, oportunidad {hoy.get('oportunidad')}/100, nivel {hoy.get('vigilancia')}.\n"
+            + '\n'.join(lineas))
 
 
 # Preguntas por lo que cambió (mejora «vs ayer», db/generico/27_comparacion_dia.sql)
@@ -514,6 +554,8 @@ Cuando des un número total, cita la hora: «según los datos actualizados a las
 {_sintesis_txt(ctx.get('sintesis_dia'))}
 
 {_comparacion_txt(ctx.get('comparacion_dia')) if _RE_CAMBIOS.search(ultima) else ''}
+
+{_pulso_evol_txt(ctx.get('pulso_evolucion')) if _RE_TENDENCIA.search(ultima) else ''}
 
 SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}

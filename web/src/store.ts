@@ -11,12 +11,13 @@ import {
   type AltaCandidata, type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
 } from './services/recolector';
 import { CANDIDATAS_DEMO, OPORTUNIDADES_DEMO } from './data/demoOportunidades';
+import { PULSO_EVOLUCION_DEMO } from './data/demoPulso';
 import { DEMO } from './lib/modo';
 import { accesoConfigurado, type Perfil } from './services/auth';
 import { activarFuente, altaFuente, editarFuente, eliminarFuente, leerBitacoraFuentes, leerFuentesBd, pedirRevision, reconocerFuente, mezclarFuentes, type AltaFuente } from './services/fuentes';
 import { decidirSenal, leerEstados, leerMovimientos, motivoNoPasa, moverSenal, type Destino, pasarSenales, pasosHasta, siguientesPasos, transicionValida } from './services/senales';
 import type {
-  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, SintesisDia, Tema, TipoAnalisis, VistaId,
+  CategoriaId, EstadoFuente, Etapa, Evaluacion, Evento, Fuente, PanelEnTablero, PanelId, Rol, Senal, Serie, ComparacionDia, PulsoEvolucion, SintesisDia, Tema, TipoAnalisis, VistaId,
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
 import { completarDesglose, contar, textoFuentes, type Contadores } from './lib/contadores';
@@ -89,6 +90,8 @@ interface State {
   sintesisDia: SintesisDia | null;
   /** cambios desde ayer de la base (27); null = no se muestran */
   comparacionDia: ComparacionDia | null;
+  /** el Pulso de hace 7 y 30 días (46); null = la base aún no lo da */
+  pulsoEvolucion: PulsoEvolucion | null;
   temas: Tema[];
   serie: Serie;
   fuentes: Fuente[];
@@ -253,6 +256,7 @@ export const useStore = create<Store>()((set, get) => {
     sintesis: null,
     sintesisDia: null,
     comparacionDia: null,
+    pulsoEvolucion: DEMO ? PULSO_EVOLUCION_DEMO : null,
     // sin VITE_DEMO=1 todo empieza vacío: nada inventado llega a la pantalla
     temas: DEMO ? TEMAS_DEMO : [],
     serie: DEMO ? SERIE_DEMO : SERIE_VACIA,
@@ -689,7 +693,7 @@ export const useStore = create<Store>()((set, get) => {
         set({
           origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
-          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia,
+          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia, pulsoEvolucion: d.pulsoEvolucion,
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
           oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });

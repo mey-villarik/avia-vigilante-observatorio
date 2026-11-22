@@ -161,6 +161,31 @@ export interface ComparacionDia {
   resueltas: { codigo: string; titulo: string; como: 'cerrada' | 'descartada' | 'terminada' }[];
 }
 
+/** El Pulso de un día (db/generico/46_pulso_evolucion.sql) */
+export interface PulsoDia {
+  dia: string;
+  riesgo: number;
+  oportunidad: number;
+  vigilancia: 'Normal' | 'Vigilancia' | 'Atención' | 'Crítico';
+  activas?: number; riesgos?: number; oportunidades?: number;
+  /** true = calculado después con el historial de las señales (la prioridad y la fiabilidad son las de hoy) */
+  reconstruido?: boolean;
+}
+
+/** Evolución del Pulso a 7 y 30 días (db/generico/46_pulso_evolucion.sql) */
+export interface PulsoEvolucion {
+  hoy?: PulsoDia | null;
+  /** null = ese día aún no había señales: sin datos */
+  hace_7: PulsoDia | null;
+  hace_30: PulsoDia | null;
+  /** primer día con señales */
+  desde?: string | null;
+  /** desde qué día el valor se guarda en el momento (antes, reconstruido) */
+  registro_desde?: string | null;
+  umbral_estable?: number;
+  serie?: { dia: string; riesgo: number; oportunidad: number; reconstruido?: boolean }[];
+}
+
 /** Trazabilidad mínima (db/generico/23_trazabilidad.sql) */
 export interface Trazabilidad {
   /** cuándo AVIA creó la señal */

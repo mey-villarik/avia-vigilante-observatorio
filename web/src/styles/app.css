@@ -840,3 +840,21 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .aviso-vencidas ul{margin:0;padding-left:18px;font-size:13px}
 .aviso-vencidas li{margin:0 0 2px}
 .aviso-vencidas .btn{align-self:flex-start}
+
+/* Evolución del Pulso a 7 y 30 días (46) */
+.evo{margin-top:12px}
+.evo-g{display:grid;grid-template-columns:auto 1fr 1fr;column-gap:10px;font-size:12px;align-items:center}
+.evo-r{display:contents}
+.evo-h{font-size:11px;color:var(--faint);padding-bottom:4px;border-bottom:1px solid var(--line)}
+.evo-l{color:var(--muted);padding:6px 0;white-space:nowrap}
+.evo-c{padding:6px 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 5px}
+.evo-f{font-size:15px;font-weight:700;line-height:1}
+.evo-s{font-weight:600}
+.evo-n{color:var(--faint);font-size:11px}
+.evo-mejora .evo-f,.evo-mejora .evo-s{color:var(--ok)}
+.evo-empeora .evo-f,.evo-empeora .evo-s{color:var(--crit)}
+.evo-estable .evo-f,.evo-estable .evo-s{color:var(--muted)}
+.evo-sin{color:var(--faint);font-style:italic}
+.evo-nota{margin:4px 0 0;font-size:11px}
+.evo-falta{margin:10px 0 0;font-size:11px}
+@media (max-width:520px){.evo-l{white-space:normal}}
