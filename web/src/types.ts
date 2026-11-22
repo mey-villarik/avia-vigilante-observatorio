@@ -6,7 +6,7 @@ export type Naturaleza = 'oportunidad' | 'riesgo' | 'mixta';
 export type Etapa = 'detectada' | 'en_analisis' | 'en_verificacion' | 'confirmada' | 'publicada' | 'descartada';
 export type Prioridad = 'alta' | 'media' | 'baja';
 export type Rol = 'visor' | 'analista' | 'admin';
-export type VistaId = 'panorama' | 'mapa' | 'fuentes' | 'senales' | 'oportunidades' | 'internacional' | 'analisis' | 'bitacora';
+export type VistaId = 'direccion' | 'panorama' | 'mapa' | 'fuentes' | 'senales' | 'oportunidades' | 'internacional' | 'analisis' | 'bitacora';
 export type CategoriaId =
   | 'clima' | 'salud' | 'vial' | 'seguridad' | 'conectividad'
   | 'eventos' | 'financiacion' | 'mercado' | 'economia' | 'normativa' | 'turismo';
@@ -259,6 +259,27 @@ export interface Senal {
   reco?: RecomendacionSegura;
   /** última actualización de la señal en texto */
   actualizacion?: string;
+  /** fechas del evento (desde el 19), AAAA-MM-DD: para «Lo que viene» */
+  evento?: { inicio?: string | null; fin?: string | null };
+  /** eje, acción y ficha para la Dirección, calculados por la base (49) */
+  direccion?: { eje: EjeDireccion | null; accion?: 'actuar' | 'preparar' | 'seguir'; ficha?: FichaAccion };
+}
+
+/** Los tres ejes de la premisa (db/generico/49_vista_direccion.sql) */
+export type EjeDireccion = 'movilidad' | 'servicios' | 'atencion';
+
+/** Ficha fija para la Dirección: Acción recomendada · Responsable sugerido · Plazo · Cómo verificar (49) */
+export interface FichaAccion {
+  accion: string;
+  responsable: string;
+  /** a quién afecta, si AVIA lo dice */
+  afecta?: string;
+  plazo: string;
+  /** AAAA-MM-DD del plazo, para ordenar; null = sin fecha */
+  plazo_fecha: string | null;
+  verificar: string;
+  /** la recomendación daba algo por bueno sin dato oficial reciente: la acción es comprobar primero */
+  sin_verificar?: boolean;
 }
 
 export interface Tema { t: string; n: number; d: number; nat: Naturaleza }

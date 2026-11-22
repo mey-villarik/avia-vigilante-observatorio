@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import {
   CATS, DEPS, EVENTOS_DEMO, FUENTES_DEMO, PANELS, PENDIENTES_DEMO, PRESETS, SENALES_DEMO, SERIE_DEMO, STATE_TXT, STL, TEMAS_DEMO, VIEWS, h24,
 } from './data/demo';
-import { cargarVps, convertir, type DatosVps } from './services/datos';
+import { cargarVps, convertir, type DatosVps, type Responsables } from './services/datos';
 import {
   decidirOportunidad, decidirPropuesta, leerCandidatas, leerPropuestas, leerVigilanteBd,
   type Candidata, type EstadoOportunidad, type Oportunidad, type Propuesta,
@@ -92,6 +92,8 @@ interface State {
   comparacionDia: ComparacionDia | null;
   /** el Pulso de hace 7 y 30 días (46); null = la base aún no lo da */
   pulsoEvolucion: PulsoEvolucion | null;
+  /** responsable sugerido por eje (vista Dirección, 49); vacío = los de lib/direccion.ts */
+  responsables: Responsables;
   temas: Tema[];
   serie: Serie;
   fuentes: Fuente[];
@@ -181,9 +183,14 @@ const nextId = () => seq++;
 
 const presetLayout = (k: string): PanelEnTablero[] => (PRESETS[k] ?? PRESETS.ejecutivo).l.map(([id, w]) => ({ id, w }));
 
+/** Dirección es la pantalla de entrada del visor y del administrador (Meysel, 2026-11-22); todos la ven */
+const entraPorDireccion = (r: Rol) => r === 'visor' || r === 'admin';
+
 const initialView = (): VistaId => {
   const h = location.hash.slice(1) as VistaId;
-  return VIEWS.some((v) => v[0] === h) ? h : 'panorama';
+  if (VIEWS.some((v) => v[0] === h)) return h;
+  // sin login el rol se guarda en el navegador: el visor (Dirección) entra por su vista
+  return !accesoConfigurado && entraPorDireccion(storage.get<Rol>('role', 'analista')) ? 'direccion' : 'panorama';
 };
 
 const shortName = (f: Fuente) => f.nombre.split(' ·')[0];
@@ -255,6 +262,7 @@ export const useStore = create<Store>()((set, get) => {
     sintesisDia: null,
     comparacionDia: null,
     pulsoEvolucion: DEMO ? PULSO_EVOLUCION_DEMO : null,
+    responsables: {},
     // sin VITE_DEMO=1 todo empieza vacío: nada inventado llega a la pantalla
     temas: DEMO ? TEMAS_DEMO : [],
     serie: DEMO ? SERIE_DEMO : SERIE_VACIA,
@@ -276,14 +284,21 @@ export const useStore = create<Store>()((set, get) => {
 
     go: (v) => {
       if (!VIEWS.some((x) => x[0] === v)) return;
+      // el visor (Dirección) no tiene el Panorama editable: va a su vista
+      if (v === 'panorama' && get().role === 'visor') v = 'direccion';
       set({ view: v, sideOpen: false });
       try { history.replaceState(null, '', '#' + v); } catch { /* iframe sin historial */ }
       window.scrollTo({ top: 0 });
     },
-    setSesion: (p) => set({ perfil: p, role: p?.rol ?? 'visor' }),
+    setSesion: (p) => {
+      const role = p?.rol ?? 'visor';
+      // visor y administrador entran por la vista Dirección; el analista sigue en el Panorama
+      const view = entraPorDireccion(role) && get().view === 'panorama' && !location.hash.slice(1) ? 'direccion' : get().view;
+      set({ perfil: p, role, view });
+    },
     setRole: (r) => {
       if (accesoConfigurado) return; // con login, el rol lo da el perfil
-      storage.set('role', r); set({ role: r }); get().toast(`Ahora entras como ${ROLE_NAME[r]}.`); },
+      storage.set('role', r); set({ role: r, ...(entraPorDireccion(r) && get().view === 'panorama' ? { view: 'direccion' as VistaId } : {}) }); get().toast(`Ahora entras como ${ROLE_NAME[r]}.`); },
     setSideOpen: (o) => set({ sideOpen: o }),
     setEditing: (e) => set({ editing: e }),
 
@@ -670,7 +685,7 @@ export const useStore = create<Store>()((set, get) => {
         set({
           origen: 'vps', live: false, enBd: bd, pendientes: [], errorDatos: null,
           fuentes: d.fuentes, senales: d.senales, eventos: d.eventos,
-          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia, pulsoEvolucion: d.pulsoEvolucion,
+          temas: d.temas, serie: d.serie ?? SERIE_VACIA, sintesis: d.sintesis, sintesisDia: d.sintesisDia, comparacionDia: d.comparacionDia, pulsoEvolucion: d.pulsoEvolucion, responsables: d.responsables ?? {},
           generado: d.generado, ventanaHoras: d.ventanaHoras, noticiasRevisadas: d.noticiasRevisadas,
           oportunidades: d.oportunidades ?? [], candidatas, contadores: d.contadores,
         });

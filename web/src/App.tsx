@@ -13,6 +13,7 @@ import { Cargando } from './components/Cargando';
 import { useChat } from './services/chat';
 import { REFRESCO_MS } from './services/datos';
 import { Panorama } from './views/Panorama';
+import { Direccion } from './views/Direccion';
 import { Fuentes } from './views/Fuentes';
 import { Senales } from './views/Senales';
 import { Oportunidades } from './views/Oportunidades';
@@ -22,7 +23,7 @@ import { Mapa } from './views/Mapa';
 import { Internacional, useDatosInternacional } from './views/Internacional';
 
 const VISTAS: Record<VistaId, () => JSX.Element> = {
-  panorama: Panorama, mapa: Mapa, fuentes: Fuentes, senales: Senales, oportunidades: Oportunidades, internacional: Internacional, analisis: Analisis, bitacora: Bitacora,
+  direccion: Direccion, panorama: Panorama, mapa: Mapa, fuentes: Fuentes, senales: Senales, oportunidades: Oportunidades, internacional: Internacional, analisis: Analisis, bitacora: Bitacora,
 };
 
 /** Aplica tema, contraste, tamaño de texto y modo sencillo al documento */

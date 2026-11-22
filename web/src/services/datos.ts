@@ -15,6 +15,9 @@ import { fechaVencida, vigente } from '../lib/vigencia';
 import { diasParaCierre, fechaCierre } from '../lib/plazo';
 import type { Contadores } from '../lib/contadores';
 
+/** responsable sugerido por eje para la vista Dirección (49) */
+export type Responsables = Partial<Record<'movilidad' | 'servicios' | 'atencion' | 'otros', string>>;
+
 const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
 /** URL pública de respaldo; vacía = desactivada */
 export const DATA_URL = URL_ENV === undefined ? '/data/vigilante.json' : URL_ENV.trim();
@@ -49,6 +52,8 @@ interface JSenal {
   recomendacion_segura?: RecomendacionSegura | null;
   /** desde el 48: fecha de cierre y certeza del plazo (los días se cuentan aquí, al mirar) */
   cierre?: { fecha?: string | null; certeza?: string | null; motivo?: string | null } | null;
+  /** desde el 49: eje, acción y ficha para la Dirección */
+  direccion?: Senal['direccion'] | null;
 }
 interface JBitacora { cuando?: string | null; k?: string | null; w?: string | null; d?: string | null }
 export interface VigilanteJson {
@@ -68,6 +73,8 @@ export interface VigilanteJson {
   comparacion_dia?: ComparacionDia | null;
   /** desde el 46: el Pulso de hace 7 y 30 días */
   pulso_evolucion?: PulsoEvolucion | null;
+  /** desde el 49: responsable sugerido de cada eje (parámetros responsable_movilidad, _servicios, _atencion) */
+  responsables?: Responsables | null;
   fuentes?: JFuente[];
   senales?: JSenal[];
   temas?: Tema[];
@@ -87,6 +94,7 @@ export interface DatosVps {
   sintesisDia: SintesisDia | null;
   comparacionDia: ComparacionDia | null;
   pulsoEvolucion: PulsoEvolucion | null;
+  responsables: Responsables | null;
   generado: string | null;
   ventanaHoras: number | null;
   noticiasRevisadas: number | null;
@@ -219,6 +227,8 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       traza: s.trazabilidad ?? undefined,
       certeza: s.certeza ?? undefined,
       reco: s.recomendacion_segura ?? undefined,
+      evento: s.evento_inicio || s.evento_fin ? { inicio: s.evento_inicio ?? null, fin: s.evento_fin ?? null } : undefined,
+      direccion: s.direccion ?? undefined,
     };
   });
 
@@ -242,6 +252,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
     sintesisDia: j.sintesis_dia ?? null,
     comparacionDia: j.comparacion_dia?.conteos ? j.comparacion_dia : null,
     pulsoEvolucion: j.pulso_evolucion && 'hace_7' in j.pulso_evolucion ? j.pulso_evolucion : null,
+    responsables: j.responsables ?? null,
     generado: j.generado ?? null,
     ventanaHoras: j.ventana_horas ?? null,
     oportunidades,
