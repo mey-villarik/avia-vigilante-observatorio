@@ -11,7 +11,7 @@ import type {
 import { CATS } from '../data/demo';
 import { supabase, type Perfil } from './auth';
 import type { Oportunidad } from './recolector';
-import { fechaVencida, vigente } from '../lib/vigencia';
+import { enCurso, fechaVencida, vigente } from '../lib/vigencia';
 import type { Contadores } from '../lib/contadores';
 
 const URL_ENV = import.meta.env.VITE_DATA_URL as string | undefined;
@@ -199,6 +199,7 @@ export function convertir(j: VigilanteJson, ahora = Date.now()): DatosVps {
       ...plazoRevision(s, ahora),
       escenario: s.escenario || undefined,
       plazo: diasHasta(s.fecha_limite, ahora),
+      enCurso: enCurso(s.evento_inicio, s.evento_fin, s.fecha_limite, ahora) ?? undefined,
       tipoOpp: s.tipoOpp ?? undefined,
       actores: s.actores?.length ? s.actores : undefined,
       importancia: s.importancia ?? '',

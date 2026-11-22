@@ -6,6 +6,8 @@
 //   día, en Bolivia. Del 10 al 14 → el 11 se ve; solo el 10 → el 11 ya no.
 // - Sin fechas: se ve 24 h desde la última noticia que la alimentó («noticia viva»).
 
+import { enBolivia } from './hora';
+
 const VIVA_MS = 24 * 3600000;
 
 /** hoy en Bolivia (UTC−4), AAAA-MM-DD */
@@ -35,4 +37,27 @@ export function vigente(fechas: (string | null | undefined)[], ultimaNoticia?: s
   if (v !== null) return !v;
   const t = ultimaNoticia ? Date.parse(ultimaNoticia) : NaN;
   return Number.isNaN(t) ? true : ahora - t <= VIVA_MS;
+}
+
+// ───────── «En curso» frente a «cierra en N días» (regla de Meysel, 2026-11-22) ─────────
+// Un evento que ya está ocurriendo no es una oportunidad con plazo: no se le pone cuenta atrás.
+// - inicio ≤ hoy ≤ fin            → «En curso» (hasta el último día)
+// - hoy < inicio                  → cuenta atrás normal («cierra en N días»)
+// - hoy > fin                     → ya cerrado (vigente() lo oculta)
+// Si falta el fin del evento se usa el plazo y, si tampoco hay, el mismo día de inicio («ocurre hoy»).
+// La misma regla está en SQL: vigilante.en_curso() (db/generico/44_en_curso.sql).
+
+/** último día (AAAA-MM-DD) si el evento está en curso hoy en Bolivia; null si no */
+export function enCurso(inicio?: string | null, fin?: string | null, plazo?: string | null, ahora = Date.now()): string | null {
+  const i = dia(inicio);
+  if (!i) return null;
+  const f = dia(fin) ?? dia(plazo) ?? i;
+  const hasta = f > i ? f : i;
+  const hoy = hoyBolivia(ahora);
+  return i <= hoy && hoy <= hasta ? hasta : null;
+}
+
+/** «En curso · termina hoy» o «En curso · hasta el 30 nov» */
+export function enCursoTexto(hasta: string, ahora = Date.now()): string {
+  return hasta === hoyBolivia(ahora) ? 'En curso · termina hoy' : `En curso · hasta el ${enBolivia(hasta, 'diaCorto')}`;
 }

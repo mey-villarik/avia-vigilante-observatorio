@@ -352,6 +352,8 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .countdown{display:flex;align-items:baseline;gap:6px}
 .countdown b{font-family:var(--f-display);font-size:30px;font-weight:500;color:var(--opp);line-height:1}
 .countdown small{color:var(--muted);font-size:12px}
+.countdown.en-curso b{font-size:20px}
+.tag.en-curso{color:var(--opp);border-color:var(--opp)}
 .actors{display:flex;gap:5px;flex-wrap:wrap}
 .propose{border-top:1px solid var(--line);padding-top:10px;font-size:13px}
 .propose b{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
