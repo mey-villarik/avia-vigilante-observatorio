@@ -11,6 +11,7 @@ export const ICONS: Record<string, string> = {
   oportunidades:'<path d="M12 3.5 14.6 9l6 .7-4.5 4.1 1.2 5.9L12 16.8 6.7 19.7l1.2-5.9L3.4 9.7l6-.7Z"/>',
   analisis:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   bitacora:'<path d="M6 3.5h10l3 3v14H6z"/><path d="M9.5 9h6M9.5 13h6M9.5 17h4"/>',
+  globo:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.3 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.3-3.5-8.5s1.1-6.1 3.5-8.5Z"/>',
   mapa:'<path d="m9 4-5.5 2v14L9 18l6 2 5.5-2V4L15 6Z"/><path d="M9 4v14M15 6v14"/>',
   pulso:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>',
   cadena:'<path d="M9.5 14.5 14.5 9.5"/><path d="M11 6.5 12.6 5a3.9 3.9 0 0 1 5.5 5.5L16.5 12M13 17.5 11.4 19a3.9 3.9 0 0 1-5.5-5.5L7.5 12"/>',

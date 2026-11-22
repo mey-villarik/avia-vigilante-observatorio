@@ -18,6 +18,11 @@ Desde la migración 31, cada noticia llega con las señales abiertas que pueden 
 (senales_relacionadas). Si el modelo ve que la noticia cambia una de ellas (nueva fecha, cancelación,
 desvío, desmentido…), devuelve «cambio» y la base lo registra para la alerta del panel.
 
+Desde la migración 37, las noticias de fuentes internacionales (OPS/OMS, CEPAL, BBC/Reuters/AP)
+llegan con «internacional»: true y las señales nacionales que pueden tener que ver. El modelo dice
+si afectan a Bolivia (impacto_bolivia: ámbitos, vía, nivel, plazo, señales que refuerza). Sin impacto
+en Bolivia, la noticia se descarta aquí mismo; con impacto, la base lo guarda en la señal.
+
 Uso:
   analizador.py                 # lo normal
   analizador.py --prueba        # pide un lote y muestra la respuesta del modelo, sin guardar (las noticias vuelven a la cola)
@@ -52,6 +57,9 @@ PRIORIDADES = {'alta', 'media', 'baja'}
 CERTEZAS = ('confirmado', 'convocado', 'posible', 'rumor')
 TAREAS = {'corroborar', 'contradiccion', 'relacionar', 'oportunidad_inferida'}
 # migración 31: tipos de cambio en una señal que ya existía
+# migración 37: impacto en Bolivia de lo que llega de fuentes internacionales
+AMBITOS = {'turismo', 'salud', 'economia', 'clima', 'infraestructura'}
+PLAZOS = {'inmediato', 'semanas', 'meses'}
 CAMBIOS = {'fecha', 'plazo', 'cancelado', 'desviado', 'resuelto', 'agravado', 'atenuado', 'lugar', 'desmentido', 'confirmado', 'otro'}
 FECHA = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 # lo que el modelo NO puede decidir: la procedencia la pone la base
@@ -114,7 +122,10 @@ def llamar_modelo(sistema: str, lote: list[dict]) -> tuple[list[dict], dict]:
     # al modelo solo le llega lo necesario para clasificar
     entrada = [{k: n.get(k) for k in ('clave', 'titulo', 'texto', 'fuente', 'fuente_tipo', 'fuentes_que_coinciden', 'publicado_en',
                                       'territorios', 'oportunidad_candidata', 'es_actualizacion', 'senal_existente',
-                                      'senales_relacionadas')} for n in lote]
+                                      'senales_relacionadas', 'internacional', 'senales_nacionales')}
+               for n in lote]
+    # sin claves vacías: las noticias nacionales no llevan «internacional» ni «senales_nacionales»
+    entrada = [{k: v for k, v in n.items() if v is not None} for n in entrada]
     r = post(f'{base}/chat/completions', {
         'model': modelo, 'temperature': 0, 'max_tokens': 4000,
         'response_format': {'type': 'json_object'},
@@ -141,9 +152,32 @@ def senales_del_lote(lote: list[dict]) -> dict[int, set[str]]:
     return r
 
 
-def limpiar(res: list, claves: set[int], senales: dict[int, set[str]] | None = None) -> list[dict]:
+def nacionales_del_lote(lote: list[dict]) -> dict[int, set[str]]:
+    """Noticias internacionales del lote y las señales nacionales que se le mandaron a cada una (migración 37)."""
+    return {n['clave']: {s.get('codigo') for s in (n.get('senales_nacionales') or []) if isinstance(s, dict) and s.get('codigo')}
+            for n in lote if n.get('internacional')}
+
+
+def impacto_bolivia(ib: object, permitidas: set[str]) -> dict | None:
+    """Valida el impacto en Bolivia de una noticia internacional. None = sin impacto (o sin decir por qué)."""
+    if not isinstance(ib, dict) or ib.get('hay_impacto') is not True:
+        return None
+    via = str(ib.get('via') or '').strip()
+    ambitos = [a for a in (ib.get('ambitos') or []) if isinstance(a, str) and a.lower() in AMBITOS] if isinstance(ib.get('ambitos'), list) else []
+    if not via or not ambitos:
+        return None   # sin vía concreta no hay impacto demostrado
+    ref = ib.get('refuerza') if isinstance(ib.get('refuerza'), list) else []
+    return {'hay_impacto': True, 'ambitos': sorted({a.lower() for a in ambitos}), 'via': via[:400],
+            'nivel': ib.get('nivel') if ib.get('nivel') in ('alto', 'medio', 'bajo') else 'bajo',
+            'plazo': ib.get('plazo') if ib.get('plazo') in PLAZOS else None,
+            'refuerza': [c for c in dict.fromkeys(ref) if c in permitidas]}
+
+
+def limpiar(res: list, claves: set[int], senales: dict[int, set[str]] | None = None,
+            internacionales: dict[int, set[str]] | None = None) -> list[dict]:
     """Solo claves del lote, valores permitidos y nada de procedencia."""
     senales = senales or {}
+    internacionales = internacionales or {}
     vistos, ok = set(), []
     for x in res if isinstance(res, list) else []:
         if not isinstance(x, dict):
@@ -158,6 +192,16 @@ def limpiar(res: list, claves: set[int], senales: dict[int, set[str]] | None = N
         x = {k: v for k, v in x.items() if k not in PROHIBIDOS}
         x['clave'] = clave
         x['relevante'] = bool(x.get('relevante'))
+        # migración 37: una noticia internacional solo sigue si afecta a Bolivia y dice por qué vía
+        if clave in internacionales:
+            ib = impacto_bolivia(x.get('impacto_bolivia'), internacionales[clave])
+            if ib is None:
+                motivo = x.get('motivo') if not x['relevante'] and x.get('motivo') else 'sin impacto en Bolivia'
+                ok.append({'clave': clave, 'relevante': False, 'motivo': motivo})
+                continue
+            x['impacto_bolivia'] = ib
+        else:
+            x.pop('impacto_bolivia', None)
         if x.get('naturaleza') not in NATURALEZAS:
             x.pop('naturaleza', None)
         if x.get('categoria') not in CATEGORIAS:
@@ -262,7 +306,7 @@ def main() -> int:
                                      'p_mensaje': f'Fallo del modelo: {str(e)[:300]}', 'p_detalle': None,
                                      'p_costo_usd': None, 'p_codigo_fuente': None})
             return 1
-        limpios = limpiar(res, {n['clave'] for n in lote}, senales_del_lote(lote))
+        limpios = limpiar(res, {n['clave'] for n in lote}, senales_del_lote(lote), nacionales_del_lote(lote))
         if a.prueba:
             print(json.dumps({'lote': lote, 'resultado': limpios, 'uso': uso}, ensure_ascii=False, indent=2))
             sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': ids, 'p_estado': 'nuevo', 'p_motivo': None})
@@ -271,6 +315,9 @@ def main() -> int:
         sin_respuesta = [i for n in lote if n['clave'] not in {x['clave'] for x in limpios} for i in n['ids']]
         if sin_respuesta:
             sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': sin_respuesta, 'p_estado': 'nuevo', 'p_motivo': None})
+        intl = [x for x in limpios if x['clave'] in nacionales_del_lote(lote)]
+        if intl:
+            log(f'Internacionales: {len(intl)} en el lote, {sum(1 for x in intl if x.get("impacto_bolivia"))} con impacto en Bolivia (migración 37)')
         cambios = sum(1 for x in limpios if x.get('cambio'))
         if cambios:
             log(f'El clasificador ve {cambios} cambio(s) en señales que ya existían (migración 31)')

@@ -19,9 +19,10 @@ import { Oportunidades } from './views/Oportunidades';
 import { Analisis } from './views/Analisis';
 import { Bitacora } from './views/Bitacora';
 import { Mapa } from './views/Mapa';
+import { Internacional, useDatosInternacional } from './views/Internacional';
 
 const VISTAS: Record<VistaId, () => JSX.Element> = {
-  panorama: Panorama, mapa: Mapa, fuentes: Fuentes, senales: Senales, oportunidades: Oportunidades, analisis: Analisis, bitacora: Bitacora,
+  panorama: Panorama, mapa: Mapa, fuentes: Fuentes, senales: Senales, oportunidades: Oportunidades, internacional: Internacional, analisis: Analisis, bitacora: Bitacora,
 };
 
 /** Aplica tema, contraste, tamaño de texto y modo sencillo al documento */
@@ -93,6 +94,7 @@ export default function App() {
   useDatosVps();
   useEventosEmergentes();
   useCambiosNoticias();
+  useDatosInternacional();
   useLiveSimulation();
   useShortcuts();
   const Vista = VISTAS[view];

@@ -4,7 +4,7 @@ import { CATS, DEPS } from '../data/demo';
 import { COLUMNAS, DESTINO, columnaDe, motivoNoPasa, type Columna, type Destino } from '../services/senales';
 import { canDecide, useStore, type SigFilter } from '../store';
 import { ago, esReciente, norm, plazoTexto, porRevisar } from '../lib/util';
-import { AccionTag, CertezaTag, NatPill } from '../components/common';
+import { AccionTag, CertezaTag, IntlTag, NatPill } from '../components/common';
 import { porqueAvia, porqueFrase, puntuacionesDe } from '../lib/puntuaciones';
 import { esConfirmada, esVerificada, motivoVerificada } from '../lib/verificada';
 
@@ -35,7 +35,7 @@ function Card({ s, draggable, onDragStart, onDragEnd }: { s: Senal; draggable: b
       onDragEnd={onDragEnd}
       onClick={() => openDrawer({ kind: 'senal', id: s.id })}>
       <span className="cm">
-        <NatPill n={s.naturaleza} /><AccionTag s={s} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span>
+        <NatPill n={s.naturaleza} /><AccionTag s={s} /><CertezaTag s={s} /><span className="tag">{CATS[s.categoria]}</span><IntlTag codigo={s.id} />
         {esConfirmada(s) && !s.escenario && (esVerificada(s)
           ? <span className="tag verificada" title={motivoVerificada(s)}>Verificada</span>
           : <span className="tag sin-verificar" title={motivoVerificada(s)}>Sin verificar</span>)}
