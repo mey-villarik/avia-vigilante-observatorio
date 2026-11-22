@@ -135,6 +135,18 @@ export interface SintesisDia {
   que_pasa: ItemSintesis[];
   por_que_importa: ItemSintesis[];
   que_vigilar: ItemSintesis[];
+  /** aviso aparte, encima de todo (db/generico/45_aviso_revisiones_vencidas.sql) */
+  revisiones_vencidas?: RevisionesVencidas;
+}
+
+/** Señales a las que se les pasó el plazo de revisión y nadie decidió (45_aviso_revisiones_vencidas.sql) */
+export interface RevisionesVencidas {
+  total: number;
+  /** las más antiguas primero (hasta 5) */
+  senales: { codigo: string; titulo: string; desde?: string | null }[];
+  /** quien responde: el asignado por el administrador o los analistas activos; null si no hay nadie */
+  responsable: string | null;
+  responsable_origen?: 'asignado' | 'analistas' | null;
 }
 
 /** Cambios desde ayer (db/generico/27_comparacion_dia.sql) */

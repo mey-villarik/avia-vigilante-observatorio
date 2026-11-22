@@ -2,7 +2,7 @@
 // La fuente es la base: vigilante.sintesis_dia() en db/generico/26_sintesis_dia.sql. Aquí se repiten
 // las mismas reglas solo para los datos de ejemplo y para vigilante.json antiguos que no la traen.
 // Si cambias una regla, cámbiala en los dos sitios (y en docs/sintesis-dia.md).
-import type { Fuente, ItemSintesis, Senal, SintesisDia } from '../types';
+import type { Fuente, ItemSintesis, RevisionesVencidas, Senal, SintesisDia } from '../types';
 import type { Contadores } from './contadores';
 import { certezaDe } from './certeza';
 import { puntuacionesDe } from './puntuaciones';
@@ -60,19 +60,43 @@ export function sintesisDe(senales: Senal[], fuentes: Fuente[], k: Contadores): 
     }
   }
   const que_vigilar = vigilar.sort((a, b) => a.o - b.o).slice(0, MAX * 2).map((v) => v.it);
-  const vencidas = act.filter((s) => s.revisionVencida).length;
-  if (vencidas) que_vigilar.push({ tipo: 'revision_vencida', texto: `${plural(vencidas, 'señal con la revisión vencida', 'señales con la revisión vencida')}: nadie ${vencidas === 1 ? 'la decidió' : 'las decidió'} a tiempo` });
   const caidas = fuentes.filter((f) => f.estado === 'CRIT').length;
   if (caidas) que_vigilar.push({ tipo: 'fuentes', texto: `${plural(caidas, 'fuente no se puede leer', 'fuentes no se pueden leer')}: puede haber hechos sin detectar` });
 
-  return { totales: totalesTexto(k), que_pasa, por_que_importa, que_vigilar };
+  return { totales: totalesTexto(k), que_pasa, por_que_importa, que_vigilar, revisiones_vencidas: vencidasDe(senales) };
 }
+
+/** Revisiones vencidas a partir de las señales (datos de ejemplo o vigilante.json sin el 45). Sin responsable conocido. */
+export function vencidasDe(senales: Senal[]): RevisionesVencidas {
+  const v = senales.filter((s) => s.revisionVencida && ['detectada', 'en_analisis', 'en_verificacion'].includes(s.estado));
+  return { total: v.length, senales: v.slice(0, 5).map((s) => ({ codigo: s.id, titulo: s.titulo })), responsable: null, responsable_origen: null };
+}
+
+/** El aviso va aparte: se quita de «qué vigilar» la línea que traía el 26 antes del 45 */
+export function separarVencidas(sd: SintesisDia, senales: Senal[]): SintesisDia {
+  const que_vigilar = sd.que_vigilar.filter((i) => i.tipo !== 'revision_vencida');
+  let rv = sd.revisiones_vencidas;
+  if (!rv) {
+    const local = vencidasDe(senales);
+    // el 26 sin el 45 solo da la cifra en el texto: se usa si es mayor que la que se ve en las señales
+    const linea = sd.que_vigilar.find((i) => i.tipo === 'revision_vencida');
+    const n = linea ? parseInt(linea.texto ?? '', 10) : NaN;
+    rv = Number.isFinite(n) && n > local.total ? { ...local, total: n } : local;
+  }
+  return { ...sd, que_vigilar, revisiones_vencidas: rv };
+}
+
+export const textoVencidas = (n: number) => plural(n, 'señal con revisión vencida', 'señales con revisión vencida');
+export const textoResponsable = (rv: RevisionesVencidas) =>
+  rv.responsable ? `Responsable: ${rv.responsable}${rv.responsable_origen === 'analistas' ? ' (analistas)' : ''}` : 'Sin responsable asignado';
 
 /** La síntesis como texto plano, para el chat y para copiarla */
 export function sintesisTexto(s: SintesisDia): string {
   const linea = (i: ItemSintesis) => `- ${i.codigo ? `${i.codigo} ` : ''}${i.certeza ? `[${i.certeza}] ` : ''}${i.titulo ? `${i.titulo}${i.texto || i.motivo ? ': ' : ''}` : ''}${i.texto ?? i.motivo ?? ''}`.trimEnd();
   const bloque = (t: string, l: ItemSintesis[], vacio: string) => `#### ${t}\n${l.length ? l.map(linea).join('\n') : vacio}`;
+  const rv = s.revisiones_vencidas;
   return [
+    ...(rv?.total ? [`**⚠ ${textoVencidas(rv.total)}: nadie ${rv.total === 1 ? 'la decidió' : 'las decidió'} a tiempo. ${textoResponsable(rv)}.**`] : []),
     s.totales,
     bloque('Qué pasa', s.que_pasa, 'Sin novedades confirmadas ni convocadas.'),
     bloque('Por qué importa', s.por_que_importa, 'Sin datos: no hay hechos que valorar.'),

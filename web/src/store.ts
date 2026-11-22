@@ -20,7 +20,7 @@ import type {
 } from './types';
 import { ROLE_NAME, clock, storage } from './lib/util';
 import { completarDesglose, contar, textoFuentes, type Contadores } from './lib/contadores';
-import { sintesisDe } from './lib/sintesis';
+import { separarVencidas, sintesisDe } from './lib/sintesis';
 
 /** serie sin datos: el gráfico dice «Sin datos todavía» en vez de inventar una curva */
 export const SERIE_VACIA: Serie = { labels: [], det: [], opp: [], risk: [] };
@@ -738,7 +738,7 @@ export function useSintesisDia(): SintesisDia {
   const senales = useStore((s) => s.senales);
   const fuentes = useStore((s) => s.fuentes);
   const k = useContadores();
-  return base ?? sintesisDe(senales, fuentes, k);
+  return base ? separarVencidas(base, senales) : sintesisDe(senales, fuentes, k);
 }
 
 export const activeSignals = (s: Senal[]) => s.filter((x) => x.estado !== 'descartada');
