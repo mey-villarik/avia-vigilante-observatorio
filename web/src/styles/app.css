@@ -988,3 +988,22 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 }
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .mp-sem-t{fill:var(--ink)}
+
+/* Uso de tokens de IA (components/UsoIa.tsx, db/generico/52_uso_tokens.sql) */
+.uso-ia .uso-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+.uso-ia .uso-kpis b{display:block;font-family:var(--f-display);font-weight:500;font-size:calc(22px * var(--fs));line-height:1.2}
+.uso-ia .sec-h{margin:8px 0 0}
+.uso-ia b.crit{color:var(--crit)}
+.uso-barra{height:10px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);overflow:hidden}
+.uso-barra i{display:block;height:100%;border-radius:999px;background:currentColor}
+.uso-barra.st-OK,.uso-barra.st-WARN,.uso-barra.st-CRIT{background:var(--surface2)}
+.uso-limite p{margin:6px 0 0;font-size:13px}
+.uso-serie{display:grid;grid-template-columns:repeat(14,1fr);gap:3px;align-items:end;height:70px;padding:4px 0;border-bottom:1px solid var(--line)}
+.uso-serie span{height:100%;display:flex;align-items:flex-end}
+.uso-serie i{display:block;width:100%;border-radius:3px 3px 0 0;background:var(--accent)}
+.uso-serie span:last-child i{background:var(--opp)}
+.uso-serie-ejes{display:flex;justify-content:space-between;color:var(--faint)}
+.uso-procesos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.uso-procesos li{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:baseline;font-size:13px;padding:6px 10px;border-radius:10px;background:var(--surface2)}
+.uso-ia > *{flex:none}
+.uso-ia > .btn{align-self:flex-start}

@@ -9,6 +9,7 @@ import { AccionTag, CertezaTag, ContextoIntl, Histo, IntlTag, NatPill, StPill } 
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
+import { UsoIaDetalle } from './UsoIa';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { porqueAvia, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
@@ -669,6 +670,7 @@ export function Drawer() {
     case 'editar-fuente': body = <EditarFuente id={drawer.id} />; break;
     case 'equipo': body = <Equipo />; break;
     case 'mi-clave': body = <MiClave />; break;
+    case 'uso-ia': body = <UsoIaDetalle />; break;
   }
   return (
     <>

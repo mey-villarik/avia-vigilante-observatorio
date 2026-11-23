@@ -9,6 +9,7 @@ import { Icon } from './Icon';
 import { clock } from '../lib/util';
 import { useEventos } from '../services/eventos';
 import { BotonCambios } from './Cambios';
+import { BotonUsoIa } from './UsoIa';
 
 export const BrandMark = () => (
   <svg className="brand-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true">
@@ -84,6 +85,7 @@ export function Sidebar() {
             <div className="cuenta-q"><Icon name="usuario" /><span><b>{perfil.nombre}</b><small>{ROLE_NAME[perfil.rol]} · {perfil.clienteNombre}</small></span></div>
             <div className="cuenta-b">
               {isAdmin(role) && <button className="btn sm" onClick={() => openDrawer({ kind: 'equipo' })}><Icon name="equipo" /> Equipo</button>}
+              {perfil.rol !== 'visor' && <button className="btn sm ghost" onClick={() => openDrawer({ kind: 'uso-ia' })}><Icon name="spark" /> Uso de IA</button>}
               <button className="btn sm ghost" onClick={() => openDrawer({ kind: 'mi-clave' })}><Icon name="candado" /> Clave</button>
               <button className="btn sm ghost" onClick={() => void salir()}><Icon name="salir" /> Salir</button>
             </div>
@@ -146,6 +148,7 @@ export function Topbar() {
               <span className="d" /><span>{cargando ? 'Conectando…' : live ? 'Ejemplo · simulación activa' : 'Ejemplo · simulación en pausa'}</span>
             </button>
           )}
+          <BotonUsoIa />
           <BotonEventos />
           <BotonCambios />
           <button className="icon-btn" aria-label="Buscar (Ctrl+K)" title="Buscar (Ctrl+K)" onClick={() => setSearchOpen(true)}>

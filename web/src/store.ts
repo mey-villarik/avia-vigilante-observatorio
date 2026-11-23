@@ -37,7 +37,8 @@ export type Drawer =
   | { kind: 'nueva-fuente' }
   | { kind: 'editar-fuente'; id: string }
   | { kind: 'equipo' }
-  | { kind: 'mi-clave' };
+  | { kind: 'mi-clave' }
+  | { kind: 'uso-ia' };
 
 export interface Toast { id: number; msg: string }
 export interface ChatMsg { id: number; role: 'a' | 'u'; text: string; act?: string }

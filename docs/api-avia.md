@@ -81,3 +81,7 @@ Respuesta:
 ```
 
 Si algo no aparece en el texto, el modelo no debe inventarlo.
+
+## POST /saldo
+
+Devuelve el saldo que le queda a la cuenta del modelo (DeepSeek `GET /user/balance`), con cache de 5 minutos: `{ disponible, proveedor, saldos: [{ moneda, total, regalado, recargado }], consultado }`. Requiere sesión, como `/chat`. Lo usa el panel «Uso de IA» (ver `docs/uso-tokens.md`).
