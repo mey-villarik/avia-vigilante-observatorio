@@ -31,6 +31,8 @@ Variables nuevas en `/root/avia/supabase.env` (nunca en Git):
 
 ## Pasos en el VPS
 
+Haz los pasos 2 a 5 en **la misma terminal**: usan las variables `$CLAVE` e `$IP`.
+
 ### 1. Ver cómo está el contenedor
 
 ```bash
