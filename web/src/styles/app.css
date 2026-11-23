@@ -1007,3 +1007,4 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .uso-procesos li{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:baseline;font-size:13px;padding:6px 10px;border-radius:10px;background:var(--surface2)}
 .uso-ia > *{flex:none}
 .uso-ia > .btn{align-self:flex-start}
+.dir-informe{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
