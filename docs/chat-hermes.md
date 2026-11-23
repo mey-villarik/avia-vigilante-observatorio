@@ -65,8 +65,9 @@ docker logs hermes 2>&1 | grep -i "api server" | tail -3     # debe decir «list
 ### 3. Comprobar que el VPS llega a Hermes
 
 ```bash
-IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' hermes)
-[ -z "$IP" ] && IP=127.0.0.1        # si la red del contenedor es «host»
+# con red «host» (la de ORBITA) docker no da IP («invalid IP»): se usa 127.0.0.1
+if [ "$(docker inspect -f '{{.HostConfig.NetworkMode}}' hermes)" = host ]; then IP=127.0.0.1
+else IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' hermes); fi
 echo "Hermes en $IP"
 curl -s http://$IP:8642/health
 curl -s http://$IP:8642/v1/chat/completions -H "Authorization: Bearer $CLAVE" -H 'Content-Type: application/json' \
