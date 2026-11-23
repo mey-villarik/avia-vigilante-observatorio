@@ -57,7 +57,7 @@ EOT
 chown -R 10000:10000 /root/.hermes
 docker restart hermes
 sleep 15
-docker logs hermes 2>&1 | grep -i "api server" | tail -3     # debe decir «listening on http://0.0.0.0:8642»
+docker logs hermes 2>&1 | grep -i "api server" | tail -3     # debe decir «listening on http://127.0.0.1:8642»
 ```
 
 **Nunca `0.0.0.0` con red «host»**: Hermes quedaría abierto a internet con su terminal. Comprueba con `ss -ltnp | grep 8642` que dice `127.0.0.1:8642`.
