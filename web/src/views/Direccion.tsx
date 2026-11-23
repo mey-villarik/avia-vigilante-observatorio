@@ -9,10 +9,12 @@ import { useChat } from '../services/chat';
 import { Icon } from '../components/Icon';
 import { AccionTag, CertezaTag, Empty } from '../components/common';
 import { FichaDireccion } from '../components/FichaDireccion';
+import { SegTag, SeguimientoReco } from '../components/SeguimientoReco';
+import { ESTADOS_SEG, SEG_AYUDA, SEG_TXT, resumenSeguimiento, seguimientoDe } from '../lib/seguimiento';
 import { ListaSemaforo, MapaBolivia, SemaforoCaja } from './Mapa';
 import {
   EJE_AYUDA, EJE_TXT, ESTADO_AYUDA, ESTADO_COLOR, ESTADO_TXT, TIPO_VIENE_TXT, VENTANA_TXT,
-  ejeDe, loQueViene, nacionalesConPeso, resumenEjes, semaforoBolivia, semaforoDepartamentos, topDecisiones,
+  ejeDe, fichaDe, loQueViene, nacionalesConPeso, resumenEjes, semaforoBolivia, semaforoDepartamentos, topDecisiones,
   type EstadoEje, type ResumenEje, type Ventana,
 } from '../lib/direccion';
 import { DEPS } from '../data/demo';
@@ -82,6 +84,7 @@ function Decisiones() {
                       <span className="tag mono">{s.id}</span>
                     </div>
                     <FichaDireccion s={s} compacta />
+                    <SeguimientoReco s={s} compacta />
                   </li>
                 );
               })}
@@ -122,6 +125,60 @@ function SemaforoDepartamentos() {
             <p className="note dir-nac"><Icon name="riesgo" /> Además, {nac.length} riesgo(s) de todo el país: {nac.slice(0, 2).map((s) => s.titulo).join(' · ')}{nac.length > 2 ? '…' : ''}</p>
           )}
         </div>
+      </div>
+    </section>
+  );
+}
+
+// Cierra el ciclo «actuar»: qué se recomendó, qué se hizo y qué pasó (P2, SQL 50)
+function SeguimientoPanel() {
+  const senales = useStore((s) => s.senales);
+  const openDrawer = useStore((s) => s.openDrawer);
+  const [ver, setVer] = useState<'abiertas' | 'cerradas'>('abiertas');
+  const r = useMemo(() => resumenSeguimiento(senales), [senales]);
+  const lista = r.items.filter((s) => {
+    const e = seguimientoDe(s).estado;
+    return ver === 'abiertas' ? e === 'pendiente' || e === 'en_curso' : e === 'resuelta' || e === 'sin_efecto';
+  });
+  return (
+    <section className="panel dir-seguimiento">
+      <div className="panel-h">
+        <h2><Icon name="check" />Seguimiento de recomendaciones</h2>
+        <div className="seg" role="group" aria-label="Qué ver">
+          <button className={ver === 'abiertas' ? 'on' : ''} aria-pressed={ver === 'abiertas'} onClick={() => setVer('abiertas')}>Abiertas</button>
+          <button className={ver === 'cerradas' ? 'on' : ''} aria-pressed={ver === 'cerradas'} onClick={() => setVer('cerradas')}>Cerradas (7 días)</button>
+        </div>
+      </div>
+      <div className="panel-b">
+        <div className="seg-cuentas">
+          {ESTADOS_SEG.map((e) => (
+            <div key={e} className={`seg-cuenta seg-c-${e}`} title={SEG_AYUDA[e]}><b className="num">{r.cuenta[e]}</b><span>{SEG_TXT[e]}</span></div>
+          ))}
+        </div>
+        {!lista.length
+          ? <Empty title={ver === 'abiertas' ? 'Nada pendiente' : 'Nada cerrado esta semana'}>
+              {ver === 'abiertas'
+                ? 'Ningún riesgo pide medidas y ninguna oportunidad cierra o empieza en 7 días sin que alguien la siga.'
+                : 'Cuando alguien marque una recomendación como resuelta o sin efecto, saldrá aquí con lo que pasó.'}
+            </Empty>
+          : (
+            <ul className="seg-lista">
+              {lista.slice(0, 8).map((s) => {
+                const g = seguimientoDe(s);
+                return (
+                  <li key={s.id}>
+                    <div className="seg-li-h">
+                      <SegTag s={s} />
+                      <button className="linklike" onClick={() => openDrawer({ kind: 'senal', id: s.id })}>{s.titulo}</button>
+                    </div>
+                    <small className="seg-li-reco">{g.recomendacion && (g.estado === 'resuelta' || g.estado === 'sin_efecto') ? g.recomendacion : fichaDe(s).accion}</small>
+                    {g.nota && <small className="seg-li-nota">{g.nota}{g.quien ? ` · ${g.quien}` : ''}</small>}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        {lista.length > 8 && <p className="note">Y {lista.length - 8} más. Ábrelas desde Señales.</p>}
       </div>
     </section>
   );
@@ -232,6 +289,7 @@ export function Direccion() {
         {ejes.map((r) => <TarjetaEje key={r.eje} r={r} />)}
       </div>
       <Decisiones />
+      <SeguimientoPanel />
       <div className="dir-fila">
         <SemaforoDepartamentos />
         <LoQueViene />

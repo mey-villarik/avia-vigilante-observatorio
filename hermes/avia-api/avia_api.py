@@ -286,7 +286,12 @@ REGLAS
    un bloque VISTA DIRECCIÓN, usa sus estados tal cual (Normal / Atención / Acción): no los recalcules ni los
    subas. Cada acción va con su ficha, con estas tres etiquetas y en este orden:
    «Acción recomendada · Plazo · Cómo verificar». Copia el plazo de la ficha. No asignes responsables ni
-   inventes quién debe hacerlo: la Dirección no tiene responsables por eje. «Lo que viene» va por fecha de ocurrencia."""
+   inventes quién debe hacerlo: la Dirección no tiene responsables por eje. «Lo que viene» va por fecha de ocurrencia.
+18. Seguimiento de recomendaciones: cada señal puede llevar «seguimiento» (pendiente, en curso, resuelta, sin efecto)
+   con la nota de qué se hizo y quién lo registró. Si preguntan qué se hizo, qué está pendiente o en qué quedó una
+   recomendación, usa ese dato o el bloque SEGUIMIENTO tal cual; sin seguimiento guardado, di «pendiente». No
+   digas que algo se resolvió o que alguien actuó si no está en el seguimiento. Tú no cambias estados: los marca
+   un analista o un administrador en la ficha de la señal."""
 
 
 # ── Plazos (CP1 y CP2; misma regla que vigilante.cierre() del 48 y web/src/lib/plazo.ts) ──
@@ -389,6 +394,9 @@ def _compacta(x: dict) -> dict:
             c['eje'] = _EJE_TXT.get(d['eje'], d['eje'])
         if isinstance(d.get('ficha'), dict):
             c['ficha_direccion'] = {k: d['ficha'][k] for k in ('accion', 'plazo', 'verificar') if d['ficha'].get(k)}
+    g = x.get('seguimiento')   # 50: en qué quedó la recomendación
+    if isinstance(g, dict) and g.get('estado'):
+        c['seguimiento'] = {k: g[k] for k in ('estado', 'nota', 'quien', 'cuando') if g.get(k)}
     for k in ('titulo', 'resumen', 'importancia'):
         if k in c:
             c[k] = _sin_relativos(c[k])
@@ -468,6 +476,26 @@ _RE_DIRECCION = re.compile(r'direcci[oó]n|sem[aá]foro|\bejes?\b|movilidad|serv
                            r'decisi[oó]n|decisiones|qu[eé] hago|qu[eé] hacemos|lo que viene|pr[oó]xim[oa]s? (24|48|72|d[ií]as|semana|horas)|'
                            r'ma[nñ]ana|esta semana', re.I)
 _ESTADO_TXT = {'normal': 'Normal', 'atencion': 'Atención', 'accion': 'Acción'}
+_SEG_TXT = {'pendiente': 'Pendiente', 'en_curso': 'En curso', 'resuelta': 'Resuelta', 'sin_efecto': 'Sin efecto'}
+_RE_SEGUIMIENTO = re.compile(r'seguimiento|pendiente|en curso|resuelt|sin efecto|qu[eé] se hizo|qui[eé]n actu[oó]|'
+                             r'qu[eé] (pas[oó]|qued[oó])|cerramos|se actu[oó]|recomendaci[oó]n', re.I)
+
+
+def _seguimiento_txt(g) -> str:
+    """Bloque SEGUIMIENTO de vigilante.seguimiento_resumen() (50): lo mismo que el panel de la Dirección."""
+    if not isinstance(g, dict):
+        return ('SEGUIMIENTO: la base aún no lo guarda (falta ejecutar 50_seguimiento_recomendaciones.sql). '
+                'Si preguntan qué se hizo con una recomendación, dilo así.')
+    l = [f"SEGUIMIENTO DE RECOMENDACIONES (de la base): {g.get('pendiente', 0)} pendientes, {g.get('en_curso', 0)} en curso, "
+         f"{g.get('resuelta', 0)} resueltas y {g.get('sin_efecto', 0)} sin efecto en los últimos 7 días."]
+    for x in (g.get('items') or [])[:12]:
+        if not isinstance(x, dict):
+            continue
+        l.append(f"- {x.get('codigo')} {x.get('titulo')} · {_SEG_TXT.get(x.get('estado'), x.get('estado'))} · "
+                 f"Recomendación: {x.get('recomendacion')}"
+                 + (f" · Qué se hizo: {x.get('nota')}" if x.get('nota') else '')
+                 + (f" (registró {x.get('quien')})" if x.get('quien') else ''))
+    return '\n'.join(l)
 _EJE_TXT = {'movilidad': 'Movilidad', 'servicios': 'Servicios esenciales', 'atencion': 'Atención turística'}
 
 
@@ -741,6 +769,8 @@ Cuando des un número total, cita la hora: «según los datos actualizados a las
 {_pulso_evol_txt(ctx.get('pulso_evolucion')) if _RE_TENDENCIA.search(ultima) else ''}
 
 {_direccion_txt(ctx.get('direccion')) if _RE_DIRECCION.search(ultima) else ''}
+
+{_seguimiento_txt(ctx.get('seguimiento')) if _RE_SEGUIMIENTO.search(ultima) else ''}
 
 SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}

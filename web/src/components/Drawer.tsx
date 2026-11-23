@@ -18,6 +18,7 @@ import { certezaPlazo, cierreTexto } from '../lib/plazo';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 import { afirmaOperativo, recoDe } from '../lib/recomendacion';
 import { FichaDireccion } from './FichaDireccion';
+import { SeguimientoReco } from './SeguimientoReco';
 import { EXPLICA as PULSO_EXPLICA, calcularPulso, factoresTexto, masPesan } from '../lib/pulso';
 import { RIESGO_TXT, SUGERENCIA_TXT, useFicha } from '../services/fichas';
 
@@ -176,6 +177,7 @@ function SenalDetalle({ id }: { id: string }) {
         <h2>{s.titulo}</h2>
         {/* P1 Dirección: qué hacer, quién, hasta cuándo y cómo verificar, antes que todo lo demás */}
         <FichaDireccion s={s} />
+        <SeguimientoReco s={s} />
         <p className="lead">{s.resumen}</p>
         <Certeza s={s} />
         <div className="dl">
