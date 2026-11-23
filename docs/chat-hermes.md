@@ -50,7 +50,7 @@ con la salida y lo vemos.
 CLAVE=$(openssl rand -hex 24)
 cat >> /root/.hermes/.env <<EOT
 API_SERVER_ENABLED=true
-API_SERVER_HOST=0.0.0.0
+API_SERVER_HOST=127.0.0.1   # con red «host» (la de ORBITA). Solo con red bridge propia: 0.0.0.0
 API_SERVER_PORT=8642
 API_SERVER_KEY=$CLAVE
 EOT
@@ -60,8 +60,7 @@ sleep 15
 docker logs hermes 2>&1 | grep -i "api server" | tail -3     # debe decir «listening on http://0.0.0.0:8642»
 ```
 
-`0.0.0.0` es **dentro del contenedor**: mientras el contenedor no publique el puerto 8642 (paso 1, `puertos`),
-desde fuera del VPS no se llega; solo desde el propio VPS.
+**Nunca `0.0.0.0` con red «host»**: Hermes quedaría abierto a internet con su terminal. Comprueba con `ss -ltnp | grep 8642` que dice `127.0.0.1:8642`.
 
 ### 3. Comprobar que el VPS llega a Hermes
 
