@@ -29,6 +29,7 @@ export const ICONS: Record<string, string> = {
   edit:'<path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/>',
   check:'<path d="M5 12.5 9.5 17 19 7.5"/>', shield:'<path d="M12 3.5 19 6v5.5c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6Z"/><path d="m9 12 2 2 4-4"/>',
   clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', refresh:'<path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4h-4"/>',
+  pdf:'<path d="M6 3.5h8.5L19 8v12.5H6z"/><path d="M14 3.5V8h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/>',
   save:'<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>', reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/>',
   spark:'<path d="M12 3.5 13.8 9 19.5 10.5 13.8 12.3 12 18 10.2 12.3 4.5 10.5 10.2 9Z"/>',
   eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>',

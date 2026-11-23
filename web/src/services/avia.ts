@@ -5,6 +5,7 @@
 //   POST /chat     { mensajes: [{role, content}], rol }           -> { texto, comandos?: Comando[] }
 //   POST /analisis { tipo, territorio, pregunta?, senales: [...] } -> { texto }   (markdown sencillo)
 //   POST /evaluar  { texto }                                      -> Evaluacion
+//   POST /saldo    {}                                             -> SaldoModelo (saldo de la cuenta del modelo)
 //
 // Sin VITE_AVIA_API_URL la web funciona en modo local: reglas sencillas, sin IA.
 import type { Evaluacion, Senal, TipoAnalisis } from '../types';
@@ -70,7 +71,17 @@ export const remoto = {
   analisis: (tipo: TipoAnalisis, territorio: string, senales: Senal[], pregunta: string | undefined, signal?: AbortSignal) =>
     post<{ texto: string }>('/analisis', { tipo, territorio, pregunta, senales: senales.map(compact) }, signal),
   evaluar: (texto: string, signal?: AbortSignal) => post<Evaluacion>('/evaluar', { texto }, signal),
+  /** saldo que le queda a la cuenta del modelo (DeepSeek), ver services/usoIa.ts */
+  saldo: (signal?: AbortSignal) => post<SaldoModelo>('/saldo', {}, signal),
 };
+
+export interface SaldoModelo {
+  disponible: boolean | null;
+  proveedor?: string;
+  saldos?: { moneda: string; total: number; regalado?: number; recargado?: number }[];
+  consultado?: string;
+  motivo?: string;
+}
 
 // ───────── Modo local (reglas, sin IA) ─────────
 

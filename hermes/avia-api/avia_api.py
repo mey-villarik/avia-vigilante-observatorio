@@ -5,7 +5,12 @@ Protocolo (igual que el contrato en web/src/services/avia.ts):
   POST /chat     { mensajes, rol }                           -> { texto, comandos? }
   POST /analisis { tipo, territorio, pregunta?, senales }    -> { texto }
   POST /evaluar  { texto }                                   -> Evaluacion
+  POST /saldo    {}                                          -> { disponible, saldos: [{moneda, total}] }
   GET  /health                                               -> { ok: true }
+
+Cada llamada al modelo anota sus tokens en vigilante.system_logs (proceso avia-chat, avia-analisis o
+avia-evaluar), como el clasificador; la web los suma con vigilante.uso_tokens() (db/generico/52).
+/saldo pregunta a DeepSeek cuánto saldo le queda a la cuenta (incluye lo que gasta Hermes por su lado).
 
 Secretos (de ~/avia/supabase.env):
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LLM_API_KEY
@@ -21,7 +26,7 @@ Instalación (VPS):
 Nunca pongas LLM_API_KEY ni SUPABASE_SERVICE_ROLE_KEY en Git ni en variables VITE_.
 """
 
-import json, os, re, sys, time, urllib.parse
+import asyncio, json, os, re, sys, time, urllib.parse
 from pathlib import Path
 
 # ── aiohttp es la única dependencia externa ───────────────────────────────────
@@ -57,6 +62,9 @@ SB_KEY    = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 LLM_KEY   = os.environ.get('LLM_API_KEY') or os.environ.get('DEEPSEEK_API_KEY', '')
 LLM_BASE  = os.environ.get('LLM_BASE_URL', 'https://api.deepseek.com').rstrip('/')
 LLM_MODEL = os.environ.get('LLM_MODEL', 'deepseek-chat')
+# USD por millón de tokens (opcional): si faltan, la base estima el coste con su tarifa (parámetros del 52)
+LLM_PRECIO_ENTRADA = float(os.environ.get('LLM_PRECIO_ENTRADA') or 0)
+LLM_PRECIO_SALIDA  = float(os.environ.get('LLM_PRECIO_SALIDA') or 0)
 CLIENTE   = os.environ.get('VIGILANTE_CLIENTE', 'orbita-bolivia')
 API_KEY   = os.environ.get('AVIA_API_KEY', '')   # nginx inyecta este valor en el header
 PORT      = int(os.environ.get('AVIA_PORT', '8099'))
@@ -101,8 +109,30 @@ async def _supabase_post(session: aiohttp.ClientSession, path: str,
         return await r.json()
 
 
+_tareas_uso: set = set()   # referencias a las anotaciones en curso (que no las recoja el recolector de basura)
+
+
+async def _anotar_uso(proceso: str, uso: dict) -> None:
+    """Guarda los tokens de una llamada en vigilante.system_logs (db/generico/52_uso_tokens.sql). Nunca falla hacia fuera."""
+    te, ts = int(uso.get('prompt_tokens') or 0), int(uso.get('completion_tokens') or 0)
+    if not (te or ts) or not SB_URL:
+        return
+    costo = round((te * LLM_PRECIO_ENTRADA + ts * LLM_PRECIO_SALIDA) / 1e6, 6) or None
+    detalle = {'modelo': LLM_MODEL, 'tokens_entrada': te, 'tokens_salida': ts}
+    if costo:
+        detalle['costo_usd'] = costo
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as ses:
+            await _supabase_post(ses, '/rest/v1/rpc/registrar_log', {
+                'p_cliente': CLIENTE, 'p_proceso': proceso, 'p_nivel': 'info',
+                'p_mensaje': f'Llamada al modelo: {te}+{ts} tokens', 'p_detalle': detalle,
+                'p_costo_usd': costo, 'p_codigo_fuente': None})
+    except Exception as e:  # noqa: BLE001 — la respuesta al usuario ya salió; solo se pierde la anotación
+        print('USO NO ANOTADO', proceso, repr(e)[:200], flush=True)
+
+
 async def _deepseek(session: aiohttp.ClientSession,
-                    messages: list, max_tokens: int = 600) -> str:
+                    messages: list, max_tokens: int = 600, proceso: str = 'avia-chat') -> str:
     async with session.post(
         f'{LLM_BASE}/v1/chat/completions',
         headers={'Authorization': f'Bearer {LLM_KEY}',
@@ -115,6 +145,10 @@ async def _deepseek(session: aiohttp.ClientSession,
         # el proveedor del modelo devolvió un error (sin saldo, clave mala, modelo inexistente…): que se vea en el log
         err = data.get('error') if isinstance(data, dict) else data
         raise RuntimeError(f'LLM {LLM_BASE} modelo {LLM_MODEL} HTTP {r.status}: {str(err)[:300]}')
+    if isinstance(data.get('usage'), dict):
+        t = asyncio.create_task(_anotar_uso(proceso, data['usage']))
+        _tareas_uso.add(t)
+        t.add_done_callback(_tareas_uso.discard)
     return data['choices'][0]['message']['content']
 
 
@@ -252,7 +286,12 @@ REGLAS
    un bloque VISTA DIRECCIÓN, usa sus estados tal cual (Normal / Atención / Acción): no los recalcules ni los
    subas. Cada acción va con su ficha, con estas tres etiquetas y en este orden:
    «Acción recomendada · Plazo · Cómo verificar». Copia el plazo de la ficha. No asignes responsables ni
-   inventes quién debe hacerlo: la Dirección no tiene responsables por eje. «Lo que viene» va por fecha de ocurrencia."""
+   inventes quién debe hacerlo: la Dirección no tiene responsables por eje. «Lo que viene» va por fecha de ocurrencia.
+18. Seguimiento de recomendaciones: cada señal puede llevar «seguimiento» (pendiente, en curso, resuelta, sin efecto)
+   con la nota de qué se hizo y quién lo registró. Si preguntan qué se hizo, qué está pendiente o en qué quedó una
+   recomendación, usa ese dato o el bloque SEGUIMIENTO tal cual; sin seguimiento guardado, di «pendiente». No
+   digas que algo se resolvió o que alguien actuó si no está en el seguimiento. Tú no cambias estados: los marca
+   un analista o un administrador en la ficha de la señal."""
 
 
 # ── Plazos (CP1 y CP2; misma regla que vigilante.cierre() del 48 y web/src/lib/plazo.ts) ──
@@ -355,6 +394,9 @@ def _compacta(x: dict) -> dict:
             c['eje'] = _EJE_TXT.get(d['eje'], d['eje'])
         if isinstance(d.get('ficha'), dict):
             c['ficha_direccion'] = {k: d['ficha'][k] for k in ('accion', 'plazo', 'verificar') if d['ficha'].get(k)}
+    g = x.get('seguimiento')   # 50: en qué quedó la recomendación
+    if isinstance(g, dict) and g.get('estado'):
+        c['seguimiento'] = {k: g[k] for k in ('estado', 'nota', 'quien', 'cuando') if g.get(k)}
     for k in ('titulo', 'resumen', 'importancia'):
         if k in c:
             c[k] = _sin_relativos(c[k])
@@ -434,6 +476,26 @@ _RE_DIRECCION = re.compile(r'direcci[oó]n|sem[aá]foro|\bejes?\b|movilidad|serv
                            r'decisi[oó]n|decisiones|qu[eé] hago|qu[eé] hacemos|lo que viene|pr[oó]xim[oa]s? (24|48|72|d[ií]as|semana|horas)|'
                            r'ma[nñ]ana|esta semana', re.I)
 _ESTADO_TXT = {'normal': 'Normal', 'atencion': 'Atención', 'accion': 'Acción'}
+_SEG_TXT = {'pendiente': 'Pendiente', 'en_curso': 'En curso', 'resuelta': 'Resuelta', 'sin_efecto': 'Sin efecto'}
+_RE_SEGUIMIENTO = re.compile(r'seguimiento|pendiente|en curso|resuelt|sin efecto|qu[eé] se hizo|qui[eé]n actu[oó]|'
+                             r'qu[eé] (pas[oó]|qued[oó])|cerramos|se actu[oó]|recomendaci[oó]n', re.I)
+
+
+def _seguimiento_txt(g) -> str:
+    """Bloque SEGUIMIENTO de vigilante.seguimiento_resumen() (50): lo mismo que el panel de la Dirección."""
+    if not isinstance(g, dict):
+        return ('SEGUIMIENTO: la base aún no lo guarda (falta ejecutar 50_seguimiento_recomendaciones.sql). '
+                'Si preguntan qué se hizo con una recomendación, dilo así.')
+    l = [f"SEGUIMIENTO DE RECOMENDACIONES (de la base): {g.get('pendiente', 0)} pendientes, {g.get('en_curso', 0)} en curso, "
+         f"{g.get('resuelta', 0)} resueltas y {g.get('sin_efecto', 0)} sin efecto en los últimos 7 días."]
+    for x in (g.get('items') or [])[:12]:
+        if not isinstance(x, dict):
+            continue
+        l.append(f"- {x.get('codigo')} {x.get('titulo')} · {_SEG_TXT.get(x.get('estado'), x.get('estado'))} · "
+                 f"Recomendación: {x.get('recomendacion')}"
+                 + (f" · Qué se hizo: {x.get('nota')}" if x.get('nota') else '')
+                 + (f" (registró {x.get('quien')})" if x.get('quien') else ''))
+    return '\n'.join(l)
 _EJE_TXT = {'movilidad': 'Movilidad', 'servicios': 'Servicios esenciales', 'atencion': 'Atención turística'}
 
 
@@ -708,6 +770,8 @@ Cuando des un número total, cita la hora: «según los datos actualizados a las
 
 {_direccion_txt(ctx.get('direccion')) if _RE_DIRECCION.search(ultima) else ''}
 
+{_seguimiento_txt(ctx.get('seguimiento')) if _RE_SEGUIMIENTO.search(ultima) else ''}
+
 SEÑALES ACTIVAS ({len(senales)}):
 {json.dumps(senales, ensure_ascii=False)}
 
@@ -762,7 +826,7 @@ Es siempre una pregunta de análisis: usa los seis bloques. Markdown conciso par
 
     async with aiohttp.ClientSession() as session:
         try:
-            texto = await _deepseek(session, [{'role': 'user', 'content': prompt}], max_tokens=1400)
+            texto = await _deepseek(session, [{'role': 'user', 'content': prompt}], max_tokens=1400, proceso='avia-analisis')
             return web.json_response({'texto': texto})
         except Exception as e:
             return web.json_response({'texto': f'Error en el análisis: {e}'}, status=500)
@@ -797,7 +861,7 @@ Devuelve SOLO el JSON, sin comentarios ni markdown."""
 
     async with aiohttp.ClientSession() as session:
         try:
-            resp = await _deepseek(session, [{'role': 'user', 'content': prompt}], max_tokens=400)
+            resp = await _deepseek(session, [{'role': 'user', 'content': prompt}], max_tokens=400, proceso='avia-evaluar')
             resp = resp.strip()
             # Limpiar posible bloque ```json ... ```
             if resp.startswith('```'):
@@ -808,6 +872,38 @@ Devuelve SOLO el JSON, sin comentarios ni markdown."""
             return web.json_response({'error': 'La IA devolvió un formato inesperado'}, status=500)
         except Exception as e:
             return web.json_response({'error': str(e)}, status=500)
+
+
+_saldo_cache: list = [0.0, None]   # [hasta cuándo vale, respuesta]
+
+
+async def handle_saldo(request: web.Request) -> web.Response:
+    """Saldo que le queda a la cuenta del modelo (DeepSeek: GET /user/balance). Cache de 5 minutos.
+    Es el único dato que incluye lo que gasta Hermes por su lado, que no pasa por esta API."""
+    if not _check_auth(request):
+        return web.json_response({'error': 'unauthorized'}, status=401)
+    if _saldo_cache[1] is not None and _saldo_cache[0] > time.time():
+        return web.json_response(_saldo_cache[1])
+    if 'deepseek' not in LLM_BASE:
+        return web.json_response({'disponible': None, 'motivo': 'El proveedor del modelo no informa del saldo'})
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as ses:
+            async with ses.get(f'{LLM_BASE}/user/balance', headers={'Authorization': f'Bearer {LLM_KEY}',
+                                                                     'Accept': 'application/json'}) as r:
+                data = await r.json(content_type=None)
+        if not isinstance(data, dict) or 'balance_infos' not in data:
+            raise RuntimeError(f'HTTP {r.status}: {str(data)[:200]}')
+        out = {'disponible': bool(data.get('is_available')), 'proveedor': 'DeepSeek',
+               'saldos': [{'moneda': b.get('currency'), 'total': float(b.get('total_balance') or 0),
+                           'regalado': float(b.get('granted_balance') or 0),
+                           'recargado': float(b.get('topped_up_balance') or 0)}
+                          for b in data.get('balance_infos') or [] if isinstance(b, dict)],
+               'consultado': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+        _saldo_cache[:] = [time.time() + 300, out]
+        return web.json_response(out)
+    except Exception as e:  # noqa: BLE001
+        print('SALDO ERROR', repr(e)[:200], flush=True)
+        return web.json_response({'disponible': None, 'motivo': 'No se pudo consultar el saldo del modelo'}, status=502)
 
 
 async def handle_health(request: web.Request) -> web.Response:
@@ -856,6 +952,7 @@ app = web.Application(middlewares=[_auth_mw])
 app.router.add_post('/chat',    handle_chat)
 app.router.add_post('/analisis', handle_analisis)
 app.router.add_post('/evaluar', handle_evaluar)
+app.router.add_post('/saldo',   handle_saldo)
 app.router.add_get('/health',   handle_health)
 
 if __name__ == '__main__':

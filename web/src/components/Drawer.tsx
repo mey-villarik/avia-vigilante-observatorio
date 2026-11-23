@@ -9,6 +9,7 @@ import { AccionTag, CertezaTag, ContextoIntl, Histo, IntlTag, NatPill, StPill } 
 import { useChat } from '../services/chat';
 import { planPrompt } from '../views/Oportunidades';
 import { Equipo, MiClave } from './Equipo';
+import { UsoIaDetalle } from './UsoIa';
 import { GLOSARIO, TERMINOS } from '../lib/glosario';
 import { porqueAvia, puntuacionesDe } from '../lib/puntuaciones';
 import { fechaBolivia, trazaDe } from '../lib/trazabilidad';
@@ -17,6 +18,7 @@ import { certezaPlazo, cierreTexto } from '../lib/plazo';
 import { CERTEZAS, NIVELES_CERTEZA, ORIGEN_CERTEZA, certezaDe } from '../lib/certeza';
 import { afirmaOperativo, recoDe } from '../lib/recomendacion';
 import { FichaDireccion } from './FichaDireccion';
+import { SeguimientoReco } from './SeguimientoReco';
 import { EXPLICA as PULSO_EXPLICA, calcularPulso, factoresTexto, masPesan } from '../lib/pulso';
 import { RIESGO_TXT, SUGERENCIA_TXT, useFicha } from '../services/fichas';
 
@@ -38,11 +40,11 @@ function checksFor(s: Fuente): [Fuente['estado'], string, string][] {
   const st = s.estado;
   if (st === 'MANT') return [['MANT', 'Disponibilidad', 'En mantenimiento programado'], ['MANT', 'Frescura', '—'], ['MANT', 'Estructura', '—'], ['MANT', 'Novedad', '—']];
   if (st === 'UNKNOWN') return [['UNKNOWN', 'Disponibilidad', 'Sin datos: URL por confirmar'], ['UNKNOWN', 'Frescura', '—'], ['UNKNOWN', 'Estructura', '—'], ['UNKNOWN', 'Novedad', '—']];
-  const abc = s.id === 'abc_caminos';
+  const caida = st === 'CRIT';
   return [
-    [abc ? 'CRIT' : (s.lat ?? 0) > 5000 ? 'WARN' : 'OK', 'Disponibilidad', abc ? 'Sin respuesta en 30 s (3/3)' : `HTTP 200 en ${((s.lat ?? 0) / 1000).toFixed(1)} s`],
-    [abc ? 'CRIT' : 'OK', 'Frescura', abc ? 'Último dato hace 48 min (umbral 45)' : 'Último elemento dentro del plazo'],
-    [s.id === 'minsalud' ? 'WARN' : abc ? 'UNKNOWN' : 'OK', 'Estructura', s.id === 'minsalud' ? 'El selector no encontró la lista de comunicados' : abc ? 'No evaluable' : 'Campos extraídos: título, fecha, enlace'],
+    [caida ? 'CRIT' : (s.lat ?? 0) > 5000 ? 'WARN' : 'OK', 'Disponibilidad', caida ? s.info : `HTTP 200 en ${((s.lat ?? 0) / 1000).toFixed(1)} s`],
+    [caida ? 'CRIT' : 'OK', 'Frescura', caida ? 'Sin datos nuevos mientras no responda' : 'Último elemento dentro del plazo'],
+    [s.id === 'minsalud' ? 'WARN' : caida ? 'UNKNOWN' : 'OK', 'Estructura', s.id === 'minsalud' ? 'El selector no encontró la lista de comunicados' : caida ? 'No evaluable' : 'Campos extraídos: título, fecha, enlace'],
     [s.items ? 'OK' : st === 'OK' ? 'OK' : 'WARN', 'Novedad', s.items ? `${s.items} elemento(s) nuevo(s)` : 'Sin elementos nuevos'],
   ];
 }
@@ -175,6 +177,7 @@ function SenalDetalle({ id }: { id: string }) {
         <h2>{s.titulo}</h2>
         {/* P1 Dirección: qué hacer, quién, hasta cuándo y cómo verificar, antes que todo lo demás */}
         <FichaDireccion s={s} />
+        <SeguimientoReco s={s} />
         <p className="lead">{s.resumen}</p>
         <Certeza s={s} />
         <div className="dl">
@@ -669,6 +672,7 @@ export function Drawer() {
     case 'editar-fuente': body = <EditarFuente id={drawer.id} />; break;
     case 'equipo': body = <Equipo />; break;
     case 'mi-clave': body = <MiClave />; break;
+    case 'uso-ia': body = <UsoIaDetalle />; break;
   }
   return (
     <>
