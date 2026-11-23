@@ -202,8 +202,7 @@ const shortName = (f: Fuente) => f.nombre.split(' ·')[0];
 /** Simula una comprobación de una fuente. En producción el estado lo escribe el ciclo de 30 min. */
 function simulateCheck(s: Fuente): { fuente: Fuente; evento: Evento; cambio: boolean } {
   let ns: EstadoFuente;
-  if (s.id === 'abc_caminos') ns = Math.random() < 0.35 ? 'OK' : 'CRIT';
-  else if (s.id === 'minsalud') ns = Math.random() < 0.3 ? 'OK' : 'WARN';
+  if (s.id === 'minsalud') ns = Math.random() < 0.3 ? 'OK' : 'WARN';
   else if (s.id === 'minturismo') ns = Math.random() < 0.5 ? 'OK' : 'WARN';
   else if (s.estado === 'OK') ns = Math.random() < 0.06 ? 'WARN' : 'OK';
   else if (s.estado === 'UNKNOWN') ns = 'UNKNOWN';
@@ -214,8 +213,7 @@ function simulateCheck(s: Fuente): { fuente: Fuente; evento: Evento; cambio: boo
   if (ns !== s.estado) {
     f.estado = ns; f.desde = 0; f.ack = false;
     if (ns === 'OK') {
-      f.info = s.id === 'abc_caminos' ? 'HTTP 200 en 6,1 s · 2 tramos con restricción'
-        : s.id === 'minsalud' ? 'HTTP 200 · 1 comunicado nuevo'
+      f.info = s.id === 'minsalud' ? 'HTTP 200 · 1 comunicado nuevo'
           : s.id === 'minturismo' ? 'HTTP 200 en 2,3 s · 1 nota nueva' : s.info;
     }
     if (ns === 'WARN' && s.id !== 'minsalud') f.info = 'Respuesta lenta (> 5 s) · reintentando';
