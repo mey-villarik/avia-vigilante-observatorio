@@ -14,8 +14,8 @@ como antes**. Después de un fallo, durante 2 minutos el chat va directo a DeepS
   el chat **no guarde nada** (ni `guardar_senal`, ni terminal, ni archivos, ni cron).
 - La respuesta a la web es la misma `{texto, comandos?}`; se añade `motor: "hermes" | "deepseek"`, que la
   web ignora y que sirve para la batería y para el log.
-- Tiempos: Hermes tiene `HERMES_TIMEOUT` (35 s); DeepSeek, lo que quede hasta `CHAT_PRESUPUESTO` (55 s),
-  porque nginx corta a los 60 s si no se ha cambiado `proxy_read_timeout`.
+- Tiempos: a DeepSeek siempre le quedan `DEEPSEEK_MIN` (40 s) si Hermes falla; Hermes espera lo que sobre hasta
+  `CHAT_PRESUPUESTO` (55 s), porque nginx corta a los 60 s si no se ha cambiado `proxy_read_timeout`.
 - Los tokens de Hermes que informe su API quedan en `system_logs` como `avia-chat-hermes`.
 - `GET /health` dice qué motor usa el chat ahora: `"chat": "hermes"` o `"deepseek"`.
 
@@ -28,6 +28,11 @@ Variables nuevas en `/root/avia/supabase.env` (nunca en Git):
 | `HERMES_MODEL` | `hermes-agent` (por defecto) | Nombre del modelo que expone Hermes |
 | `HERMES_TIMEOUT` | `35` | Segundos que se espera a Hermes |
 | `CHAT_PRESUPUESTO` | `55` | Segundos totales del chat, respaldo incluido |
+| `DEEPSEEK_MIN` | `40` | Segundos que siempre quedan para DeepSeek si Hermes falla |
+
+Con los valores por defecto Hermes tiene como mucho **15 s** (55 − 40), porque nginx corta a los 60 s y una
+respuesta larga de DeepSeek tarda 20-40 s. Para darle más tiempo a Hermes, sube `proxy_read_timeout` en el
+`location` de `/avia/` de nginx (por ejemplo a `120s`) y pon `CHAT_PRESUPUESTO=110` y `HERMES_TIMEOUT=65`.
 
 ## Pasos en el VPS
 

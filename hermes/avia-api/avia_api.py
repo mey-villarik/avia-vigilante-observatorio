@@ -28,6 +28,9 @@ Secretos (de ~/avia/supabase.env):
   HERMES_TIMEOUT      (opcional; segundos que se espera a Hermes, por defecto 35)
   CHAT_PRESUPUESTO    (opcional; segundos totales del chat con el respaldo incluido, por defecto 55;
                        nginx corta a los 60 si no se cambia proxy_read_timeout)
+  DEEPSEEK_MIN        (opcional; segundos que siempre quedan para el respaldo, por defecto 40).
+                       Hermes espera como mucho CHAT_PRESUPUESTO - DEEPSEEK_MIN (15 s con los valores por defecto);
+                       para darle más, sube proxy_read_timeout de nginx y CHAT_PRESUPUESTO (docs/chat-hermes.md)
 
 Instalación (VPS):
   pip3 install aiohttp
@@ -86,6 +89,8 @@ HERMES_KEY     = os.environ.get('HERMES_API_KEY', '')
 HERMES_MODEL   = os.environ.get('HERMES_MODEL', 'hermes-agent')
 HERMES_TIMEOUT = float(os.environ.get('HERMES_TIMEOUT') or 35)
 CHAT_PRESUPUESTO = float(os.environ.get('CHAT_PRESUPUESTO') or 55)
+# tiempo que se deja siempre al respaldo: una respuesta larga de DeepSeek tarda 20-40 s
+DEEPSEEK_MIN   = float(os.environ.get('DEEPSEEK_MIN') or 40)
 _HERMES_PAUSA  = 120   # tras un fallo de Hermes, el chat va directo a DeepSeek estos segundos (no espera cada vez)
 _hermes_caido: list = [0.0]
 
@@ -203,12 +208,12 @@ async def _responder_chat(session: aiohttp.ClientSession, system: str, mensajes:
     if HERMES_URL and _hermes_caido[0] <= time.time():
         try:
             texto = await _hermes(session, [{'role': 'system', 'content': system + HERMES_EXTRA}] + mensajes,
-                                  min(HERMES_TIMEOUT, CHAT_PRESUPUESTO - 15))
+                                  max(5.0, min(HERMES_TIMEOUT, CHAT_PRESUPUESTO - DEEPSEEK_MIN)))
             return texto, 'hermes'
         except Exception as e:  # noqa: BLE001 — respaldo: el chat no se rompe
             _hermes_caido[0] = time.time() + _HERMES_PAUSA
             print(f'HERMES NO RESPONDE ({time.monotonic() - inicio:.0f} s), respondo con DeepSeek: {e!r}'[:400], flush=True)
-    quedan = max(15.0, CHAT_PRESUPUESTO - (time.monotonic() - inicio))
+    quedan = max(DEEPSEEK_MIN, CHAT_PRESUPUESTO - (time.monotonic() - inicio))
     texto = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=1100, timeout=quedan)
     return texto, 'deepseek'
 
