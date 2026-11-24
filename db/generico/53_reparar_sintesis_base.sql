@@ -18,6 +18,10 @@ INSERT INTO vigilante.parametros (cliente_id, clave, valor, descripcion) VALUES
   (NULL, 'sintesis_max', '3', 'Elementos por bloque en la síntesis del día (qué vigilar admite el doble)')
 ON CONFLICT (cliente_id, clave) DO NOTHING;
 
+-- Columnas que usa revisiones_vencidas() (las crea el 16 y el 18; si la base no tiene el 18, faltaba la segunda)
+ALTER TABLE vigilante.signals ADD COLUMN IF NOT EXISTS revision_vencida_en  timestamptz;
+ALTER TABLE vigilante.signals ADD COLUMN IF NOT EXISTS revision_decidida_en timestamptz;
+
 -- Base de la síntesis (cuerpo del 26)
 CREATE OR REPLACE FUNCTION vigilante._sintesis_dia_base(p_cliente uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = vigilante, pg_temp AS $$
