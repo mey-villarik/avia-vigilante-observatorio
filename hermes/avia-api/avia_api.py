@@ -275,6 +275,10 @@ CUANDO RESPONDES DESDE EL CHAT DEL PANEL (eres AVIA; Hermes es solo el motor y n
 - Si la pregunta pide algo que no está en los datos (contexto, antecedentes, qué dicen otros medios, buscar,
   investigar), BUSCA en la web. Lo que encuentres va en un apartado «Investigación externa», con fuente, enlace y
   fecha de cada dato, y dices que no está verificado por el observatorio: no es una señal ni un hecho confirmado.
+- Si usas comandos, TODA tu respuesta es un único JSON {"texto": "...", "comandos": [...]}. Nunca escribas
+  una orden suelta ({"tipo": ...}) dentro del texto: la persona la vería tal cual y el panel no se movería.
+  «filtro» solo vale con "vista": "senales" (para oportunidades de un departamento: vista senales con
+  filtro naturaleza oportunidad y departamento). "revisar": true solo si piden las pendientes de revisión.
 - Mueve el panel siempre que ayude: si la respuesta trata de señales, un tipo (riesgos, oportunidades), un
   departamento, una señal concreta, el mapa, las fuentes o la vista Dirección, responde con el JSON
   {"texto": ..., "comandos": [...]} para abrir esa vista, filtro o señal (formato de comandos de arriba).
@@ -757,13 +761,56 @@ def _json_suelto(s: str):
         return None
 
 
+_VISTAS_FILTRO = ('senales',)   # el filtro solo se aplica en la vista Señales (web/src/lib/filtroSenales.ts)
+
+
+def _normalizar_comando(c: dict) -> dict:
+    """Un filtro pedido sobre otra vista (p. ej. «oportunidades» de La Paz) se abre en Señales, que es la que filtra."""
+    if c.get('tipo') == 'abrir' and isinstance(c.get('filtro'), dict) and c.get('vista') not in _VISTAS_FILTRO:
+        c = {**c, 'vista': 'senales'}
+    return c
+
+
+def _comandos_sueltos(resp: str) -> tuple[str, list]:
+    """Hermes a veces escribe la orden suelta dentro del texto ({"tipo": "abrir", ...}, con o sin ```json```)
+    en vez del JSON {texto, comandos}. Se sacan del texto (aunque lleven un «filtro» anidado) y se devuelven aparte."""
+    comandos, trozos, i, dec = [], [], 0, json.JSONDecoder(strict=False)
+    while True:
+        j = resp.find('{', i)
+        if j < 0:
+            trozos.append(resp[i:])
+            break
+        try:
+            obj, fin = dec.raw_decode(resp, j)
+        except (json.JSONDecodeError, ValueError):
+            trozos.append(resp[i:j + 1]); i = j + 1
+            continue
+        lista = obj if isinstance(obj, list) else [obj]
+        if lista and all(isinstance(x, dict) and x.get('tipo') in ('abrir', 'tablero') for x in lista):
+            comandos += lista
+            trozos.append(resp[i:j])
+        else:
+            trozos.append(resp[i:fin])
+        i = fin
+    texto = ''.join(trozos)
+    if comandos:
+        texto = re.sub(r'```[a-zA-Z]*\s*```', '', texto)          # vallas que quedaron vacías
+        texto = re.sub(r'[ \t]*:[ \t]*$', '', texto, flags=re.M)        # «… La Paz:» que anunciaba la orden
+        texto = re.sub(r'\n{3,}', '\n\n', texto).strip()
+    return texto, comandos
+
+
 def _separar_comandos(resp: str) -> dict:
     """Separa la respuesta del modelo en {texto, comandos}. El JSON nunca debe llegar a la pantalla:
     acepta el JSON solo, envuelto en ```json```, con texto antes o después, sin cerrar (cortado por
     max_tokens) o con saltos de línea crudos dentro de "texto"."""
     resp = (resp or '').strip()
     if '"texto"' not in resp:
-        return {'texto': resp}
+        texto, comandos = _comandos_sueltos(resp)
+        out = {'texto': texto or 'Listo.'}
+        if comandos:
+            out['comandos'] = [_normalizar_comando(c) for c in comandos]
+        return out
     m = _RE_BLOQUE_JSON.search(resp)
     if m:
         cand, fuera = m.group(1), (resp[:m.start()] + resp[m.end():]).strip()
@@ -794,7 +841,7 @@ def _separar_comandos(resp: str) -> dict:
         texto = fuera or 'Listo.'
     out = {'texto': texto.strip()}
     if comandos:
-        out['comandos'] = comandos
+        out['comandos'] = [_normalizar_comando(c) for c in comandos]
     return out
 
 
