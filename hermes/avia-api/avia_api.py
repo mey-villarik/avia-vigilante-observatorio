@@ -143,15 +143,20 @@ async def _anotar_uso(proceso: str, uso: dict) -> None:
     if not (te or ts) or not SB_URL:
         return
     costo = round((te * LLM_PRECIO_ENTRADA + ts * LLM_PRECIO_SALIDA) / 1e6, 6) or None
-    detalle = {'modelo': LLM_MODEL, 'tokens_entrada': te, 'tokens_salida': ts}
+    detalle = {'modelo': HERMES_MODEL if proceso.endswith('hermes') else LLM_MODEL, 'tokens_entrada': te, 'tokens_salida': ts}
     if costo:
         detalle['costo_usd'] = costo
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as ses:
-            await _supabase_post(ses, '/rest/v1/rpc/registrar_log', {
+            # registrar_log no devuelve nada (204 sin cuerpo): no se lee como JSON, solo se mira el estado
+            async with ses.post(f'{SB_URL}/rest/v1/rpc/registrar_log', json={
                 'p_cliente': CLIENTE, 'p_proceso': proceso, 'p_nivel': 'info',
                 'p_mensaje': f'Llamada al modelo: {te}+{ts} tokens', 'p_detalle': detalle,
-                'p_costo_usd': costo, 'p_codigo_fuente': None})
+                'p_costo_usd': costo, 'p_codigo_fuente': None},
+                headers={'apikey': SB_KEY, 'Authorization': f'Bearer {SB_KEY}', 'Content-Type': 'application/json',
+                         'Content-Profile': 'vigilante', 'Accept-Profile': 'vigilante'}) as r:
+                if r.status >= 300:
+                    raise RuntimeError(f'HTTP {r.status}: {(await r.text())[:200]}')
     except Exception as e:  # noqa: BLE001 — la respuesta al usuario ya salió; solo se pierde la anotación
         print('USO NO ANOTADO', proceso, repr(e)[:200], flush=True)
 
