@@ -121,6 +121,23 @@ journalctl -u avia-api -f | grep -i hermes   # si aparece «HERMES NO RESPONDE»
 
 Y la batería de siempre (`docs/bateria-pruebas.md`), para comparar con la última ronda.
 
+## Darle tiempo a Hermes para buscar (nginx)
+
+Hermes, cuando busca en la web o consulta el MCP, tarda entre 20 s y 2 min. Con nginx a 60 s no le da tiempo y
+responde siempre DeepSeek. Para que conteste Hermes:
+
+```bash
+F=$(grep -rl "127.0.0.1:8099" /etc/nginx/ 2>/dev/null | head -1); echo "$F"
+cp "$F" /root/nginx-avia.antes-hermes
+grep -q proxy_read_timeout "$F" || sed -i 's#^\(\s*\)proxy_pass http://127.0.0.1:8099\(.*\)$#&\n\1proxy_read_timeout 180s;#' "$F"
+grep -n -A1 "127.0.0.1:8099" "$F"
+nginx -t && systemctl reload nginx
+printf 'CHAT_PRESUPUESTO=170\nHERMES_TIMEOUT=125\n' >> /root/avia/supabase.env
+systemctl restart avia-api
+```
+
+En el log, cada pregunta dice quién respondió y en cuánto: `CHAT respondió Hermes en 34 s`.
+
 ## Volver atrás
 
 Quita (o comenta con `#`) `HERMES_API_URL` en `/root/avia/supabase.env` y `systemctl restart avia-api`:

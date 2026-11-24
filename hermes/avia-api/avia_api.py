@@ -209,12 +209,14 @@ async def _responder_chat(session: aiohttp.ClientSession, system: str, mensajes:
         try:
             texto = await _hermes(session, [{'role': 'system', 'content': system + HERMES_EXTRA}] + mensajes,
                                   max(5.0, min(HERMES_TIMEOUT, CHAT_PRESUPUESTO - DEEPSEEK_MIN)))
+            print(f'CHAT respondió Hermes en {time.monotonic() - inicio:.0f} s', flush=True)
             return texto, 'hermes'
         except Exception as e:  # noqa: BLE001 — respaldo: el chat no se rompe
             _hermes_caido[0] = time.time() + _HERMES_PAUSA
             print(f'HERMES NO RESPONDE ({time.monotonic() - inicio:.0f} s), respondo con DeepSeek: {e!r}'[:400], flush=True)
     quedan = max(DEEPSEEK_MIN, CHAT_PRESUPUESTO - (time.monotonic() - inicio))
     texto = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=1100, timeout=quedan)
+    print(f'CHAT respondió DeepSeek en {time.monotonic() - inicio:.0f} s', flush=True)
     return texto, 'deepseek'
 
 
@@ -263,11 +265,17 @@ HERMES_EXTRA = """
 CUANDO RESPONDES DESDE EL CHAT DEL PANEL (eres AVIA; Hermes es solo el motor y no se nombra)
 - Apóyate en tu skill «avia-auditor» para no afirmar nada que los datos no respalden, y en
   «avia-radar-decision» o «avia-anticipacion» si piden decidir o anticipar. No hace falta anunciar qué skill usas.
-- Los datos de este mensaje son la fuente principal y ya están al día. Si falta un dato concreto, puedes
-  consultarlo con las herramientas de LECTURA del MCP del Vigilante (por ejemplo buscar_senales).
-- Desde el chat NO guardes ni cambies nada: no uses guardar_senal, guardar_oportunidad, terminar_tarea,
-  proponer_fuente, ni la terminal, ni archivos, ni cron. Solo respondes a la persona.
-- Responde rápido: como mucho 2 consultas a herramientas. El formato de salida (texto o JSON con comandos)
+- Los datos de este mensaje son la fuente principal y ya están al día. Si falta un dato, consúltalo con las
+  herramientas de LECTURA del MCP del Vigilante (buscar_senales y similares).
+- Si la pregunta pide algo que no está en los datos (contexto, antecedentes, qué dicen otros medios, buscar,
+  investigar), BUSCA en la web. Lo que encuentres va en un apartado «Investigación externa», con fuente, enlace y
+  fecha de cada dato, y dices que no está verificado por el observatorio: no es una señal ni un hecho confirmado.
+- Mueve el panel siempre que ayude: si la respuesta trata de señales, un tipo (riesgos, oportunidades), un
+  departamento, una señal concreta, el mapa, las fuentes o la vista Dirección, responde con el JSON
+  {"texto": ..., "comandos": [...]} para abrir esa vista, filtro o señal (formato de comandos de arriba).
+- Desde el chat NO guardes ni cambies nada en la base ni en el servidor: no uses guardar_senal,
+  guardar_oportunidad, terminar_tarea, proponer_fuente, ni la terminal, ni archivos, ni cron.
+- Sé ágil: como mucho 5 consultas a herramientas en total. El formato de salida (texto o JSON con comandos)
   es el que se pide arriba, sin nada más."""
 
 
