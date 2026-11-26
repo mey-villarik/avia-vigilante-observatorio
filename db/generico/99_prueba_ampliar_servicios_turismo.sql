@@ -12,14 +12,14 @@ BEGIN
     'Suben los casos de dengue y piden fumigar',
     'Paro médico de 48 horas en los hospitales de tercer nivel',
     'Recojo de basura suspendido por tercer día',
-    'Cajeros sin efectivo y falta de dólares para viajeros',
+    'Cajeros sin efectivo y falta de dólares',
     'Cancelación de vuelos por mal tiempo deja pasajeros varados',
     'BoA abre vuelos directos a Buenos Aires',
     'Arranca la Fiesta del Gran Poder con 70 fraternidades',
     'Expocruz espera más de 500 mil personas',
-    'El rally reúne pilotos de cinco países',
-    'Crece el turismo comunitario y el trekking en los Yungas',
-    'Nuevo teleférico y mirador para turistas extranjeros'] LOOP
+    'Los Juegos Bolivarianos traen delegaciones de seis países',
+    'Crece el turismo comunitario en el país',
+    'Nueva línea de Mi Teleférico abre el lunes'] LOOP
     SELECT puntaje INTO p FROM vigilante.puntaje_previo(c, f, NULL, frase);
     IF p < 30 THEN RAISE EXCEPTION '«%» debe pasar (puntaje %)', frase, p; END IF;
   END LOOP;
@@ -28,7 +28,10 @@ BEGIN
   FOREACH frase IN ARRAY ARRAY[
     'Gol de último minuto en la liga española',
     'Por ende, el directorio aprobó el balance anual',
-    'El abogado Juan Montero presenta su libro'] LOOP
+    'El abogado Juan Montero presenta su libro',
+    'LATAM Airlines rozó los 8 millones de pasajeros transportados. Sin conexión',
+    'KLM vuelve a Malpensa y abre vuelos directos a Sofía con aviones Embraer',
+    'Aeropuertos de Chicago prevén más de 2 millones de viajeros para Acción de Gracias'] LOOP
     SELECT puntaje INTO p FROM vigilante.puntaje_previo(c, f, NULL, frase);
     IF p >= 30 THEN RAISE EXCEPTION '«%» no debe pasar (puntaje %)', frase, p; END IF;
   END LOOP;
@@ -36,7 +39,7 @@ BEGIN
   -- oportunidad candidata
   SELECT tipos INTO t FROM vigilante.puntaje_previo(c, f, NULL, 'Llega Urkupiña y las agencias preparan paquetes');
   IF NOT 'evento' = ANY(t) THEN RAISE EXCEPTION 'Urkupiña debe marcar evento: %', t; END IF;
-  SELECT tipos INTO t FROM vigilante.puntaje_previo(c, f, NULL, 'Amaszonas retoma vuelos a Rurrenabaque');
+  SELECT tipos INTO t FROM vigilante.puntaje_previo(c, f, NULL, 'Amaszonas anuncia nueva ruta a Rurrenabaque');
   IF NOT 'conectividad' = ANY(t) THEN RAISE EXCEPTION 'retoma vuelos debe marcar conectividad: %', t; END IF;
   -- las del 15 siguen
   SELECT tipos INTO t FROM vigilante.puntaje_previo(c, f, NULL, 'Abren la convocatoria de fondos');

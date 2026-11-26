@@ -24,6 +24,12 @@ Lo que ya estaba (55 y antes) no se repite. Se dejaron fuera palabras que daría
 
 El prompt 1.13 explica al clasificador cada grupo, su categoría y su prioridad. Un partido de liga sigue siendo «deporte sin efecto turístico»; un rally o un campeonato internacional con sede en Bolivia, no. Un paro médico va a **salud**, no a conflicto.
 
+## Ajuste tras la primera vista previa (SQL 59)
+
+La primera vista previa del 58 en Supabase dio 139 noticias de 3.079, pero los ejemplos eran de aviación de otros países (LATAM en Brasil, KLM, Chicago…). Dos causas: «sin conexión» salía en el texto fijo de una fuente, y las palabras genéricas de aviación y turismo («aerolínea», «aeropuertos», «frecuencias», «viajeros», «tours», «trekking»…) valen para cualquier país. Una noticia de Bolivia ya pasa si nombra un lugar, así que esas palabras solo traían ruido.
+
+`59_ajuste_ruido_58.sql` las quita (deja las de Bolivia: BoA, EcoJet, Amaszonas, NAABOL, fiestas y ferias bolivianas, Mi Teleférico…) y vuelve a enseñar la vista previa con el recuento por palabra. El 58 del repositorio ya viene limpio; el 59 hace falta solo donde se ejecutó el 58 antiguo. El prompt 1.13 no cambia.
+
 ## Pasos
 
 1. **Supabase**: ejecutar `58_ampliar_servicios_turismo.sql` entero. Al final sale una **vista previa**: cuántas noticias descartadas de los últimos 7 días pasarían ahora (`ahora_pasan`) y 15 ejemplos. No cambia nada.

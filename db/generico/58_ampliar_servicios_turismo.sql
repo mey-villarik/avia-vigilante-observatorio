@@ -22,17 +22,16 @@
 --      · aerolíneas (riesgo): vuelos cancelados, suspendidos o retrasados, pasajeros varados, huelga de
 --        pilotos, controladores aéreos, cierre de aeropuerto.
 --   2. palabras_oportunidad (+20, la noticia pasa justo):
---      · aerolíneas: nombres (BoA, EcoJet, Amaszonas, LATAM, Avianca, Aerolíneas Argentinas, Copa…),
---        aeropuerto, pasajes y tarifas aéreas, frecuencias, vuelos directos, chárter.
+--      · aerolíneas de Bolivia: BoA, EcoJet, Amaszonas, TAM, NAABOL, terminales de buses. Las aerolíneas de
+--        fuera y las palabras genéricas de aviación NO: traían noticias de otros países.
 --      · eventos: Gran Poder, Urkupiña, Alasitas, Carnaval de Oruro, Todos Santos, Año Nuevo Andino,
---        Festival de Música Barroca, Expocruz, Feicobol, conciertos, ferias y festividades, peregrinación,
---        y deportes que traen visitantes (rally, Dakar, maratón, juegos y campeonatos internacionales).
+--        Festival de Música Barroca, Expocruz, Feicobol, fiestas patronales, peregrinación, Dakar,
+--        Juegos Bolivarianos.
 --        Partidos de liga NO: el clasificador sigue descartando los deportes sin efecto en el turismo.
---      · alojamiento y actividades: resort, albergue, lodge, camping, Airbnb, tours, excursiones,
---        trekking, senderismo, turismo de aventura, comunitario, gastronómico, rural o religioso,
---        ruta del vino y del singani, teleférico, miradores, sitios arqueológicos, misiones jesuíticas,
---        UNESCO, reservas naturales, viajeros, terminales de buses, paquetes turísticos, visas.
---   3. reglas_oportunidad: más frases en los tipos «evento» y «conectividad», para que el clasificador
+--      · alojamiento y actividades propias de Bolivia: ecoalbergue, turismo comunitario, ruta del singani,
+--        Mi Teleférico, misiones jesuíticas, Viceministerio de Turismo, Cámara Hotelera. Una noticia de
+--        tours, hoteles o trekking en Bolivia ya pasa por nombrar el lugar (+25).
+--   3. reglas_oportunidad: más frases en el tipo «evento», para que el clasificador
 --      reciba la oportunidad como candidata.
 --   4. vigilante.eje_de() (vista Dirección, 49): mismas reglas, más palabras. Servicios suma salud
 --      (dengue, brotes, medicamentos, vacunas), basura y cajeros o falta de dólares; atención turística
@@ -47,6 +46,8 @@
 -- Coste: más noticias llegan a la IA. Al ver la vista previa se sabe cuántas por semana; si son
 --   demasiadas, se puede quitar una palabra de la lista (Fuentes → parámetros, o un UPDATE).
 --
+-- Ajustado con el 59 tras la primera vista previa: sin «sin conexión» ni aviación o turismo genéricos
+--   (dejaban pasar noticias de otros países). Si ya ejecutaste el 58 antiguo, ejecuta el 59.
 -- Necesita el 55 (funciones _sumar_palabras y repuntuar_descartadas) y el 49 (eje_de).
 -- Prueba: 99_prueba_ampliar_servicios_turismo.sql (termina en ROLLBACK).
 -- =============================================================================
@@ -125,7 +126,7 @@ BEGIN
     'racionamiento eléctrico', 'mantenimiento de redes', 'falla eléctrica', 'sin energía', 'corte de electricidad',
     'cortes de electricidad', 'DELAPAZ', 'CRE', 'ELFEC', 'SEPSA', 'SETAR',
     -- gas y telecom
-    'gas domiciliario', 'sin gas', 'falta de gas', 'caída de la red', 'sin conexión',
+    'gas domiciliario', 'sin gas', 'falta de gas', 'caída de la red',
     -- salud
     'dengue', 'chikungunya', 'zika', 'fiebre amarilla', 'sarampión', 'influenza', 'covid', 'tos ferina', 'malaria',
     'leishmaniasis', 'rabia canina', 'alerta epidemiológica', 'alerta sanitaria', 'casos sospechosos', 'contagios',
@@ -138,7 +139,7 @@ BEGIN
     'combustible de aviación', 'jet fuel', 'turbocombustible',
     -- aerolíneas: riesgo
     'vuelos cancelados', 'cancelación de vuelos', 'vuelos suspendidos', 'suspensión de vuelos', 'vuelos retrasados',
-    'retraso de vuelos', 'demoras en vuelos', 'pasajeros varados', 'varados', 'huelga de pilotos', 'paro de pilotos',
+    'retraso de vuelos', 'demoras en vuelos', 'pasajeros varados', 'huelga de pilotos', 'paro de pilotos',
     'controladores aéreos', 'cierre del aeropuerto', 'aeropuerto cerrado', 'pista cerrada', 'aterrizaje de emergencia',
     'overbooking'],
     'Palabras que suben el puntaje como posible riesgo o alerta temprana (55 y 58: + servicios esenciales, salud y aerolíneas)');
@@ -146,43 +147,27 @@ BEGIN
 
   n := vigilante._sumar_palabras(c, 'palabras_oportunidad', ARRAY[
     -- aerolíneas y viajes
-    'aerolínea', 'aerolíneas', 'aeropuerto', 'aeropuertos', 'BoA', 'Boliviana de Aviación', 'EcoJet', 'Amaszonas',
-    'Transporte Aéreo Militar', 'LATAM', 'Avianca', 'Aerolíneas Argentinas', 'Copa Airlines', 'Air Europa', 'JetSMART',
-    'Sky Airline', 'Paranair', 'American Airlines', 'Gol Linhas Aéreas', 'Azul Linhas Aéreas', 'NAABOL',
-    'pasajes aéreos', 'boletos aéreos', 'tarifas aéreas', 'precio de pasajes', 'frecuencias', 'vuelo directo',
-    'vuelos directos', 'ruta aérea', 'rutas aéreas', 'conexión aérea', 'chárter', 'vuelos chárter', 'nuevos vuelos',
-    'viajeros', 'pasajeros', 'terminal de buses', 'terminal de ómnibus', 'terminal bimodal', 'paquete turístico',
-    'paquetes turísticos', 'agencia de viajes', 'visa', 'visas', 'requisitos de ingreso', 'turistas extranjeros',
-    'llegada de turistas', 'turismo receptivo', 'turismo interno',
+    'BoA', 'Boliviana de Aviación', 'EcoJet', 'Amaszonas',
+    'Transporte Aéreo Militar', 'NAABOL',
+    'terminal de buses', 'terminal de ómnibus', 'terminal bimodal',
     -- eventos
     'Gran Poder', 'Urkupiña', 'Alasitas', 'Carnaval de Oruro', 'Entrada Universitaria', 'entrada folklórica',
     'Todos Santos', 'Año Nuevo Andino', 'Año Nuevo Aymara', 'Willkakuti', 'Pujllay', 'Ch''utillos', 'Virgen de Guadalupe',
-    'Virgen de Copacabana', 'Virgen de Cotoca', 'San Roque', 'Exaltación', 'Vendimia', 'Festival de Música Barroca',
-    'Festival de Música Renacentista y Barroca', 'Expocruz', 'Fexpocruz', 'Feicobol', 'Feria Internacional de Turismo',
-    'concierto', 'conciertos', 'bienal', 'convención', 'festividad', 'festividades',
-    'fiestas patronales', 'peregrinación', 'romería', 'aniversario departamental',
-    'rally', 'Dakar', 'maratón', 'triatlón', 'ultramaratón', 'Juegos Bolivarianos', 'Juegos Suramericanos',
-    'campeonato sudamericano', 'campeonato mundial', 'evento internacional', 'evento deportivo',
+    'Virgen de Copacabana', 'Virgen de Cotoca', 'Festival de Música Barroca',
+    'Festival de Música Renacentista y Barroca', 'Expocruz', 'Fexpocruz', 'Feicobol', 'fiestas patronales', 'peregrinación', 'aniversario departamental',
+    'Dakar', 'Juegos Bolivarianos', 'Juegos Suramericanos',
     -- alojamiento y actividades
-    'resort', 'albergue', 'albergues', 'ecoalbergue', 'lodge', 'cabañas', 'camping', 'Airbnb', 'hostales',
-    'tour', 'tours', 'excursión', 'excursiones', 'trekking', 'senderismo', 'montañismo', 'andinismo', 'escalada',
-    'turismo de aventura', 'ecoturismo', 'turismo comunitario', 'agroturismo', 'enoturismo', 'turismo rural',
-    'turismo religioso', 'turismo gastronómico', 'gastronomía', 'ruta del vino', 'ruta del singani', 'bodegas',
-    'teleférico', 'Mi Teleférico', 'mirador', 'miradores', 'sitio arqueológico', 'sitios arqueológicos',
-    'misiones jesuíticas', 'patrimonio de la humanidad', 'UNESCO', 'reserva natural', 'reserva de la biosfera',
-    'guardaparques', 'parques nacionales', 'atractivos', 'Viceministerio de Turismo', 'Cámara Hotelera'],
+    'ecoalbergue', 'turismo comunitario', 'ruta del singani', 'Mi Teleférico', 'misiones jesuíticas', 'Viceministerio de Turismo', 'Cámara Hotelera'],
     'Palabras que suben el puntaje como posible oportunidad (55 y 58: + aerolíneas, eventos, alojamiento y actividades)');
   RAISE NOTICE 'palabras_oportunidad: % nuevas', n;
 
   n := vigilante._sumar_regla_oportunidad(c, 'evento', ARRAY[
     'festividad', 'entrada folklorica', 'gran poder', 'urkupina', 'alasitas', 'carnaval de oruro', 'todos santos',
-    'ano nuevo andino', 'festival de musica barroca', 'expocruz', 'feicobol', 'feria internacional de turismo',
-    'concierto', 'peregrinacion', 'rally', 'dakar', 'maraton', 'juegos bolivarianos', 'campeonato sudamericano',
-    'evento internacional']);
-  n := n + vigilante._sumar_regla_oportunidad(c, 'conectividad', ARRAY[
-    'nuevos vuelos', 'vuelos directos', 'rutas aereas', 'conexion aerea', 'vuelos charter', 'nueva aerolinea',
-    'nueva frecuencia', 'mas frecuencias', 'reanuda vuelos', 'retoma vuelos', 'nueva terminal']);
-  RAISE NOTICE 'reglas_oportunidad (evento y conectividad): % frases nuevas', n;
+    'ano nuevo andino', 'festival de musica barroca', 'expocruz', 'feicobol', 'peregrinacion', 'dakar',
+    'juegos bolivarianos']);
+  -- «conectividad» no se amplía: frases como «nuevos vuelos» o «vuelos directos» dejaban pasar noticias de
+  -- aviación de otros países (vista previa del 2026-11-26). Las noticias de Bolivia pasan por el lugar.
+  RAISE NOTICE 'reglas_oportunidad (evento): % frases nuevas', n;
 END $$;
 
 COMMIT;
