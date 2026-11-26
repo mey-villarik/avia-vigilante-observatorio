@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""AVIA Chat API – adaptador entre la web y DeepSeek con contexto de Supabase.
+"""AVIA Chat API – adaptador entre la web y el modelo (Hermes o DeepSeek) con contexto de Supabase.
+
+El chat (/chat) pregunta primero a Hermes por su API compatible con OpenAI (HERMES_API_URL), para que
+responda con sus skills y su MCP. Si Hermes no está configurado, tarda más de HERMES_TIMEOUT o falla,
+responde DeepSeek directo como antes, así el chat nunca se rompe. /analisis y /evaluar siguen en DeepSeek.
+Ver docs/chat-hermes.md.
 
 Protocolo (igual que el contrato en web/src/services/avia.ts):
   POST /chat     { mensajes, rol }                           -> { texto, comandos? }
@@ -17,6 +22,15 @@ Secretos (de ~/avia/supabase.env):
   VIGILANTE_CLIENTE   (opcional; por defecto orbita-bolivia)
   AVIA_API_KEY        (clave que nginx inyecta en Authorization; vacío = sin auth)
   AVIA_PORT           (opcional; por defecto 8099)
+  HERMES_API_URL      (opcional) p. ej. http://127.0.0.1:8642 — vacío = el chat va directo a DeepSeek
+  HERMES_API_KEY      el API_SERVER_KEY de Hermes
+  HERMES_MODEL        (opcional; por defecto hermes-agent)
+  HERMES_TIMEOUT      (opcional; segundos que se espera a Hermes, por defecto 35)
+  CHAT_PRESUPUESTO    (opcional; segundos totales del chat con el respaldo incluido, por defecto 55;
+                       nginx corta a los 60 si no se cambia proxy_read_timeout)
+  DEEPSEEK_MIN        (opcional; segundos que siempre quedan para el respaldo, por defecto 40).
+                       Hermes espera como mucho CHAT_PRESUPUESTO - DEEPSEEK_MIN (15 s con los valores por defecto);
+                       para darle más, sube proxy_read_timeout de nginx y CHAT_PRESUPUESTO (docs/chat-hermes.md)
 
 Instalación (VPS):
   pip3 install aiohttp
@@ -69,6 +83,17 @@ CLIENTE   = os.environ.get('VIGILANTE_CLIENTE', 'orbita-bolivia')
 API_KEY   = os.environ.get('AVIA_API_KEY', '')   # nginx inyecta este valor en el header
 PORT      = int(os.environ.get('AVIA_PORT', '8099'))
 
+# Hermes como motor del chat (docs/chat-hermes.md)
+HERMES_URL     = os.environ.get('HERMES_API_URL', '').rstrip('/')
+HERMES_KEY     = os.environ.get('HERMES_API_KEY', '')
+HERMES_MODEL   = os.environ.get('HERMES_MODEL', 'hermes-agent')
+HERMES_TIMEOUT = float(os.environ.get('HERMES_TIMEOUT') or 35)
+CHAT_PRESUPUESTO = float(os.environ.get('CHAT_PRESUPUESTO') or 55)
+# tiempo que se deja siempre al respaldo: una respuesta larga de DeepSeek tarda 20-40 s
+DEEPSEEK_MIN   = float(os.environ.get('DEEPSEEK_MIN') or 40)
+_HERMES_PAUSA  = 120   # tras un fallo de Hermes, el chat va directo a DeepSeek estos segundos (no espera cada vez)
+_hermes_caido: list = [0.0]
+
 _CTX_TTL  = 60    # segundos que se cachea el contexto de Supabase (la web recarga antes de preguntar)
 _ctx_cache: dict = {}
 
@@ -118,27 +143,33 @@ async def _anotar_uso(proceso: str, uso: dict) -> None:
     if not (te or ts) or not SB_URL:
         return
     costo = round((te * LLM_PRECIO_ENTRADA + ts * LLM_PRECIO_SALIDA) / 1e6, 6) or None
-    detalle = {'modelo': LLM_MODEL, 'tokens_entrada': te, 'tokens_salida': ts}
+    detalle = {'modelo': HERMES_MODEL if proceso.endswith('hermes') else LLM_MODEL, 'tokens_entrada': te, 'tokens_salida': ts}
     if costo:
         detalle['costo_usd'] = costo
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as ses:
-            await _supabase_post(ses, '/rest/v1/rpc/registrar_log', {
+            # registrar_log no devuelve nada (204 sin cuerpo): no se lee como JSON, solo se mira el estado
+            async with ses.post(f'{SB_URL}/rest/v1/rpc/registrar_log', json={
                 'p_cliente': CLIENTE, 'p_proceso': proceso, 'p_nivel': 'info',
                 'p_mensaje': f'Llamada al modelo: {te}+{ts} tokens', 'p_detalle': detalle,
-                'p_costo_usd': costo, 'p_codigo_fuente': None})
+                'p_costo_usd': costo, 'p_codigo_fuente': None},
+                headers={'apikey': SB_KEY, 'Authorization': f'Bearer {SB_KEY}', 'Content-Type': 'application/json',
+                         'Content-Profile': 'vigilante', 'Accept-Profile': 'vigilante'}) as r:
+                if r.status >= 300:
+                    raise RuntimeError(f'HTTP {r.status}: {(await r.text())[:200]}')
     except Exception as e:  # noqa: BLE001 — la respuesta al usuario ya salió; solo se pierde la anotación
         print('USO NO ANOTADO', proceso, repr(e)[:200], flush=True)
 
 
 async def _deepseek(session: aiohttp.ClientSession,
-                    messages: list, max_tokens: int = 600, proceso: str = 'avia-chat') -> str:
+                    messages: list, max_tokens: int = 600, proceso: str = 'avia-chat',
+                    timeout: float = 60) -> str:
     async with session.post(
         f'{LLM_BASE}/v1/chat/completions',
         headers={'Authorization': f'Bearer {LLM_KEY}',
                  'Content-Type': 'application/json'},
         json={'model': LLM_MODEL, 'messages': messages, 'max_tokens': max_tokens},
-        timeout=aiohttp.ClientTimeout(total=60),
+        timeout=aiohttp.ClientTimeout(total=timeout),
     ) as r:
         data = await r.json(content_type=None)
     if not isinstance(data, dict) or not data.get('choices'):
@@ -150,6 +181,48 @@ async def _deepseek(session: aiohttp.ClientSession,
         _tareas_uso.add(t)
         t.add_done_callback(_tareas_uso.discard)
     return data['choices'][0]['message']['content']
+
+
+async def _hermes(session: aiohttp.ClientSession, messages: list, timeout: float) -> str:
+    """Pregunta a Hermes (POST /v1/chat/completions de su API server). Hermes carga sus skills y su MCP
+    por su cuenta. Lanza excepción si no responde a tiempo o la respuesta viene vacía o cortada."""
+    async with session.post(
+        f'{HERMES_URL}/v1/chat/completions',
+        headers={'Authorization': f'Bearer {HERMES_KEY}', 'Content-Type': 'application/json'},
+        json={'model': HERMES_MODEL, 'messages': messages, 'stream': False},
+        timeout=aiohttp.ClientTimeout(total=timeout),
+    ) as r:
+        data = await r.json(content_type=None)
+    if not isinstance(data, dict) or not data.get('choices'):
+        err = data.get('error') if isinstance(data, dict) else data
+        raise RuntimeError(f'Hermes {HERMES_URL} HTTP {r.status}: {str(err)[:300]}')
+    ch = data['choices'][0]
+    texto = ((ch.get('message') or {}).get('content') or '').strip()
+    if ch.get('finish_reason') in ('error', 'cancelled') or not texto:
+        raise RuntimeError(f"Hermes terminó con finish_reason={ch.get('finish_reason')!r} y {len(texto)} caracteres")
+    if isinstance(data.get('usage'), dict):
+        t = asyncio.create_task(_anotar_uso('avia-chat-hermes', data['usage']))
+        _tareas_uso.add(t)
+        t.add_done_callback(_tareas_uso.discard)
+    return texto
+
+
+async def _responder_chat(session: aiohttp.ClientSession, system: str, mensajes: list) -> tuple[str, str]:
+    """Hermes primero; si no está, tarda o falla, DeepSeek directo con el tiempo que quede. Devuelve (texto, motor)."""
+    inicio = time.monotonic()
+    if HERMES_URL and _hermes_caido[0] <= time.time():
+        try:
+            texto = await _hermes(session, [{'role': 'system', 'content': system + HERMES_EXTRA}] + mensajes,
+                                  max(5.0, min(HERMES_TIMEOUT, CHAT_PRESUPUESTO - DEEPSEEK_MIN)))
+            print(f'CHAT respondió Hermes en {time.monotonic() - inicio:.0f} s', flush=True)
+            return texto, 'hermes'
+        except Exception as e:  # noqa: BLE001 — respaldo: el chat no se rompe
+            _hermes_caido[0] = time.time() + _HERMES_PAUSA
+            print(f'HERMES NO RESPONDE ({time.monotonic() - inicio:.0f} s), respondo con DeepSeek: {e!r}'[:400], flush=True)
+    quedan = max(DEEPSEEK_MIN, CHAT_PRESUPUESTO - (time.monotonic() - inicio))
+    texto = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=1100, timeout=quedan)
+    print(f'CHAT respondió DeepSeek en {time.monotonic() - inicio:.0f} s', flush=True)
+    return texto, 'deepseek'
 
 
 async def _get_context(session: aiohttp.ClientSession, jwt: str | None) -> dict:
@@ -189,6 +262,30 @@ No llames «alerta» a una señal sin publicar. La «alerta naranja/roja» del S
 
 SIN_DATOS = """¡ATENCIÓN! NO SE PUDIERON CARGAR LOS DATOS DEL OBSERVATORIO (error técnico, no «cero señales»).
 No digas que no hay señales, oportunidades ni riesgos. Di que ahora mismo no puedes consultar los datos del observatorio, que es un fallo técnico y que el panel puede mostrar información distinta. Los contadores de abajo NO son válidos: no los cites."""
+
+
+# Solo cuando responde Hermes: qué skills usar y qué no hacer desde el chat del panel
+HERMES_EXTRA = """
+
+CUANDO RESPONDES DESDE EL CHAT DEL PANEL (eres AVIA; Hermes es solo el motor y no se nombra)
+- Apóyate en tu skill «avia-auditor» para no afirmar nada que los datos no respalden, y en
+  «avia-radar-decision» o «avia-anticipacion» si piden decidir o anticipar. No hace falta anunciar qué skill usas.
+- Los datos de este mensaje son la fuente principal y ya están al día. Si falta un dato, consúltalo con las
+  herramientas de LECTURA del MCP del Vigilante (buscar_senales y similares).
+- Si la pregunta pide algo que no está en los datos (contexto, antecedentes, qué dicen otros medios, buscar,
+  investigar), BUSCA en la web. Lo que encuentres va en un apartado «Investigación externa», con fuente, enlace y
+  fecha de cada dato, y dices que no está verificado por el observatorio: no es una señal ni un hecho confirmado.
+- Si usas comandos, TODA tu respuesta es un único JSON {"texto": "...", "comandos": [...]}. Nunca escribas
+  una orden suelta ({"tipo": ...}) dentro del texto: la persona la vería tal cual y el panel no se movería.
+  «filtro» solo vale con "vista": "senales" (para oportunidades de un departamento: vista senales con
+  filtro naturaleza oportunidad y departamento). "revisar": true solo si piden las pendientes de revisión.
+- Mueve el panel siempre que ayude: si la respuesta trata de señales, un tipo (riesgos, oportunidades), un
+  departamento, una señal concreta, el mapa, las fuentes o la vista Dirección, responde con el JSON
+  {"texto": ..., "comandos": [...]} para abrir esa vista, filtro o señal (formato de comandos de arriba).
+- Desde el chat NO guardes ni cambies nada en la base ni en el servidor: no uses guardar_senal,
+  guardar_oportunidad, terminar_tarea, proponer_fuente, ni la terminal, ni archivos, ni cron.
+- Sé ágil: como mucho 5 consultas a herramientas en total. El formato de salida (texto o JSON con comandos)
+  es el que se pide arriba, sin nada más."""
 
 
 # ── Formato de las respuestas (mejora 3 de la PoC; ver docs/respuestas-avia.md) ──
@@ -664,13 +761,56 @@ def _json_suelto(s: str):
         return None
 
 
+_VISTAS_FILTRO = ('senales',)   # el filtro solo se aplica en la vista Señales (web/src/lib/filtroSenales.ts)
+
+
+def _normalizar_comando(c: dict) -> dict:
+    """Un filtro pedido sobre otra vista (p. ej. «oportunidades» de La Paz) se abre en Señales, que es la que filtra."""
+    if c.get('tipo') == 'abrir' and isinstance(c.get('filtro'), dict) and c.get('vista') not in _VISTAS_FILTRO:
+        c = {**c, 'vista': 'senales'}
+    return c
+
+
+def _comandos_sueltos(resp: str) -> tuple[str, list]:
+    """Hermes a veces escribe la orden suelta dentro del texto ({"tipo": "abrir", ...}, con o sin ```json```)
+    en vez del JSON {texto, comandos}. Se sacan del texto (aunque lleven un «filtro» anidado) y se devuelven aparte."""
+    comandos, trozos, i, dec = [], [], 0, json.JSONDecoder(strict=False)
+    while True:
+        j = resp.find('{', i)
+        if j < 0:
+            trozos.append(resp[i:])
+            break
+        try:
+            obj, fin = dec.raw_decode(resp, j)
+        except (json.JSONDecodeError, ValueError):
+            trozos.append(resp[i:j + 1]); i = j + 1
+            continue
+        lista = obj if isinstance(obj, list) else [obj]
+        if lista and all(isinstance(x, dict) and x.get('tipo') in ('abrir', 'tablero') for x in lista):
+            comandos += lista
+            trozos.append(resp[i:j])
+        else:
+            trozos.append(resp[i:fin])
+        i = fin
+    texto = ''.join(trozos)
+    if comandos:
+        texto = re.sub(r'```[a-zA-Z]*\s*```', '', texto)          # vallas que quedaron vacías
+        texto = re.sub(r'[ \t]*:[ \t]*$', '', texto, flags=re.M)        # «… La Paz:» que anunciaba la orden
+        texto = re.sub(r'\n{3,}', '\n\n', texto).strip()
+    return texto, comandos
+
+
 def _separar_comandos(resp: str) -> dict:
     """Separa la respuesta del modelo en {texto, comandos}. El JSON nunca debe llegar a la pantalla:
     acepta el JSON solo, envuelto en ```json```, con texto antes o después, sin cerrar (cortado por
     max_tokens) o con saltos de línea crudos dentro de "texto"."""
     resp = (resp or '').strip()
     if '"texto"' not in resp:
-        return {'texto': resp}
+        texto, comandos = _comandos_sueltos(resp)
+        out = {'texto': texto or 'Listo.'}
+        if comandos:
+            out['comandos'] = [_normalizar_comando(c) for c in comandos]
+        return out
     m = _RE_BLOQUE_JSON.search(resp)
     if m:
         cand, fuera = m.group(1), (resp[:m.start()] + resp[m.end():]).strip()
@@ -701,7 +841,7 @@ def _separar_comandos(resp: str) -> dict:
         texto = fuera or 'Listo.'
     out = {'texto': texto.strip()}
     if comandos:
-        out['comandos'] = comandos
+        out['comandos'] = [_normalizar_comando(c) for c in comandos]
     return out
 
 
@@ -786,10 +926,11 @@ Si usas comandos, responde SOLO con ese JSON: sin ```json```, sin texto antes ni
 Si no hay comandos, responde solo con el texto (markdown, sin JSON)."""
 
         try:
-            resp = await _deepseek(session, [{'role': 'system', 'content': system}] + mensajes, max_tokens=1100)
+            resp, motor = await _responder_chat(session, system, mensajes)
             # el modelo a veces devuelve JSON con comandos (suelto, en ```json```, cortado…): solo se muestra «texto»
             out = _separar_comandos(resp)
             out['texto'] = _corregir_plazos(out['texto'], senales)   # CP1 y CP2: días de hoy y certeza del plazo
+            out['motor'] = motor   # «hermes» o «deepseek» (respaldo); la web lo ignora, sirve para la batería y el log
             return web.json_response(out)
         except Exception as e:
             print('CHAT ERROR', repr(e), flush=True)
@@ -907,7 +1048,8 @@ async def handle_saldo(request: web.Request) -> web.Response:
 
 
 async def handle_health(request: web.Request) -> web.Response:
-    return web.json_response({'ok': True, 'service': 'avia-api', 'cliente': CLIENTE})
+    motor = 'deepseek' if not HERMES_URL else ('hermes' if _hermes_caido[0] <= time.time() else 'deepseek (Hermes en pausa tras un fallo)')
+    return web.json_response({'ok': True, 'service': 'avia-api', 'cliente': CLIENTE, 'chat': motor})
 
 
 # ── Sesión: cookie sb-…-auth-token o cabecera X-Sb-Token, validada en Supabase Auth ──
@@ -963,5 +1105,6 @@ if __name__ == '__main__':
         for k, _ in missing:
             print(f'ERROR: Falta {k} en ~/avia/supabase.env', file=sys.stderr)
         sys.exit(1)
-    print(f'AVIA API arrancando en http://127.0.0.1:{PORT}  (cliente: {CLIENTE})')
+    print(f'AVIA API arrancando en http://127.0.0.1:{PORT}  (cliente: {CLIENTE}, chat: '
+          f'{"Hermes " + HERMES_URL + " con respaldo DeepSeek" if HERMES_URL else "DeepSeek directo"})')
     web.run_app(app, host='127.0.0.1', port=PORT, access_log=None)
