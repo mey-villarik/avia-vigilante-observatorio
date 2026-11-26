@@ -1,4 +1,4 @@
--- Prueba del 57 (más servicios esenciales y más turismo). Termina en ROLLBACK.
+-- Prueba del 58 (más servicios esenciales y más turismo). Termina en ROLLBACK.
 BEGIN;
 DO $$
 DECLARE c uuid := (SELECT id FROM vigilante.clientes WHERE slug = 'orbita-bolivia');
@@ -57,6 +57,6 @@ BEGIN
   r := vigilante.repuntuar_descartadas('orbita-bolivia', 7, false);
   IF (r ->> 'ahora_pasan')::int < 1 THEN RAISE EXCEPTION 'vista previa sin recuperadas: %', r; END IF;
   IF (SELECT estado FROM vigilante.raw_items WHERE content_hash = 'p57-1') <> 'descartado' THEN RAISE EXCEPTION 'la vista previa no debe cambiar nada'; END IF;
-  RAISE NOTICE 'OK 57: %', r - 'ejemplos';
+  RAISE NOTICE 'OK 58: %', r - 'ejemplos';
 END $$;
 ROLLBACK;

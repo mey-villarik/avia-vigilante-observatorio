@@ -1,13 +1,13 @@
-# Más servicios esenciales y más turismo (SQL 57 y prompt 1.13)
+# Más servicios esenciales y más turismo (SQL 58 y prompt 1.13)
 
 2026-11-26. Pedido de Meysel: que el Vigilante detecte más cortes de luz, de agua y temas de salud, y más cosas de viajes, aerolíneas y eventos.
 
 Hay dos puertas por las que pasa una noticia y las dos se amplían:
 
-1. **Filtro previo sin IA** (base de datos): decide qué noticias llegan a la IA. → `db/generico/57_ampliar_servicios_turismo.sql`
+1. **Filtro previo sin IA** (base de datos): decide qué noticias llegan a la IA. → `db/generico/58_ampliar_servicios_turismo.sql`
 2. **Clasificador** (IA, en el VPS): decide si la noticia es relevante y en qué categoría va. → `hermes/analizador/prompt_clasificador.md`, versión **clasificador-1.13**
 
-Además, el 57 amplía `eje_de`, que reparte las señales en los ejes de la vista Dirección.
+Además, el 58 amplía `eje_de`, que reparte las señales en los ejes de la vista Dirección.
 
 ## Qué se añade
 
@@ -26,7 +26,7 @@ El prompt 1.13 explica al clasificador cada grupo, su categoría y su prioridad.
 
 ## Pasos
 
-1. **Supabase**: ejecutar `57_ampliar_servicios_turismo.sql` entero. Al final sale una **vista previa**: cuántas noticias descartadas de los últimos 7 días pasarían ahora (`ahora_pasan`) y 15 ejemplos. No cambia nada.
+1. **Supabase**: ejecutar `58_ampliar_servicios_turismo.sql` entero. Al final sale una **vista previa**: cuántas noticias descartadas de los últimos 7 días pasarían ahora (`ahora_pasan`) y 15 ejemplos. No cambia nada.
 2. **VPS**: copiar el prompt nuevo junto al analizador (comparar antes):
    ```bash
    cd /root/avia-repo && git fetch origin && git checkout claude/project-thread-79mhzr && git pull
@@ -53,4 +53,4 @@ El prompt 1.13 explica al clasificador cada grupo, su categoría y su prioridad.
 
 ## Prueba
 
-`99_prueba_ampliar_servicios_turismo.sql` en PostgreSQL 16 con 01–57: pasan 13 titulares nuevos (EPSAS, CRE, dengue, paro médico, basura, cajeros, cancelación de vuelos, BoA, Gran Poder, Expocruz, rally, turismo comunitario, teleférico) y no pasan fútbol, «por ende» ni «Juan Montero». Los ejes nuevos salen bien y el conflicto sigue yendo a movilidad. Siguen pasando las pruebas del 55 y del 49.
+`99_prueba_ampliar_servicios_turismo.sql` en PostgreSQL 16 con 01–58: pasan 13 titulares nuevos (EPSAS, CRE, dengue, paro médico, basura, cajeros, cancelación de vuelos, BoA, Gran Poder, Expocruz, rally, turismo comunitario, teleférico) y no pasan fútbol, «por ende» ni «Juan Montero». Los ejes nuevos salen bien y el conflicto sigue yendo a movilidad. Siguen pasando las pruebas del 55 y del 49.

@@ -1,5 +1,5 @@
 -- =============================================================================
--- 57 · Más servicios esenciales y más turismo en el filtro previo y en los ejes de Dirección
+-- 58 · Más servicios esenciales y más turismo en el filtro previo y en los ejes de Dirección
 -- =============================================================================
 -- Pedido (Meysel, 2026-11-26): «en servicios especiales tienes que poner más cosas que detecte:
 --   corte de luz, de agua, de salud, todo eso; y en turismo más cosas de viajes, de aerolíneas,
@@ -91,11 +91,11 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
     SELECT c,
       x ~ '\m(bloqueo|bloqueos|bloquean|marcha|marchas|paro|paros|huelga|protesta|protestas|movilizacion|movilizaciones|conflicto social|cerco|enfrentamiento|toma de)\M' AS conflicto,
       x ~ ('\m(agua|potable|sequia|racionamiento|electricidad|energia electrica|suministro electrico|apagon\w*|corte de luz|cortes de luz|corte de energia|cortes de energia|combustible|gasolina|diesel|desabastec\w*|gnv|garrafa|internet|telefon\w*|telecomunicac\w*|conectividad movil|senal movil|hospital\w*|sanitari\w*'
-           -- 57: salud, basura y dinero en efectivo
+           -- 58: salud, basura y dinero en efectivo
            || '|medicament\w*|farmacia\w*|dengue|chikungunya|zika|fiebre amarilla|sarampion|influenza|covid|brote\w*|epidemi\w*|vacuna\w*|terapia intensiva|basura|botadero|cajero\w*|falta de dolares|escasez de dolares|falta de efectivo'
            || ')\M') AS servicios,
       x ~ ('\m(aeropuerto|aeropuertos|vuelo|vuelos|aerolinea\w*|hotel\w*|alojamiento\w*|hosped\w*|reserva\w*|ocupacion|visitantes|turistas|demanda|feria|festival|fiesta|carnaval|entrada folklorica'
-           -- 57: viajes, aerolíneas, eventos y actividades
+           -- 58: viajes, aerolíneas, eventos y actividades
            || '|pasaje\w*|ruta aerea|rutas aereas|frecuencias|charter|boa|ecojet|amaszonas|latam|avianca|viajeros|turismo|turistico\w*|turistica\w*|museo\w*|parque nacional|parques nacionales|area protegida|areas protegidas|atractivo\w*|tour|tours|excursion\w*|trekking|senderismo|teleferico|mirador\w*|concierto\w*|expocruz|feicobol|gran poder|urkupina|alasitas|todos santos|peregrinacion|festividad\w*|rally|dakar|maraton'
            || ')\M') AS atencion
     FROM t)
@@ -141,7 +141,7 @@ BEGIN
     'retraso de vuelos', 'demoras en vuelos', 'pasajeros varados', 'varados', 'huelga de pilotos', 'paro de pilotos',
     'controladores aéreos', 'cierre del aeropuerto', 'aeropuerto cerrado', 'pista cerrada', 'aterrizaje de emergencia',
     'overbooking'],
-    'Palabras que suben el puntaje como posible riesgo o alerta temprana (55 y 57: + servicios esenciales, salud y aerolíneas)');
+    'Palabras que suben el puntaje como posible riesgo o alerta temprana (55 y 58: + servicios esenciales, salud y aerolíneas)');
   RAISE NOTICE 'palabras_alerta: % nuevas', n;
 
   n := vigilante._sumar_palabras(c, 'palabras_oportunidad', ARRAY[
@@ -171,7 +171,7 @@ BEGIN
     'teleférico', 'Mi Teleférico', 'mirador', 'miradores', 'sitio arqueológico', 'sitios arqueológicos',
     'misiones jesuíticas', 'patrimonio de la humanidad', 'UNESCO', 'reserva natural', 'reserva de la biosfera',
     'guardaparques', 'parques nacionales', 'atractivos', 'Viceministerio de Turismo', 'Cámara Hotelera'],
-    'Palabras que suben el puntaje como posible oportunidad (55 y 57: + aerolíneas, eventos, alojamiento y actividades)');
+    'Palabras que suben el puntaje como posible oportunidad (55 y 58: + aerolíneas, eventos, alojamiento y actividades)');
   RAISE NOTICE 'palabras_oportunidad: % nuevas', n;
 
   n := vigilante._sumar_regla_oportunidad(c, 'evento', ARRAY[
