@@ -49,7 +49,7 @@ El prompt 1.13 explica al clasificador cada grupo, su categoría y su prioridad.
 
 - Prompt: `cp /root/avia/prompt_clasificador.md.1-12 /root/avia/prompt_clasificador.md`.
 - Palabras: son listas del cliente en `vigilante.parametros` (`palabras_alerta`, `palabras_oportunidad`, `reglas_oportunidad`); se puede quitar cualquiera con un `UPDATE` o desde la web.
-- `eje_de`: volver a ejecutar el 49 lo deja como antes (y después hay que reejecutar 50 en adelante).
+- `eje_de`: la versión anterior es el bloque «1a. Eje de una señal» del 49; basta con pegar solo ese `CREATE OR REPLACE FUNCTION` (no el 49 entero).
 
 ## Prueba
 
