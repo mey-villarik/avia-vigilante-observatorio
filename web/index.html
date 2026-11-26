@@ -7,9 +7,35 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <style>
+      body{margin:0;background:#0A131E}
+      .pre-carga{min-height:100vh;display:grid;place-content:center;color:#7BC4E8}
+      @media (prefers-color-scheme: light){body{background:#F2F4F7}.pre-carga{color:#1B6C9E}.pre-carga .b{fill:#132131}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Mientras llega el JavaScript: el mismo logo animado que LogoCargando.tsx (React lo reemplaza al arrancar) -->
+      <div class="pre-carga" role="status" aria-label="Cargando">
+        <svg width="88" height="88" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+          <g opacity=".55">
+            <circle cx="22" cy="22" r="18" stroke="#D52B1E" stroke-width="1.6" stroke-dasharray="37.7 75.4" transform="rotate(-90 22 22)" />
+            <circle cx="22" cy="22" r="18" stroke="#F4D21A" stroke-width="1.6" stroke-dasharray="0 37.7 37.7 37.7" transform="rotate(-90 22 22)" />
+            <circle cx="22" cy="22" r="18" stroke="#007A3D" stroke-width="1.6" stroke-dasharray="0 75.4 37.7 0" transform="rotate(-90 22 22)" />
+          </g>
+          <circle cx="22" cy="22" r="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="14 99.1" transform="rotate(-90 22 22)" opacity=".85">
+            <animate attributeName="stroke-dashoffset" from="14" to="-99.1" dur="2.4s" repeatCount="indefinite" />
+          </circle>
+          <g transform="rotate(-24 22 22)">
+            <path d="M40 22 A18 7 0 1 1 4 22 A18 7 0 1 1 40 22" stroke="currentColor" stroke-width="1.1" opacity=".45" />
+            <circle r="2.2" fill="currentColor"><animateMotion dur="3.6s" repeatCount="indefinite" path="M40 22 A18 7 0 1 1 4 22 A18 7 0 1 1 40 22" /></circle>
+          </g>
+          <circle cx="22" cy="22" r="6.5" fill="currentColor" opacity=".18" />
+          <circle cx="22" cy="22" r="3.4" fill="currentColor" />
+          <circle class="b" r="2" fill="#E7EDF4"><animateMotion dur="2.4s" repeatCount="indefinite" path="M22 4 A18 18 0 1 1 22 40 A18 18 0 1 1 22 4" /></circle>
+        </svg>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

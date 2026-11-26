@@ -6,6 +6,7 @@ import {
   accesoConfigurado, cambiarClave, entrar, leerPerfil, recuperarClave, salir, sinLoginPermitido, supabase, traducir,
 } from '../services/auth';
 import { BrandMark } from './Shell';
+import { LogoCargando } from './LogoCargando';
 import { Icon } from './Icon';
 
 type Paso = 'cargando' | 'login' | 'olvido' | 'nueva-clave' | 'sin-perfil' | 'sin-config' | 'dentro';
@@ -58,7 +59,7 @@ export function Acceso({ children }: { children: ReactNode }) {
     <div className="acceso">
       <div className="acceso-box">
         <div className="acceso-marca">
-          <BrandMark />
+          {paso === 'cargando' ? <LogoCargando size={42} className="brand-mark" /> : <BrandMark />}
           <div>
             <div className="brand-name">ORBITA <i>Vigilante</i></div>
             <div className="brand-cap">Turismo · Bolivia</div>
