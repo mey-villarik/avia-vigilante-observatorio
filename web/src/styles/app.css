@@ -1043,3 +1043,15 @@ td .info{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-width
 .seg-li-reco{color:var(--muted)}
 .seg-li-nota{font-style:italic}
 @media (max-width:560px){.seg-cuentas{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Pantalla de carga con el logo animado (LogoCargando.tsx) */
+.cargando-pantalla{min-height:70vh;display:grid;place-content:center;justify-items:center;gap:6px;padding:24px 16px;text-align:center;color:var(--muted)}
+.cargando-pantalla b{color:var(--muted);font-weight:500;font-size:13px;letter-spacing:.08em}
+.cargando-pantalla span{font-size:12.5px;max-width:46ch}
+.cargando-marca{font-family:var(--f-display);font-size:20px;color:var(--ink);margin-top:14px;letter-spacing:.01em}
+.cargando-marca i{color:var(--accent)}
+.logo-cargando{color:var(--accent);overflow:visible}
+.logo-cargando .lc-bola{filter:drop-shadow(0 0 3px var(--accent))}
+.logo-cargando .lc-halo{transform-origin:22px 22px;animation:lc-latido 2.4s ease-in-out infinite}
+@keyframes lc-latido{0%,100%{transform:scale(1);opacity:.14}50%{transform:scale(1.35);opacity:.26}}
+@media (prefers-reduced-motion: reduce){.logo-cargando .lc-halo{animation:none}}
