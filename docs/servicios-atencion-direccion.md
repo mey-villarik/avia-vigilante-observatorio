@@ -25,3 +25,11 @@ La vista Dirección (SQL 49) **no** filtra por estado: cualquier señal no desca
 3. Supabase: ejecutar `56_reclasificar_recuperadas.sql` (solo cuenta) y después `SELECT vigilante.reclasificar_recuperadas('orbita-bolivia', true);`.
 4. VPS: vaciar la cola de una vez, sin esperar al cron: `python3 /root/avia/analizador.py --lotes 40` (respeta su propio candado; sin `flock` delante).
 5. Volver a ejecutar el diagnóstico: las filas 6 y 8 tienen que mostrar servicios y atención.
+
+## Actualización 16:58 UTC: la causa real
+
+- El 56 no hizo falta: la IA solo rechazó noticias que no tenían que ver (juicios, turismo en otros países). El freno era la **cola**: con `analizador.py --lotes 40` salieron unas 70 señales en 3 minutos.
+- Aun así Dirección seguía vacía porque **`vigilante_bd()` tardaba 12,3 s** (308 señales) y Supabase corta a los 8 s las consultas del rol `authenticated`. El panel fallaba sin avisar y enseñaba el `vigilante.json` viejo («Datos generados 07:11»). En la base, Servicios esenciales estaba en Acción con 91 señales.
+- Arreglo inmediato: `ALTER ROLE authenticated SET statement_timeout = '30s'; NOTIFY pgrst, 'reload config';`
+- Arreglo de fondo: **`57_panel_en_cache.sql`**. La base guarda los datos del panel cada 2 min (pg_cron `vigilante-panel`) y `vigilante_bd()` lee esa copia en milisegundos, con el estado de cada señal al día. Prueba: `99_prueba_panel_cache.sql`.
+- Diagnóstico: `/mnt/project-files/sql/diagnostico_panel_viejo.sql`.
