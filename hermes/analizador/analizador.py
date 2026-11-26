@@ -50,8 +50,9 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-LOTE = 15
-TIMEOUT = 120
+LOTE = 10           # 2026-11-26: con 15 la respuesta no cabía en 4000 tokens (ver clasificar_por_partes)
+MAX_TOKENS = 8000   # máximo de salida de deepseek-chat (8K)
+TIMEOUT = 180
 AQUI = Path(__file__).resolve().parent
 PROMPT = AQUI / 'prompt_clasificador.md'
 
@@ -132,6 +133,24 @@ def prompt() -> tuple[str, str]:
     return texto, (m.group(1) if m else 'clasificador')
 
 
+class RespuestaRota(Exception):
+    """El modelo contestó, pero su JSON viene cortado o mal formado. Lleva el uso: esos tokens ya se pagaron."""
+
+    def __init__(self, motivo: str, uso: dict) -> None:
+        super().__init__(motivo)
+        self.uso = uso
+
+
+def sumar_uso(*usos: dict) -> dict:
+    t = {'modelo': next((u['modelo'] for u in usos if u.get('modelo')), None),
+         'tokens_entrada': 0, 'tokens_salida': 0, 'costo_usd': 0.0}
+    for u in usos:
+        for k in ('tokens_entrada', 'tokens_salida', 'costo_usd'):
+            t[k] += u.get(k) or 0
+    t['costo_usd'] = round(t['costo_usd'], 6)
+    return t
+
+
 def llamar_modelo(sistema: str, lote: list[dict]) -> tuple[list[dict], dict]:
     base = os.environ.get('LLM_BASE_URL', 'https://api.deepseek.com').rstrip('/')
     clave = os.environ.get('LLM_API_KEY') or os.environ.get('DEEPSEEK_API_KEY')
@@ -146,18 +165,43 @@ def llamar_modelo(sistema: str, lote: list[dict]) -> tuple[list[dict], dict]:
     # sin claves vacías: las noticias nacionales no llevan «internacional» ni «senales_nacionales»
     entrada = [{k: v for k, v in n.items() if v is not None} for n in entrada]
     r = post(f'{base}/chat/completions', {
-        'model': modelo, 'temperature': 0, 'max_tokens': 4000,
+        'model': modelo, 'temperature': 0, 'max_tokens': MAX_TOKENS,
         'response_format': {'type': 'json_object'},
         'messages': [{'role': 'system', 'content': sistema},
                      {'role': 'user', 'content': json.dumps({'noticias': entrada}, ensure_ascii=False)}],
     }, {'Authorization': f'Bearer {clave}'}, timeout=TIMEOUT)
-    contenido = r['choices'][0]['message']['content']
-    datos = json.loads(re.sub(r'^```(json)?|```$', '', contenido.strip()).strip())
     uso = r.get('usage') or {}
     te, ts = int(uso.get('prompt_tokens') or 0), int(uso.get('completion_tokens') or 0)
     pe, ps = float(os.environ.get('LLM_PRECIO_ENTRADA') or 0), float(os.environ.get('LLM_PRECIO_SALIDA') or 0)
-    return (datos.get('resultados') if isinstance(datos, dict) else datos) or [], {
-        'modelo': modelo, 'tokens_entrada': te, 'tokens_salida': ts, 'costo_usd': round((te * pe + ts * ps) / 1e6, 6)}
+    uso = {'modelo': modelo, 'tokens_entrada': te, 'tokens_salida': ts, 'costo_usd': round((te * pe + ts * ps) / 1e6, 6)}
+    eleccion = r['choices'][0]
+    contenido = eleccion['message']['content'] or ''
+    # 2026-11-26: con 15 noticias la respuesta pasaba de 4000 tokens y llegaba cortada a mitad de una
+    # cadena («Unterminated string»). El lote volvía entero a la cola y fallaba igual en cada ronda.
+    if eleccion.get('finish_reason') == 'length':
+        raise RespuestaRota(f'respuesta cortada por el límite de {MAX_TOKENS} tokens', uso)
+    try:
+        datos = json.loads(re.sub(r'^```(json)?|```$', '', contenido.strip()).strip())
+    except json.JSONDecodeError as e:
+        raise RespuestaRota(f'JSON mal formado: {e}', uso) from None
+    return (datos.get('resultados') if isinstance(datos, dict) else datos) or [], uso
+
+
+def clasificar_por_partes(sistema: str, lote: list[dict]) -> tuple[list[dict], dict, list[dict]]:
+    """Llama al modelo con el lote; si la respuesta llega rota, lo parte en dos y lo intenta con cada mitad.
+    Devuelve (resultados, uso total, noticias que ni solas tuvieron una respuesta válida)."""
+    try:
+        res, uso = llamar_modelo(sistema, lote)
+        return res, uso, []
+    except RespuestaRota as e:
+        if len(lote) == 1:
+            log(f'La noticia {lote[0]["clave"]} no tiene respuesta válida ni sola ({e})')
+            return [], e.uso, lote
+        mitad = len(lote) // 2
+        log(f'Respuesta rota con {len(lote)} noticias ({e}): pruebo con {mitad} y {len(lote) - mitad}')
+        r1, u1, s1 = clasificar_por_partes(sistema, lote[:mitad])
+        r2, u2, s2 = clasificar_por_partes(sistema, lote[mitad:])
+        return r1 + r2, sumar_uso(e.uso, u1, u2), s1 + s2
 
 
 def senales_del_lote(lote: list[dict]) -> dict[int, set[str]]:
@@ -392,8 +436,8 @@ def main() -> int:
             break
         ids = [i for n in lote for i in n['ids']]
         try:
-            res, uso = llamar_modelo(sistema, lote)
-        except Exception as e:  # noqa: BLE001 — si el modelo falla, las noticias vuelven a la cola
+            res, uso, sueltas = clasificar_por_partes(sistema, lote)
+        except Exception as e:  # noqa: BLE001 — si el modelo falla (saldo, red…), las noticias vuelven a la cola
             log(f'El modelo falló ({type(e).__name__}: {str(e)[:200]}): devuelvo {len(ids)} noticias a la cola')
             sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': ids, 'p_estado': 'nuevo', 'p_motivo': None})
             sb.rpc('registrar_log', {'p_cliente': sb.cliente, 'p_proceso': 'clasificador', 'p_nivel': 'error',
@@ -402,12 +446,23 @@ def main() -> int:
             return 1
         limpios = limpiar(res, {n['clave'] for n in lote}, senales_del_lote(lote), nacionales_del_lote(lote),
                           {n['clave']: n.get('publicado_en') for n in lote})
+        # una noticia que ni sola tiene respuesta válida no puede volver a la cola: la bloquearía para siempre
+        if sueltas and not a.prueba:
+            ids_sueltas = [i for n in sueltas for i in n['ids']]
+            sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': ids_sueltas, 'p_estado': 'descartado',
+                                       'p_motivo': 'el modelo no devolvió una respuesta válida para esta noticia'})
+            sb.rpc('registrar_log', {'p_cliente': sb.cliente, 'p_proceso': 'clasificador', 'p_nivel': 'warn',
+                                     'p_mensaje': f'{len(sueltas)} noticia(s) sin respuesta válida del modelo: descartadas',
+                                     'p_detalle': {'claves': [n['clave'] for n in sueltas]},
+                                     'p_costo_usd': None, 'p_codigo_fuente': None})
         if a.prueba:
             print(json.dumps({'lote': lote, 'resultado': limpios, 'uso': uso}, ensure_ascii=False, indent=2))
             sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': ids, 'p_estado': 'nuevo', 'p_motivo': None})
             return 0
         # lo que el modelo no devolvió vuelve a la cola para el siguiente lote
-        sin_respuesta = [i for n in lote if n['clave'] not in {x['clave'] for x in limpios} for i in n['ids']]
+        claves_sueltas = {n['clave'] for n in sueltas}
+        sin_respuesta = [i for n in lote if n['clave'] not in {x['clave'] for x in limpios} and n['clave'] not in claves_sueltas
+                         for i in n['ids']]
         if sin_respuesta:
             sb.rpc('marcar_noticias', {'p_cliente': sb.cliente, 'p_ids': sin_respuesta, 'p_estado': 'nuevo', 'p_motivo': None})
         intl = [x for x in limpios if x['clave'] in nacionales_del_lote(lote)]
@@ -416,6 +471,9 @@ def main() -> int:
         cambios = sum(1 for x in limpios if x.get('cambio'))
         if cambios:
             log(f'El clasificador ve {cambios} cambio(s) en señales que ya existían (migración 31)')
+        if not limpios:
+            log(f'Lote de {len(lote)}: ninguna respuesta válida del modelo, nada que guardar')
+            continue
         r = sb.rpc('guardar_clasificacion', {'p_cliente': sb.cliente, 'p_resultados': limpios, 'p_modelo': uso['modelo'],
                                              'p_prompt_version': version, 'p_uso': uso})
         log(f'Lote de {len(lote)} ({len(ids)} noticias): {r} · tokens {uso["tokens_entrada"]}+{uso["tokens_salida"]}')
